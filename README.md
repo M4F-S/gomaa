@@ -1,137 +1,259 @@
-# 🧠 Palimpsest
+<div align="center">
 
-> **The Context Engine for AI Agents** — Give your AI agents persistent, observable, compliant memory.
->
-> All memories are plain markdown files you own. Search by meaning, traverse relationships, schedule reminders, and protect against poisoned data.
+# 🧠 Mnemosyne v3.0
 
-[![Python](https://img.shields.io/badge/Python-3.9%2B-blue)](https://python.org)
-[![PostgreSQL](https://img.shields.io/badge/PostgreSQL-14%2B-336791)](https://postgresql.org)
-[![License](https://img.shields.io/badge/License-Apache%202.0-green)](LICENSE)
+### The Local-First Memory Operating System for AI Agents
+**Hierarchical Scoping • Verbatim Ingestion • Graph+Vector RRF • Zero Token Bloat • 100% Private**
+
+[![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](LICENSE)
+[![Python 3.10+](https://img.shields.io/badge/python-3.10+-blue.svg)](https://www.python.org/downloads/)
+[![PostgreSQL](https://img.shields.io/badge/PostgreSQL-15+-336791.svg?logo=postgresql&logoColor=white)](https://www.postgresql.org/)
+[![pgvector](https://img.shields.io/badge/pgvector-0.7+-green.svg)](https://github.com/pgvector/pgvector)
+[![MCP Compatible](https://img.shields.io/badge/MCP-2024--11--05-orange.svg?logo=anthropic&logoColor=white)](https://modelcontextprotocol.io/)
+[![Zero API Spend](https://img.shields.io/badge/Embeddings-$0%20Local-success.svg)](https://huggingface.co/sentence-transformers/all-MiniLM-L6-v2)
+[![Docker](https://img.shields.io/badge/Docker-Ready-2496ED.svg?logo=docker&logoColor=white)](docker-compose.yml)
+
+[Quickstart](#-30-second-quickstart) • [Architecture](#-architecture) • [MCP Setup (Claude / Cursor)](#-model-context-protocol-mcp-quickstarts) • [Comparison](#-feature-matrix--benchmarks) • [Documentation](docs/)
+
+</div>
 
 ---
 
-## ⚠️ Rebrand Notice
+## ⚡ The Problem: Context Window Bloat & Memory Decay
 
-This project was formerly known as **Mnemosyne**. We rebranded to **Palimpsest** in July 2026 to avoid confusion with an unrelated project that adopted the same name.
+As autonomous agents run for hours or weeks, standard conversation history creates massive operational bottlenecks:
+1. **Context Window Explosions:** Chat histories balloon to hundreds of thousands of tokens, triggering rate limits (`HTTP 429`), massive API bills, and prompt latency.
+2. **Context Contamination:** Flat vector databases mix unrelated domain data (e.g. coding snippets pollute marketing campaigns).
+3. **Lossy Summaries:** Typical memory tools aggressively summarize past interactions, losing exact code snippets, API keys, and subtle syntax nuances.
+4. **Memory Rot:** Irrelevant, months-old memories clutter search results because older tools lack temporal forgetting curves.
 
-**Why Palimpsest?** A palimpsest is a manuscript on which later writing has been superimposed on earlier writing — yet traces of the original remain. It's the perfect metaphor for layered, persistent, evolving memory.
+## 💎 The Solution: Mnemosyne v3.0
+
+**Mnemosyne** is a production-grade, local-first memory operating system designed specifically for autonomous agent fleets. It combines **hierarchical project/topic taxonomy**, **verbatim session ingestion**, **hybrid graph + semantic vector retrieval**, and **human-readable Obsidian Markdown vaults**.
+
+```
+┌──────────────────────────────────────────────────────────────────────────────┐
+│                              AGENT / USER INTERACTION                        │
+│                   "What is the WooCommerce webhook secret for SLC?"          │
+└──────────────────────────────────────┬───────────────────────────────────────┘
+                                       │
+                        ┌──────────────▼──────────────┐
+                        │   ADMISSION & SECURITY GATE │
+                        │ • Anti-Prompt Injection     │
+                        │ • Near-Duplicate Filter     │
+                        │ • Salience Scoring Heuristic│
+                        └──────────────┬──────────────┘
+                                       │
+     ┌─────────────────────────────────┼─────────────────────────────────┐
+     ▼                                 ▼                                 ▼
+┌─────────────────────────┐ ┌─────────────────────────┐ ┌─────────────────────────┐
+│   HIERARCHICAL VECTOR   │ │   FULL-TEXT KEYWORD     │ │   GRAPH RELATIONSHIPS   │
+│   (pgvector Cosine)     │ │   (PostgreSQL tsvector) │ │   (Recursive CTEs)      │
+│   Scope: [ecommerce]    │ │   Scope: [ecommerce]    │ │   [[wiki-links]]        │
+└────────────┬────────────┘ └────────────┬────────────┘ └────────────┬────────────┘
+             │                           │                           │
+             └───────────────────────────┼───────────────────────────┘
+                                         ▼
+                     ┌───────────────────────────────────────┐
+                     │   RECIPROCAL RANK FUSION (RRF) ENGINE │
+                     │ • Merges Vector, Keyword & Graph Rank │
+                     │ • Weighted by Dynamic Salience Score  │
+                     │ • Touches `last_accessed_at` Timestamp│
+                     └───────────────────┬───────────────────┘
+                                         │
+     ┌───────────────────────────────────┼───────────────────────────────────┐
+     ▼                                   ▼                                   ▼
+┌──────────────────────────┐ ┌──────────────────────────┐ ┌──────────────────────────┐
+│  HUMAN OBSIDIAN VAULT    │ │  ISOLATED POSTGRES DB    │ │  AUDIT & TIMELINE LOG    │
+│  Plain .md with YAML     │ │  Per-agent pgvector DB   │ │  Chronological Activity  │
+│  Git-diffable & readable │ │  Version Snapshots       │ │  Ebbinghaus Decay Engine │
+└──────────────────────────┘ └──────────────────────────┘ └──────────────────────────┘
+```
 
 ---
 
-## What is Palimpsest?
+## ✨ Key Features
 
-Palimpsest is a **production-grade memory platform for AI agents**. Unlike simple chat history or RAG, it gives agents:
+* 🏛️ **Hierarchical Scoping (Wing & Room Taxonomy):** Partition memories into Wings (Projects/Domains) and Rooms (Topics). Toy's frontend React code never contaminates Candy's marketing searches.
+* 📜 **Verbatim Session Ingestion:** Auto-chunk and index full conversation transcripts without lossy summarization. Retrieve exact code and terminal outputs with 100% fidelity.
+* ⏳ **Ebbinghaus Temporal Decay:** Memories you use frequently remain top-of-mind; unused memories gracefully decay over time via exponential forgetting curves `salience * (0.95 ^ days)` and archive safely.
+* 🔄 **Memory Versioning & Snapshots:** Updating a memory archives the previous version into `note_versions`. Roll back or inspect changes at any time with `memory_history`.
+* 🛡️ **Zero External API Cost:** Runs local `sentence-transformers` embeddings on CPU/GPU. Zero API tokens spent on indexing or retrieval.
+* 📖 **Obsidian Markdown Vault:** All memories are human-readable `.md` files with YAML frontmatter. Open them directly in Obsidian.
+* 🔌 **Universal MCP Compliance:** Exposes 7 standard JSON-RPC tools compatible with Claude Desktop, Claude Code, Cursor IDE, OpenCode, and Hermes Agent.
 
-- **Long-term persistent memory** — survives restarts, works across sessions
-- **Semantic search** — find ideas by meaning, not just keywords
-- **Graph memory** — notes link via `[[wiki-links]]`, traverse relationships
-- **Security gates** — injection detection, contradiction flagging, near-duplicate checks
-- **Prospective memory** — "remind me in 3 days" — and it actually happens
-- **Sleep consolidation** — nightly maintenance: archive stale, merge duplicates
-- **MCP server** — Claude Code, Cursor, any MCP client can read/write memory
-- **Observability** — audit trails, contamination detection, memory health dashboard
-- **Compliance** — GDPR Article 17, EU AI Act ready
+---
 
-## Architecture
+## 📊 Feature Matrix & Benchmarks
 
-```
-┌─────────────────────────────────────────────┐
-│  Your Question                              │
-│  "What did we decide about API rate limit?" │
-└──────────────────┬──────────────────────────┘
-                   │
-┌──────────────────▼──────────────────────────┐
-│  Palimpsest Memory Platform               │
-│  ┌──────────┐ ┌──────────┐ ┌──────────┐   │
-│  │ Semantic │ │ Keyword  │ │  Graph   │   │
-│  │ Search   │ │ Search   │ │ Search   │   │
-│  │(pgvector)│ │(tsvector)│ │(wikilinks│   │
-│  └────┬─────┘ └────┬─────┘ └────┬─────┘   │
-│       └────────────┬────────────┘          │
-│                    │                       │
-│            ┌───────▼────────┐             │
-│            │ RRF Merge      │             │
-│            └───────┬────────┘             │
-│                    │                       │
-│  ┌─────────────────▼────────────────────┐ │
-│  │ Markdown Vault (source of truth)     │ │
-│  │ ~/Palimpsest/vault/*.md             │ │
-│  └─────────────────────────────────────┘ │
-└─────────────────────────────────────────────┘
-```
+| Feature | Mnemosyne v3.0 | Mem0 | MemPalace | Standard RAG |
+|---|:---:|:---:|:---:|:---:|
+| **Storage Paradigm** | **Graph + Vector + Markdown** | Vector / Graph | ChromaDB Flat | Flat Vector |
+| **Hierarchical Scoping (Wing/Room)** | ✅ **Native** | ❌ Flat User ID | ✅ Wings/Rooms | ❌ Flat Namespace |
+| **Verbatim Ingestion (No Lossy Summaries)** | ✅ **Yes** | ❌ Summarized | ✅ Verbatim | ❌ Chunk Only |
+| **Temporal Forgetting Curve (Decay)** | ✅ **Dynamic** | ❌ Static | ✅ Basic | ❌ None |
+| **Memory Version History & Diff** | ✅ **Full Snapshots** | ❌ Overwrite | ❌ None | ❌ None |
+| **Timeline Activity Feed** | ✅ **Built-in** | ❌ | ❌ | ❌ |
+| **Human-Readable Storage** | ✅ **Obsidian Vault** | ❌ DB Only | ❌ DB Only | ❌ DB Only |
+| **Embedding API Cost** | **$0.00 (Local)** | Paid API | $0.00 (Local) | Paid API |
+| **Multi-Agent Database Isolation** | ✅ **Multi-Tenant** | ⚠️ Partial | ❌ Single | ❌ Single |
+| **Standard MCP Server** | ✅ **7 Tools** | ⚠️ Limited | ❌ Script only | ❌ |
 
-## Quick Start
+---
+
+## 🚀 30-Second Quickstart
+
+### Option 1: Docker Compose (Recommended)
 
 ```bash
-# Clone the platform
-git clone https://github.com/M4F-S/palimpsest
-cd palimpsest
+# Clone the repository
+git clone https://github.com/M4F-S/mnemosyne.git
+cd mnemosyne
 
-# Install (SQLite works out of the box)
-pip install -e ".[dev]"
+# Launch PostgreSQL with pgvector
+docker-compose up -d
 
-# Or with PostgreSQL + pgvector for production:
-docker run -d --name palimpsest-pg -p 15432:5432 \
-  -e POSTGRES_USER=palimpsest \
-  -e POSTGRES_PASSWORD=palimpsest_secret \
-  -e POSTGRES_DB=palimpsest \
-  ankane/pgvector:latest
+# Verify system health
+docker exec -it mnemosyne-postgres psql -U mnemosyne -d mnemosyne -c "\dt"
+```
+
+### Option 2: Python Library
+
+```bash
+pip install -e .
 ```
 
 ```python
-from palimpsest import UnifiedMemorySystem
+from mnemosyne.core import UnifiedMemorySystem
 
+# Initialize memory engine
 memory = UnifiedMemorySystem()
 
-# Save a memory
+# 1. Store a memory with hierarchical scope
 memory.remember(
-    title="API Rate Limit Decision",
-    content="100 req/min with burst to 200. Alert if p95 > 200ms.",
-    tags=["api", "decision"],
+    title="PostgreSQL Production Cluster Setup",
+    content="Primary cluster operates at 172.16.8.2:5432 with pgvector 0.7 enabled.",
+    tags=["infra", "database"],
+    wing="devops",
+    room="databases",
     salience=0.9
 )
 
-# Search by meaning
-results = memory.recall("rate limiting policy", mode="hybrid", top_k=5)
+# 2. Scoped hybrid retrieval
+results = memory.recall(
+    query="Where is the postgres cluster running?",
+    mode="hybrid", # Merges semantic similarity + keyword tsvector + graph links
+    scope={"wing": "devops"}
+)
 
-# Schedule a reminder
-memory.remind_me("Review API metrics", "2026-07-07T09:00:00", recurring="weekly")
-
-# Run nightly maintenance
-memory.consolidate()
+print(results[0]["title"], "->", results[0]["content"])
 ```
 
-## Kimi Skill
+---
 
-For the **Kimi AI skill** (minimal installable version):
+## 🔌 Model Context Protocol (MCP) Quickstarts
 
-👉 **[github.com/M4F-S/kimi-palimpsest-skill](https://github.com/M4F-S/kimi-palimpsest-skill)**
+Mnemosyne exposes a high-performance JSON-RPC MCP server with 7 production tools:
+1. `memory_remember` — Store facts, architecture decisions, and observations with `wing`/`room` tags.
+2. `memory_recall` — Hybrid search (semantic + full-text + graph) with optional `scope` filters.
+3. `memory_ingest_session` — Verbatim chunking and storage of full conversation logs.
+4. `memory_timeline` — Chronological audit feed of recent memory activity.
+5. `memory_history` — Version history of edited notes.
+6. `memory_remind_me` — Prospective memory scheduling (one-time or recurring).
+7. `memory_audit` — Real-time memory health, active wings, and storage metrics.
 
-The skill repo contains only the essential files for Kimi integration: `SKILL.md`, `palimpsest/` package, and tests.
+### 1. Claude Desktop Configuration
+Add this to your `claude_desktop_config.json` (`~/Library/Application Support/Claude/claude_desktop_config.json` on macOS):
 
-## Documentation
+```json
+{
+  "mcpServers": {
+    "mnemosyne": {
+      "command": "python3",
+      "args": ["-m", "mnemosyne.mcp_server"],
+      "env": {
+        "MEMORY_DB_DSN": "postgresql://mnemosyne:mnemosyne@localhost:5432/mnemosyne",
+        "MEMORY_VAULT_PATH": "/Users/yourname/Documents/Obsidian/AgentVault"
+      }
+    }
+  }
+}
+```
 
-| Document | Purpose |
-|----------|---------|
-| [PLATFORM_BUILDER_BRIEF.md](PLATFORM_BUILDER_BRIEF.md) | Architecture and design decisions |
-| [SETUP.md](SETUP.md) | Installation and configuration guide |
-| [PALIMPSEST_V3_REBUILD_PLAN.md](PALIMPSEST_V3_REBUILD_PLAN.md) | V3 roadmap and rebuild strategy |
-| [PALIMPSEST_STRATEGIC_DECISIONS.md](PALIMPSEST_STRATEGIC_DECISIONS.md) | Strategic decisions log |
-| [RESEARCH_*.md](RESEARCH_*.md) | Research reports and competitive analysis |
-| [TEST_REPORT.md](TEST_REPORT.md) | Test coverage and results |
-| [CHANGELOG.md](CHANGELOG.md) | Version history |
-| [CONTRIBUTING.md](CONTRIBUTING.md) | Contribution guidelines |
+### 2. Claude Code CLI
+```bash
+claude mcp add mnemosyne python3 -m mnemosyne.mcp_server
+```
 
-## Environment Variables
+### 3. Cursor IDE Setup
+Add to `.cursor/mcp.json`:
+```json
+{
+  "mcpServers": {
+    "mnemosyne": {
+      "command": "python3",
+      "args": ["-m", "mnemosyne.mcp_server"],
+      "env": {
+        "MEMORY_DB_DSN": "postgresql://mnemosyne:mnemosyne@localhost:5432/mnemosyne"
+      }
+    }
+  }
+}
+```
 
-| Variable | Default | Purpose |
-|----------|---------|---------|
-| `MEMORY_DB_DSN` | (none) | PostgreSQL connection string |
-| `MEMORY_SQLITE_PATH` | `~/.palimpsest/palimpsest.db` | SQLite database path |
-| `MEMORY_VAULT_PATH` | `~/Documents/Kimi/Workspaces/Palimpsest/vault` | Markdown vault directory |
-| `EMBEDDING_MODEL` | `all-MiniLM-L6-v2` | Sentence-transformers model |
-| `OLLAMA_URL` | `http://localhost:11434` | Ollama server for embeddings |
+### 4. Hermes Agent Configuration (`config.yaml`)
+```yaml
+mcp_servers:
+  obsidian_memory:
+    command: /opt/data/mcp-servers/venv/bin/python
+    args: [/opt/data/mcp-servers/obsidian_memory_mcp.py]
+    env:
+      MEMORY_DB_DSN: postgresql://mnemosyne:mnemosyne@172.16.8.2:5432/toy_db
+      MEMORY_VAULT_PATH: /root/.hermes/vault
+```
 
-## License
+---
 
-Apache 2.0
+## 🛠️ CLI Usage
+
+Mnemosyne includes a full-featured CLI:
+
+```bash
+# Remember something
+mnemosyne remember "Stripe Webhook Key" "whsec_99482..." --wing payments --room stripe
+
+# Scoped recall
+mnemosyne recall "webhook secret" --wing payments
+
+# View timeline
+mnemosyne timeline --limit 10
+
+# Run sleep consolidation & temporal decay
+mnemosyne consolidate
+
+# Get system statistics
+mnemosyne stats
+```
+
+---
+
+## 🧪 Testing
+
+```bash
+# Run unit and integration tests
+pytest tests/ -v
+```
+
+---
+
+## 🤝 Contributing & License
+
+Contributions are welcome! Please see [CONTRIBUTING.md](CONTRIBUTING.md) for details on code style, testing, and pull requests.
+
+Distributed under the **Apache 2.0 License**. See `LICENSE` for more information.
+
+---
+
+<div align="center">
+  <sub>Built with ❤️ for autonomous AI agents everywhere. Star ⭐ this repo if Mnemosyne saved your agents from context bloat!</sub>
+</div>
