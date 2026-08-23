@@ -1,5 +1,5 @@
 import pytest
-from mnemosyne.mcp_server import MemoryMCPServer
+from mnemosyne.mcp_server import MCPServer as MemoryMCPServer
 
 
 class TestMCPServer:

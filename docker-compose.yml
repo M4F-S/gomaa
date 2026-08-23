@@ -1,5 +1,3 @@
-version: '3.8'
-
 services:
   postgres:
     image: ankane/pgvector:latest
@@ -21,12 +19,15 @@ services:
     build: .
     environment:
       MEMORY_DB_DSN: "postgresql://mnemosyne:mnemosyne@postgres:5432/mnemosyne"
+      MEMORY_VAULT_PATH: "/app/data/vault"
+      MEMORY_REQUIRE_POSTGRES: "true"
     volumes:
       - ./mnemosyne-data:/app/data
     depends_on:
       postgres:
         condition: service_healthy
-    command: ["python", "-c", "from mnemosyne import UnifiedMemorySystem; print('Mnemosyne ready')"]
+    stdin_open: true
+    command: ["python", "-m", "mnemosyne.mcp_server"]
 
 volumes:
   postgres_data:

@@ -11,7 +11,7 @@ from typing import List, Dict, Optional
 logger = logging.getLogger("unified-memory")
 
 VAULT_PATH = os.environ.get(
-    "MEMORY_VAULT_PATH", "/Users/mohamedfathy/Documents/Kimi/Workspaces/Mnemosyne/obsidian-vault"
+    "MEMORY_VAULT_PATH", "~/.mnemosyne/vault"
 )
 
 

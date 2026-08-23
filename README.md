@@ -6,7 +6,7 @@
 **Hierarchical Scoping • Verbatim Ingestion • Graph+Vector RRF • Zero Token Bloat • 100% Private**
 
 [![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](LICENSE)
-[![Python 3.10+](https://img.shields.io/badge/python-3.10+-blue.svg)](https://www.python.org/downloads/)
+[![Python 3.9+](https://img.shields.io/badge/python-3.9+-blue.svg)](https://www.python.org/downloads/)
 [![PostgreSQL](https://img.shields.io/badge/PostgreSQL-15+-336791.svg?logo=postgresql&logoColor=white)](https://www.postgresql.org/)
 [![pgvector](https://img.shields.io/badge/pgvector-0.7+-green.svg)](https://github.com/pgvector/pgvector)
 [![MCP Compatible](https://img.shields.io/badge/MCP-2024--11--05-orange.svg?logo=anthropic&logoColor=white)](https://modelcontextprotocol.io/)

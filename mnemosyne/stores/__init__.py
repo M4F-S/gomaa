@@ -19,9 +19,13 @@ def create_store(dsn: Optional[str] = None) -> MemoryStore:
 
     Priority:
     1. PostgreSQL (if dsn provided or MEMORY_DB_DSN set and connection works)
-    2. SQLite (fallback, always works)
+    2. SQLite (fallback, always works — unless MEMORY_REQUIRE_POSTGRES=true)
+
+    Set MEMORY_REQUIRE_POSTGRES=true to raise an error instead of silently
+    falling back to SQLite when PostgreSQL is unreachable.
     """
     dsn = dsn or os.environ.get("MEMORY_DB_DSN")
+    require_pg = os.environ.get("MEMORY_REQUIRE_POSTGRES", "").lower() in ("true", "1", "yes")
 
     if dsn:
         try:
@@ -29,7 +33,14 @@ def create_store(dsn: Optional[str] = None) -> MemoryStore:
             logger.info(f"Using PostgreSQL store: {dsn}")
             return store
         except Exception as e:
-            logger.warning(f"PostgreSQL unavailable ({e}), falling back to SQLite")
+            if require_pg:
+                raise RuntimeError(
+                    f"PostgreSQL required (MEMORY_REQUIRE_POSTGRES=true) but connection failed: {e}"
+                ) from e
+            logger.warning(
+                f"⚠️ FALLBACK: PostgreSQL unavailable ({e}). "
+                f"Using local SQLite instead. Set MEMORY_REQUIRE_POSTGRES=true to prevent this."
+            )
 
     sqlite_path = os.environ.get(
         "MEMORY_SQLITE_PATH",
