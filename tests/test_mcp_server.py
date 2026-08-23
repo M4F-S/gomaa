@@ -3,7 +3,7 @@ import json
 import signal
 import time
 from unittest.mock import MagicMock, patch
-from mnemosyne.mcp_server import MemoryMCPServer
+from mnemosyne.mcp_server import MCPServer as MemoryMCPServer
 
 
 class TestMemoryMCPServer:
@@ -145,6 +145,8 @@ class TestMemoryMCPServer:
             assert signal.SIGINT in [c[0] for c in calls]
 
     def test_running_flag(self, server):
+        assert server._running is True
+        server._handle_signal(signal.SIGTERM, None)
         assert server._running is False
 
     def test_uptime(self, server):

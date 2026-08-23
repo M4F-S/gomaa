@@ -5,6 +5,7 @@
 ### The Local-First Memory Operating System for AI Agents
 **Hierarchical Scoping • Verbatim Ingestion • Graph+Vector RRF • Zero Token Bloat • 100% Private**
 
+[![CI](https://github.com/M4F-S/mnemosyne/actions/workflows/ci.yml/badge.svg)](https://github.com/M4F-S/mnemosyne/actions/workflows/ci.yml)
 [![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](LICENSE)
 [![Python 3.9+](https://img.shields.io/badge/python-3.9+-blue.svg)](https://www.python.org/downloads/)
 [![PostgreSQL](https://img.shields.io/badge/PostgreSQL-15+-336791.svg?logo=postgresql&logoColor=white)](https://www.postgresql.org/)

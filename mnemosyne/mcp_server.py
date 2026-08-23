@@ -14,8 +14,8 @@ logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(mess
 
 
 class MCPServer:
-    def __init__(self):
-        self.memory = UnifiedMemorySystem()
+    def __init__(self, memory=None):
+        self.memory = memory if memory is not None else UnifiedMemorySystem()
         self._running = True
         self._start_time = time.time()
         self._request_count = 0
@@ -51,10 +51,11 @@ class MCPServer:
         logger.info("MCP Memory Server shutting down...")
 
     def _setup_signal_handlers(self):
-        def _handler(signum, frame):
-            self._running = False
-        signal.signal(signal.SIGTERM, _handler)
-        signal.signal(signal.SIGINT, _handler)
+        signal.signal(signal.SIGTERM, self._handle_signal)
+        signal.signal(signal.SIGINT, self._handle_signal)
+
+    def _handle_signal(self, signum, frame):
+        self._running = False
 
     def _handle(self, req: Dict) -> Dict:
         method = req.get("method")
@@ -255,3 +256,6 @@ class MCPServer:
                 "dimension": self.memory.embedder.dim,
             },
         }
+
+# Backwards compatibility alias
+MemoryMCPServer = MCPServer
