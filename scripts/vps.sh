@@ -77,7 +77,8 @@ case "${1:-}" in
 
     audit)
         echo "=== Running Memory MCP Runtime Audit Across Fleet ==="
-        for c in "${CONTAINERS[@]}"; do
+        $SSH_CMD '
+        for c in hermes-agent hermes-assistant hermes-marketing hermes-pentest hermes-trader; do
             echo "----------------------------------------------------"
             echo "Agent Container: $c"
             
@@ -87,18 +88,19 @@ case "${1:-}" in
             if [ "$c" = "hermes-pentest" ]; then DB="pencil_db"; fi
             if [ "$c" = "hermes-trader" ]; then DB="trader_db"; fi
 
-            $SSH_CMD "docker exec -e MEMORY_DB_DSN='postgresql://mnemosyne:mnemosyne@172.16.8.2:5432/$DB' -e MEMORY_SHARED_DSN='postgresql://mnemosyne:mnemosyne@172.16.8.2:5432/shared_db' $c /opt/data/mcp-servers/venv/bin/python -c \"
+            docker exec -e MEMORY_DB_DSN="postgresql://mnemosyne:mnemosyne@172.16.8.2:5432/$DB" -e MEMORY_SHARED_DSN="postgresql://mnemosyne:mnemosyne@172.16.8.2:5432/shared_db" $c /opt/data/mcp-servers/venv/bin/python -c "
 import os, json
 from mnemosyne.mcp_server import MCPServer
 server = MCPServer()
 health = server._health()
-print('  Version:', health['server']['version'])
-print('  Status:', health['server']['status'])
-print('  Backend:', health['store']['backend'])
-print('  Shared connected:', health['store']['shared_store'])
-print('  Tools count:', len(server._get_tools()))
-\""
+print(\"  Version:\", health[\"server\"][\"version\"])
+print(\"  Status:\", health[\"server\"][\"status\"])
+print(\"  Backend:\", health[\"store\"][\"backend\"])
+print(\"  Shared connected:\", health[\"store\"][\"shared_store\"])
+print(\"  Tools count:\", len(server._get_tools()))
+"
         done
+        '
         ;;
 
     shell)
