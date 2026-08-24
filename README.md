@@ -1,260 +1,237 @@
-<div align="center">
-
-# 🧠 Mnemosyne v3.0
-
-### The Local-First Memory Operating System for AI Agents
-**Hierarchical Scoping • Verbatim Ingestion • Graph+Vector RRF • Zero Token Bloat • 100% Private**
+# Mnemosyne 🧠
 
 [![CI](https://github.com/M4F-S/mnemosyne/actions/workflows/ci.yml/badge.svg)](https://github.com/M4F-S/mnemosyne/actions/workflows/ci.yml)
-[![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](LICENSE)
+[![PyPI version](https://img.shields.io/pypi/v/mnemosyne-memory.svg)](https://pypi.org/project/mnemosyne-memory/)
 [![Python 3.9+](https://img.shields.io/badge/python-3.9+-blue.svg)](https://www.python.org/downloads/)
-[![PostgreSQL](https://img.shields.io/badge/PostgreSQL-15+-336791.svg?logo=postgresql&logoColor=white)](https://www.postgresql.org/)
-[![pgvector](https://img.shields.io/badge/pgvector-0.7+-green.svg)](https://github.com/pgvector/pgvector)
-[![MCP Compatible](https://img.shields.io/badge/MCP-2024--11--05-orange.svg?logo=anthropic&logoColor=white)](https://modelcontextprotocol.io/)
-[![Zero API Spend](https://img.shields.io/badge/Embeddings-$0%20Local-success.svg)](https://huggingface.co/sentence-transformers/all-MiniLM-L6-v2)
-[![Docker](https://img.shields.io/badge/Docker-Ready-2496ED.svg?logo=docker&logoColor=white)](docker-compose.yml)
+[![MCP](https://img.shields.io/badge/MCP-2024--11--05-green.svg)](https://modelcontextprotocol.io/)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
-[Quickstart](#-30-second-quickstart) • [Architecture](#-architecture) • [MCP Setup (Claude / Cursor)](#-model-context-protocol-mcp-quickstarts) • [Comparison](#-feature-matrix--benchmarks) • [Documentation](docs/)
+**Local hierarchical memory engine for AI agents.**
 
-</div>
+Mnemosyne equips AI agents (Hermes, OpenClaw, OpenManus, Claude Desktop, Cursor, OpenHands, CrewAI) with persistent long-term memory. It bridges human-readable **Obsidian Markdown Vaults** with **PostgreSQL + pgvector** (or zero-config **SQLite**), powering hybrid Reciprocal Rank Fusion (RRF) search, wikilink knowledge graphs, and Ebbinghaus temporal decay.
 
 ---
 
-## ⚡ The Problem: Context Window Bloat & Memory Decay
+## ⚡ Key Capabilities
 
-As autonomous agents run for hours or weeks, standard conversation history creates massive operational bottlenecks:
-1. **Context Window Explosions:** Chat histories balloon to hundreds of thousands of tokens, triggering rate limits (`HTTP 429`), massive API bills, and prompt latency.
-2. **Context Contamination:** Flat vector databases mix unrelated domain data (e.g. coding snippets pollute marketing campaigns).
-3. **Lossy Summaries:** Typical memory tools aggressively summarize past interactions, losing exact code snippets, API keys, and subtle syntax nuances.
-4. **Memory Rot:** Irrelevant, months-old memories clutter search results because older tools lack temporal forgetting curves.
+* **🤖 MCP Native (Model Context Protocol):** Standardized stdio protocol server compatible with Claude Desktop, Claude Code, Cursor, Windsurf, OpenClaw, and Hermes.
+* **🔎 Hybrid RRF Retrieval:** Combines dense semantic vector search (`all-MiniLM-L6-v2`), PostgreSQL GIN full-text search (`tsvector`), and recursive graph traversal into a single salience-weighted ranking.
+* **🏛️ Hierarchical Wing & Room Scoping:** Segment memories by domains (`wing`) and projects/channels (`room`), preventing context cross-contamination across multi-agent fleets.
+* **⏳ Ebbinghaus Temporal Decay with Pinned Immunity:** Automatically decays stale memories over time while preserving critical system notes marked `pinned=True` or tagged `pinned`/`permanent`/`core`.
+* **📖 Obsidian Markdown Vault Synchronization:** Every memory is written as an Obsidian-compatible `.md` note with YAML frontmatter and `[[Wikilinks]]`, allowing developers to browse agent thoughts natively in Obsidian.
+* **🔄 Zero-Dependency SQLite Fallback:** Seamlessly operates in standalone SQLite mode when PostgreSQL is not available, with 100% feature parity.
+* **📜 Turn-Aware Session Ingestion:** Intelligently splits and records long conversational transcripts along turn boundaries without breaking code blocks or stack traces.
 
-## 💎 The Solution: Mnemosyne v3.0
+---
 
-**Mnemosyne** is a production-grade, local-first memory operating system designed specifically for autonomous agent fleets. It combines **hierarchical project/topic taxonomy**, **verbatim session ingestion**, **hybrid graph + semantic vector retrieval**, and **human-readable Obsidian Markdown vaults**.
+## 🏗️ Architecture
 
 ```
-┌──────────────────────────────────────────────────────────────────────────────┐
-│                              AGENT / USER INTERACTION                        │
-│                   "What is the WooCommerce webhook secret for SLC?"          │
-└──────────────────────────────────────┬───────────────────────────────────────┘
-                                       │
-                        ┌──────────────▼──────────────┐
-                        │   ADMISSION & SECURITY GATE │
-                        │ • Anti-Prompt Injection     │
-                        │ • Near-Duplicate Filter     │
-                        │ • Salience Scoring Heuristic│
-                        └──────────────┬──────────────┘
-                                       │
-     ┌─────────────────────────────────┼─────────────────────────────────┐
-     ▼                                 ▼                                 ▼
-┌─────────────────────────┐ ┌─────────────────────────┐ ┌─────────────────────────┐
-│   HIERARCHICAL VECTOR   │ │   FULL-TEXT KEYWORD     │ │   GRAPH RELATIONSHIPS   │
-│   (pgvector Cosine)     │ │   (PostgreSQL tsvector) │ │   (Recursive CTEs)      │
-│   Scope: [ecommerce]    │ │   Scope: [ecommerce]    │ │   [[wiki-links]]        │
-└────────────┬────────────┘ └────────────┬────────────┘ └────────────┬────────────┘
-             │                           │                           │
-             └───────────────────────────┼───────────────────────────┘
-                                         ▼
-                     ┌───────────────────────────────────────┐
-                     │   RECIPROCAL RANK FUSION (RRF) ENGINE │
-                     │ • Merges Vector, Keyword & Graph Rank │
-                     │ • Weighted by Dynamic Salience Score  │
-                     │ • Touches `last_accessed_at` Timestamp│
-                     └───────────────────┬───────────────────┘
-                                         │
-     ┌───────────────────────────────────┼───────────────────────────────────┐
-     ▼                                   ▼                                   ▼
-┌──────────────────────────┐ ┌──────────────────────────┐ ┌──────────────────────────┐
-│  HUMAN OBSIDIAN VAULT    │ │  ISOLATED POSTGRES DB    │ │  AUDIT & TIMELINE LOG    │
-│  Plain .md with YAML     │ │  Per-agent pgvector DB   │ │  Chronological Activity  │
-│  Git-diffable & readable │ │  Version Snapshots       │ │  Ebbinghaus Decay Engine │
-└──────────────────────────┘ └──────────────────────────┘ └──────────────────────────┘
+                               ┌─────────────────────────────┐
+                               │   AI Agents & Frameworks    │
+                               │  Hermes / OpenClaw / Manus  │
+                               │  Claude / Cursor / CrewAI   │
+                               └──────────────┬──────────────┘
+                                              │ MCP / SDK
+                                              ▼
+┌──────────────────────────────────────────────────────────────────────────────────────────┐
+│                                 Mnemosyne Core (v3.1)                                    │
+│                                                                                          │
+│  ┌────────────────────────┐  ┌─────────────────────────┐  ┌───────────────────────────┐  │
+│  │ Admission & Security   │  │   Embedder (MiniLM)     │  │   Turn-Aware Ingestor     │  │
+│  │ Injection & Size Guard │  │   384-dim Dense Vectors │  │   Conversational Splitting│  │
+│  └────────────────────────┘  └─────────────────────────┘  └───────────────────────────┘  │
+│                                                                                          │
+│  ┌────────────────────────────────────────────────────────────────────────────────────┐  │
+│  │                         Hybrid RRF Ranker & Graph Crawler                          │  │
+│  │              Dense Semantic (1.0) + Keyword (0.8) + Graph (0.6) + Salience (0.2)   │  │
+│  └────────────────────────────────────────────────────────────────────────────────────┘  │
+└─────────────────────────────────────────────┬────────────────────────────────────────────┘
+                                              │
+                     ┌────────────────────────┴────────────────────────┐
+                     ▼                                                 ▼
+      ┌─────────────────────────────┐                   ┌─────────────────────────────┐
+      │     PostgreSQL / pgvector   │                   │    Obsidian Markdown Vault  │
+      │   (or SQLite 3 Fallback)    │                   │   Human-Readable Zettelkasten│
+      │  - vector(384) cosine index │                   │  - YAML Frontmatter & Tags  │
+      │  - GIN tsvector English tsv │                   │  - [[Wikilink]] Connections │
+      │  - Wing / Room Scoping      │                   │  - Graph View Visualizer    │
+      │  - Version Snapshots & Logs │                   │                             │
+      └─────────────────────────────┘                   └─────────────────────────────┘
 ```
 
 ---
 
-## ✨ Key Features
+## 🚀 Quick Start
 
-* 🏛️ **Hierarchical Scoping (Wing & Room Taxonomy):** Partition memories into Wings (Projects/Domains) and Rooms (Topics). Toy's frontend React code never contaminates Candy's marketing searches.
-* 📜 **Verbatim Session Ingestion:** Auto-chunk and index full conversation transcripts without lossy summarization. Retrieve exact code and terminal outputs with 100% fidelity.
-* ⏳ **Ebbinghaus Temporal Decay:** Memories you use frequently remain top-of-mind; unused memories gracefully decay over time via exponential forgetting curves `salience * (0.95 ^ days)` and archive safely.
-* 🔄 **Memory Versioning & Snapshots:** Updating a memory archives the previous version into `note_versions`. Roll back or inspect changes at any time with `memory_history`.
-* 🛡️ **Zero External API Cost:** Runs local `sentence-transformers` embeddings on CPU/GPU. Zero API tokens spent on indexing or retrieval.
-* 📖 **Obsidian Markdown Vault:** All memories are human-readable `.md` files with YAML frontmatter. Open them directly in Obsidian.
-* 🔌 **Universal MCP Compliance:** Exposes 7 standard JSON-RPC tools compatible with Claude Desktop, Claude Code, Cursor IDE, OpenCode, and Hermes Agent.
-
----
-
-## 📊 Feature Matrix & Benchmarks
-
-| Feature | Mnemosyne v3.0 | Mem0 | MemPalace | Standard RAG |
-|---|:---:|:---:|:---:|:---:|
-| **Storage Paradigm** | **Graph + Vector + Markdown** | Vector / Graph | ChromaDB Flat | Flat Vector |
-| **Hierarchical Scoping (Wing/Room)** | ✅ **Native** | ❌ Flat User ID | ✅ Wings/Rooms | ❌ Flat Namespace |
-| **Verbatim Ingestion (No Lossy Summaries)** | ✅ **Yes** | ❌ Summarized | ✅ Verbatim | ❌ Chunk Only |
-| **Temporal Forgetting Curve (Decay)** | ✅ **Dynamic** | ❌ Static | ✅ Basic | ❌ None |
-| **Memory Version History & Diff** | ✅ **Full Snapshots** | ❌ Overwrite | ❌ None | ❌ None |
-| **Timeline Activity Feed** | ✅ **Built-in** | ❌ | ❌ | ❌ |
-| **Human-Readable Storage** | ✅ **Obsidian Vault** | ❌ DB Only | ❌ DB Only | ❌ DB Only |
-| **Embedding API Cost** | **$0.00 (Local)** | Paid API | $0.00 (Local) | Paid API |
-| **Multi-Agent Database Isolation** | ✅ **Multi-Tenant** | ⚠️ Partial | ❌ Single | ❌ Single |
-| **Standard MCP Server** | ✅ **7 Tools** | ⚠️ Limited | ❌ Script only | ❌ |
-
----
-
-## 🚀 30-Second Quickstart
-
-### Option 1: Docker Compose (Recommended)
+### 1. Installation
 
 ```bash
-# Clone the repository
+# Install from PyPI
+pip install mnemosyne-memory
+
+# Or install from source
 git clone https://github.com/M4F-S/mnemosyne.git
 cd mnemosyne
-
-# Launch PostgreSQL with pgvector
-docker-compose up -d
-
-# Verify system health
-docker exec -it mnemosyne-postgres psql -U mnemosyne -d mnemosyne -c "\dt"
+pip install -e ".[dev]"
 ```
 
-### Option 2: Python Library
+### 2. Run with Docker (Recommended)
+
+Start the PostgreSQL + pgvector database:
 
 ```bash
-pip install -e .
+docker compose up -d
 ```
 
-```python
-from mnemosyne.core import UnifiedMemorySystem
+### 3. Run MCP Server
 
-# Initialize memory engine
-memory = UnifiedMemorySystem()
+```bash
+# PostgreSQL backend
+MEMORY_DB_DSN="postgresql://mnemosyne:mnemosyne@localhost:5432/agent_db" python3 -m mnemosyne server
 
-# 1. Store a memory with hierarchical scope
-memory.remember(
-    title="PostgreSQL Production Cluster Setup",
-    content="Primary cluster operates at localhost:5432 with pgvector 0.7 enabled.",
-    tags=["infra", "database"],
-    wing="devops",
-    room="databases",
-    salience=0.9
-)
-
-# 2. Scoped hybrid retrieval
-results = memory.recall(
-    query="Where is the postgres cluster running?",
-    mode="hybrid", # Merges semantic similarity + keyword tsvector + graph links
-    scope={"wing": "devops"}
-)
-
-print(results[0]["title"], "->", results[0]["content"])
+# Zero-config local SQLite backend
+MEMORY_VAULT_PATH="~/.mnemosyne/vault" python3 -m mnemosyne server
 ```
 
 ---
 
-## 🔌 Model Context Protocol (MCP) Quickstarts
+## 🤖 Agent Framework Integrations
 
-Mnemosyne exposes a high-performance JSON-RPC MCP server with 7 production tools:
-1. `memory_remember` — Store facts, architecture decisions, and observations with `wing`/`room` tags.
-2. `memory_recall` — Hybrid search (semantic + full-text + graph) with optional `scope` filters.
-3. `memory_ingest_session` — Verbatim chunking and storage of full conversation logs.
-4. `memory_timeline` — Chronological audit feed of recent memory activity.
-5. `memory_history` — Version history of edited notes.
-6. `memory_remind_me` — Prospective memory scheduling (one-time or recurring).
-7. `memory_audit` — Real-time memory health, active wings, and storage metrics.
+Mnemosyne connects to all major AI agent harnesses. Detailed guides are available in [`docs/integrations/`](docs/integrations/):
 
-### 1. Claude Desktop Configuration
-Add this to your `claude_desktop_config.json` (`~/Library/Application Support/Claude/claude_desktop_config.json` on macOS):
-
-```json
-{
-  "mcpServers": {
-    "mnemosyne": {
-      "command": "python3",
-      "args": ["-m", "mnemosyne.mcp_server"],
-      "env": {
-        "MEMORY_DB_DSN": "postgresql://mnemosyne:mnemosyne@localhost:5432/mnemosyne",
-        "MEMORY_VAULT_PATH": "/Users/yourname/Documents/Obsidian/AgentVault"
-      }
-    }
-  }
-}
+### 1. OpenClaw
+Add to your `openclaw-config.yaml`:
+```yaml
+plugins:
+  mcp_servers:
+    mnemosyne:
+      command: "python3"
+      args: ["-m", "mnemosyne", "server"]
+      env:
+        MEMORY_VAULT_PATH: "~/.openclaw/vault"
+        MEMORY_DEFAULT_WING: "openclaw"
 ```
+*(See [OpenClaw Guide](docs/integrations/openclaw.md) for custom Python hooks).*
 
-### 2. Claude Code CLI
-```bash
-claude mcp add mnemosyne python3 -m mnemosyne.mcp_server
-```
-
-### 3. Cursor IDE Setup
-Add to `.cursor/mcp.json`:
-```json
-{
-  "mcpServers": {
-    "mnemosyne": {
-      "command": "python3",
-      "args": ["-m", "mnemosyne.mcp_server"],
-      "env": {
-        "MEMORY_DB_DSN": "postgresql://mnemosyne:mnemosyne@localhost:5432/mnemosyne"
-      }
-    }
-  }
-}
-```
-
-### 4. Hermes Agent Configuration (`config.yaml`)
+### 2. Hermes Agent
+In `~/.hermes/config.yaml`:
 ```yaml
 mcp_servers:
   obsidian_memory:
-    command: /opt/data/mcp-servers/venv/bin/python
-    args: [/opt/data/mcp-servers/obsidian_memory_mcp.py]
+    command: python3
+    args: ["-m", "mnemosyne", "server"]
     env:
-      MEMORY_DB_DSN: postgresql://mnemosyne:mnemosyne@localhost:5432/agent_db
-      MEMORY_VAULT_PATH: /root/.hermes/vault
+      MEMORY_DB_DSN: postgresql://mnemosyne:mnemosyne@localhost:5432/toy_db
+      MEMORY_VAULT_PATH: ~/.hermes/vault
 ```
+
+### 3. Claude Desktop (`claude_desktop_config.json`)
+```json
+{
+  "mcpServers": {
+    "mnemosyne": {
+      "command": "python3",
+      "args": ["-m", "mnemosyne", "server"],
+      "env": {
+        "MEMORY_VAULT_PATH": "~/Documents/Obsidian/AgentVault",
+        "MEMORY_DEFAULT_WING": "claude"
+      }
+    }
+  }
+}
+```
+
+### 4. Cursor IDE (`.cursor/mcp.json`)
+```json
+{
+  "mcpServers": {
+    "mnemosyne": {
+      "command": "python3",
+      "args": ["-m", "mnemosyne", "server"],
+      "env": {
+        "MEMORY_VAULT_PATH": "./.vault",
+        "MEMORY_DEFAULT_WING": "codebase"
+      }
+    }
+  }
+}
+```
+
+### 5. Open-Manus, CrewAI & Python SDK
+```python
+from mnemosyne import UnifiedMemorySystem
+
+mem = UnifiedMemorySystem(vault_path="~/.manus/vault")
+
+# Remember facts with domain scoping and pinned immunity
+mem.remember(
+    title="PostgreSQL Optimization",
+    content="Use ivfflat index with lists=100 for vector columns under 1M rows.",
+    wing="engineering",
+    room="databases",
+    tags=["postgres", "pgvector"],
+    pinned=True  # Immune to temporal decay
+)
+
+# Hybrid recall
+results = mem.recall("vector index tips", mode="hybrid", scope={"wing": "engineering"})
+for note in results:
+    print(note["title"], note["content"])
+```
+*(See [Open-Manus & Python Guide](docs/integrations/openmanus_and_python.md) and [OpenAI Codex Guide](docs/integrations/openai_codex.md)).*
 
 ---
 
-## 🛠️ CLI Usage
+## 🛠️ MCP Tools Reference
 
-Mnemosyne includes a full-featured CLI:
+| Tool | Parameters | Description |
+|---|---|---|
+| `memory_remember` | `title`, `content`, `tags`, `wing`, `room`, `salience` | Store a markdown note in the vault with semantic vector embedding |
+| `memory_recall` | `query`, `mode` (hybrid/semantic/keyword/graph), `scope`, `top_k` | Retrieve memories using RRF hybrid search or graph traversal |
+| `memory_ingest_session` | `transcript`, `wing`, `room` | Chunk and ingest full conversation transcripts along turn boundaries |
+| `memory_timeline` | `limit` | View chronological activity timeline of memory operations |
+| `memory_history` | `title`, `limit` | Inspect version snapshots and past edits of a specific note |
+| `memory_remind_me` | `title`, `content`, `trigger_at`, `recurring` | Schedule prospective memory reminders |
+| `memory_audit` | *(none)* | Inspect database statistics, health metrics, and active wings |
+
+---
+
+## 💻 CLI Usage
 
 ```bash
-# Remember something
-mnemosyne remember "Stripe Webhook Key" "whsec_99482..." --wing payments --room stripe
+# Store a memory
+python -m mnemosyne remember "API Architecture" "Authentication uses Bearer JWT tokens." --tags security auth --wing backend
 
-# Scoped recall
-mnemosyne recall "webhook secret" --wing payments
+# Recall memories
+python -m mnemosyne recall "JWT authentication" --mode hybrid --wing backend
 
-# View timeline
-mnemosyne timeline --limit 10
+# View operational timeline
+python -m mnemosyne timeline --limit 10
 
-# Run sleep consolidation & temporal decay
-mnemosyne consolidate
+# Trigger Ebbinghaus decay consolidation
+python -m mnemosyne consolidate --decay-rate 0.95 --archive-threshold 0.05
 
-# Get system statistics
-mnemosyne stats
+# Check system health
+python -m mnemosyne stats
 ```
 
 ---
 
 ## 🧪 Testing
 
+Mnemosyne includes a comprehensive test suite covering unit tests and live PostgreSQL integration tests:
+
 ```bash
-# Run unit and integration tests
-pytest tests/ -v
+# Run all unit tests
+pytest tests/ -v -m "not integration"
+
+# Run with PostgreSQL pgvector integration tests
+MEMORY_DB_DSN="postgresql://mnemosyne:mnemosyne@localhost:5432/agent_db" pytest tests/ -v
 ```
 
 ---
 
-## 🤝 Contributing & License
+## 📄 License
 
-Contributions are welcome! Please see [CONTRIBUTING.md](CONTRIBUTING.md) for details on code style, testing, and pull requests.
-
-Distributed under the **Apache 2.0 License**. See `LICENSE` for more information.
-
----
-
-<div align="center">
-  <sub>Built with ❤️ for autonomous AI agents everywhere. Star ⭐ this repo if Mnemosyne saved your agents from context bloat!</sub>
-</div>
+MIT License. Built for the open agent ecosystem.
