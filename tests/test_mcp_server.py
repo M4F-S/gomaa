@@ -28,7 +28,7 @@ class TestMemoryMCPServer:
         req = {"jsonrpc": "2.0", "method": "initialize", "id": 1}
         resp = server._handle(req)
         assert resp["result"]["serverInfo"]["name"] == "mnemosyne"
-        assert resp["result"]["serverInfo"]["version"] == "3.2.0"
+        assert resp["result"]["serverInfo"]["version"] == "3.3.0"
         assert resp["result"]["protocolVersion"] == "2024-11-05"
 
     def test_tools_list(self, server):
@@ -140,7 +140,7 @@ class TestMemoryMCPServer:
     def test_health_content(self, server):
         health = server._health()
         assert health["server"]["status"] == "healthy"
-        assert health["server"]["version"] == "3.2.0"
+        assert health["server"]["version"] == "3.3.0"
         assert "store" in health
         assert "embedder" in health
 

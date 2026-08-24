@@ -1,3 +1,8 @@
+"""
+MCP Server for Mnemosyne Unified Memory Platform (v3.3.0).
+Exposes memory tools over standard MCP JSON-RPC protocol via stdio.
+"""
+
 import json
 import logging
 import os
@@ -8,28 +13,25 @@ from typing import Any, Dict, List, Optional
 
 from .core import UnifiedMemorySystem
 
-# Protocol stream protection
-os.environ["TOKENIZERS_PARALLELISM"] = "false"
-os.environ["HF_HUB_DISABLE_PROGRESS_BARS"] = "1"
-
-logging.basicConfig(stream=sys.stderr, level=logging.INFO, format="%(asctime)s [%(levelname)s] %(message)s")
-logger = logging.getLogger("mcp-server")
+logging.basicConfig(
+    stream=sys.stderr,
+    level=logging.INFO,
+    format="%(asctime)s [%(levelname)s] %(message)s",
+)
+logger = logging.getLogger("mnemosyne-mcp")
 
 
 class MCPServer:
     def __init__(self, memory: Optional[UnifiedMemorySystem] = None):
-        self.memory = memory if memory is not None else UnifiedMemorySystem()
+        self.memory = memory or UnifiedMemorySystem()
         self._running = True
         self._start_time = time.time()
         self._request_count = 0
         self._error_count = 0
         self._setup_signal_handlers()
 
-    def _uptime(self) -> float:
-        return time.time() - self._start_time
-
     def run(self):
-        logger.info("MCP Memory Server v3.2 starting...")
+        logger.info("MCP Memory Server v3.3.0 starting...")
         for line in sys.stdin:
             if not self._running:
                 break
@@ -69,7 +71,7 @@ class MCPServer:
                 "result": {
                     "protocolVersion": "2024-11-05",
                     "capabilities": {"tools": {"listChanged": False}},
-                    "serverInfo": {"name": "mnemosyne", "version": "3.2.0"},
+                    "serverInfo": {"name": "mnemosyne", "version": "3.3.0"},
                 },
                 "id": req_id,
             }
@@ -281,7 +283,7 @@ class MCPServer:
         return {
             "server": {
                 "name": "mnemosyne",
-                "version": "3.2.0",
+                "version": "3.3.0",
                 "status": "healthy",
                 "uptime_seconds": round(self._uptime(), 2),
                 "requests_served": self._request_count,
@@ -299,3 +301,15 @@ class MCPServer:
                 "remote_url": getattr(self.memory.embedder, "embed_url", None),
             },
         }
+
+    def _uptime(self) -> float:
+        return time.time() - self._start_time
+
+
+def main():
+    server = MCPServer()
+    server.run()
+
+
+if __name__ == "__main__":
+    main()

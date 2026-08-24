@@ -1,81 +1,91 @@
 """
-Mnemosyne Centralized Embedding Microservice (v3.2)
-Lightweight HTTP microservice serving vector embeddings for multi-agent fleets.
-Uses ONNX Runtime or SentenceTransformers in a single shared process (~75MB-250MB RAM).
+Mnemosyne Centralized Embedding Microservice (v3.3.0).
+FastAPI microservice hosting sentence-transformers in a single dedicated process (~75MB RAM).
 """
 
+import logging
 import os
 import sys
-import logging
-from typing import List, Dict, Any, Optional
+from typing import List
+from pydantic import BaseModel
 
-# Protocol & stdout safety
-os.environ["TOKENIZERS_PARALLELISM"] = "false"
-os.environ["HF_HUB_DISABLE_PROGRESS_BARS"] = "1"
-logging.basicConfig(stream=sys.stderr, level=logging.INFO, format="%(asctime)s [%(levelname)s] %(message)s")
+logging.basicConfig(
+    stream=sys.stderr,
+    level=logging.INFO,
+    format="%(asctime)s [%(levelname)s] %(message)s",
+)
 logger = logging.getLogger("mnemosyne-embed-service")
 
 try:
     from fastapi import FastAPI, HTTPException
-    from pydantic import BaseModel
-    import uvicorn
-    HAS_FASTAPI = True
+    from sentence_transformers import SentenceTransformer
 except ImportError:
-    HAS_FASTAPI = False
+    FastAPI = None
+    SentenceTransformer = None
 
 
 class EmbedRequest(BaseModel):
     texts: List[str]
-    model: Optional[str] = "all-MiniLM-L6-v2"
 
 
 class EmbedResponse(BaseModel):
     embeddings: List[List[float]]
-    dim: int
-    count: int
     model: str
+    dim: int
 
 
-def create_app(model_name: str = "all-MiniLM-L6-v2"):
-    if not HAS_FASTAPI:
-        raise RuntimeError("FastAPI and uvicorn are required to run embed-service. Install with: pip install fastapi uvicorn")
+def create_app(model_name: str = "sentence-transformers/all-MiniLM-L6-v2") -> "FastAPI":
+    if FastAPI is None or SentenceTransformer is None:
+        raise ImportError(
+            "FastAPI and sentence-transformers are required to run the embedding service. "
+            "Install with: pip install 'mnemosyne-memory[embed-service]'"
+        )
 
-    from sentence_transformers import SentenceTransformer
-    logger.info(f"Loading embedding model in microservice: {model_name}...")
+    logger.info(f"Loading embedding model: {model_name}...")
     model = SentenceTransformer(model_name)
-    dim = model.get_sentence_embedding_dimension()
-    logger.info(f"Microservice ready (dim={dim}).")
+    logger.info(f"Embedding model {model_name} loaded successfully (dim={model.get_sentence_embedding_dimension()}).")
 
-    app = FastAPI(title="Mnemosyne Embedding Service", version="3.2.0")
+    app = FastAPI(title="Mnemosyne Embedding Service", version="3.3.0")
 
     @app.get("/health")
     def health():
-        return {"status": "healthy", "model": model_name, "dim": dim}
+        return {
+            "status": "healthy",
+            "model": model_name,
+            "dim": model.get_sentence_embedding_dimension(),
+            "service": "mnemosyne-embed-service",
+            "version": "3.3.0",
+        }
 
     @app.post("/embed", response_model=EmbedResponse)
     def embed_texts(req: EmbedRequest):
         if not req.texts:
-            return EmbedResponse(embeddings=[], dim=dim, count=0, model=model_name)
+            return EmbedResponse(embeddings=[], model=model_name, dim=model.get_sentence_embedding_dimension())
         try:
-            embeddings = model.encode(req.texts, show_progress_bar=False, normalize_embeddings=True)
+            embs = model.encode(req.texts, normalize_embeddings=True).tolist()
             return EmbedResponse(
-                embeddings=embeddings.tolist(),
-                dim=dim,
-                count=len(req.texts),
-                model=model_name
+                embeddings=embs,
+                model=model_name,
+                dim=model.get_sentence_embedding_dimension(),
             )
         except Exception as e:
-            logger.error(f"Embedding generation error: {e}")
+            logger.error(f"Embedding error: {e}")
             raise HTTPException(status_code=500, detail=str(e))
 
     return app
 
 
-def run_service(host: str = "0.0.0.0", port: int = 8000, model_name: str = "all-MiniLM-L6-v2", workers: int = 1):
-    app = create_app(model_name)
-    uvicorn.run(app, host=host, port=port, workers=workers, log_level="warning")
+def main():
+    import uvicorn
+
+    port = int(os.environ.get("EMBED_SERVICE_PORT", "8765"))
+    host = os.environ.get("EMBED_SERVICE_HOST", "0.0.0.0")
+    model_name = os.environ.get("EMBED_MODEL", "sentence-transformers/all-MiniLM-L6-v2")
+
+    app = create_app(model_name=model_name)
+    logger.info(f"Starting Mnemosyne Embedding Microservice on {host}:{port}...")
+    uvicorn.run(app, host=host, port=port, log_level="info")
 
 
 if __name__ == "__main__":
-    port = int(os.environ.get("PORT", "8000"))
-    run_service(port=port)
+    main()

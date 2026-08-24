@@ -1,14 +1,6 @@
-"""Mnemosyne v3.0 - Local-first memory system for AI agents."""
+"""Mnemosyne v3.3.0 - Local-first hierarchical memory platform for AI agents."""
 
-import logging
+from .core import UnifiedMemorySystem
 
-__version__ = "3.0.0"
-
-from mnemosyne.core import UnifiedMemorySystem
-from mnemosyne.mcp_server import MCPServer
-
-__all__ = ["UnifiedMemorySystem", "MCPServer", "__version__"]
-
-logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
-
-MemoryMCPServer = MCPServer
+__version__ = "3.3.0"
+__all__ = ["UnifiedMemorySystem", "__version__"]
