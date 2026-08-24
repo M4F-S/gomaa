@@ -1,6 +1,6 @@
 # Live VPS Fleet Architecture & Network Topology 🌐
 
-**Server IP:** `<YOUR_VPS_IP>`  
+**Server IP:** `` ${VPS_HOST} ``  
 **OS:** Ubuntu 24.04 LTS  
 **Primary Agent Container Engine:** Docker (s6-rc supervised)
 
@@ -10,12 +10,12 @@
 
 | Agent Name | Role | Container Name | Memory Database | Internal DSN | Vault Path |
 |---|---|---|---|---|---|
-| **Toy** | Core DevOps & Assistant | `hermes-agent` | `toy_db` (58 notes) | `postgresql://<DB_USER>:<DB_PASSWORD>@<POSTGRES_INTERNAL_IP>:5432/toy_db` | `/root/.hermes/vault` |
-| **Old** | General Assistant | `hermes-assistant` | `old_db` (14 notes) | `postgresql://<DB_USER>:<DB_PASSWORD>@<POSTGRES_INTERNAL_IP>:5432/old_db` | `/root/.hermes/vault` |
-| **Candy** | Marketing AI Agent | `hermes-marketing` | `candy_db` (3 notes) | `postgresql://<DB_USER>:<DB_PASSWORD>@<POSTGRES_INTERNAL_IP>:5432/candy_db` | `/root/.hermes/vault` |
-| **Pencil** | Cybersecurity Pentester | `hermes-pentest` | `pencil_db` (5 notes) | `postgresql://<DB_USER>:<DB_PASSWORD>@<POSTGRES_INTERNAL_IP>:5432/pencil_db` | `/root/.hermes/vault` |
-| **Coin** | Crypto Trader AI | `hermes-trader` | `trader_db` (2 notes) | `postgresql://<DB_USER>:<DB_PASSWORD>@<POSTGRES_INTERNAL_IP>:5432/trader_db` | `/root/.hermes/vault` |
-| **PostgreSQL Database** | Storage Engine | `mo-graphify-obsidian-memory-postgres-1` | All 5 DBs | `<POSTGRES_INTERNAL_IP>:5432` | `/var/lib/postgresql/data` |
+| **Toy** | Core DevOps & Assistant | `hermes-agent` | `toy_db` | `postgresql://mnemosyne:***@${DB_HOST}:5432/toy_db` | `${VAULT_PATH}` |
+| **Old** | General Assistant | `hermes-assistant` | `old_db` | `postgresql://mnemosyne:***@${DB_HOST}:5432/old_db` | `${VAULT_PATH}` |
+| **Candy** | Marketing AI Agent | `hermes-marketing` | `candy_db` | `postgresql://mnemosyne:***@${DB_HOST}:5432/candy_db` | `${VAULT_PATH}` |
+| **Pencil** | Cybersecurity Pentester | `hermes-pentest` | `pencil_db` | `postgresql://mnemosyne:***@${DB_HOST}:5432/pencil_db` | `${VAULT_PATH}` |
+| **Coin** | Crypto Trader AI | `hermes-trader` | `trader_db` | `postgresql://mnemosyne:***@${DB_HOST}:5432/trader_db` | `${VAULT_PATH}` |
+| **PostgreSQL Database** | Storage Engine | `mo-graphify-obsidian-memory-postgres-1` | All 5 DBs | `${DB_HOST}:5432` | `/var/lib/postgresql/data` |
 
 ---
 
@@ -24,7 +24,7 @@
 ```
                      ┌────────────────────────────────────────────────────────┐
                      │     mo-graphify-obsidian-memory_default (Bridge)       │
-                     │                 Subnet: <POSTGRES_SUBNET>                  │
+                     │                 Subnet: ${DB_NETWORK}                  │
                      └──────────────────────────┬─────────────────────────────┘
                                                 │
          ┌───────────────────┬──────────────────┼───────────────────┬──────────────────┐
@@ -32,7 +32,7 @@
 ┌──────────────────┐┌──────────────────┐┌──────────────────┐┌──────────────────┐┌──────────────────┐
 │   hermes-agent   ││ hermes-assistant ││ hermes-marketing ││  hermes-pentest  ││  hermes-trader   │
 │      (Toy)       ││      (Old)       ││     (Candy)      ││     (Pencil)     ││      (Coin)      │
-│   <AGENT_IP>     ││   <AGENT_IP>     ││   <AGENT_IP>     ││   <AGENT_IP>     ││   <AGENT_IP>     │
+│    ${NODE_TOY}    ││    ${NODE_OLD}    ││   ${NODE_CANDY}   ││  ${NODE_PENCIL}  ││   ${NODE_COIN}   │
 └────────┬─────────┘└────────┬─────────┘└────────┬─────────┘└────────┬─────────┘└────────┬─────────┘
          │                   │                  │                   │                  │
          └───────────────────┴──────────────────┼───────────────────┴──────────────────┘
@@ -40,7 +40,7 @@
                                                 ▼
                                ┌───────────────────────────────────┐
                                │   PostgreSQL + pgvector Container │
-                               │           (<POSTGRES_INTERNAL_IP>:5432)       │
+                               │   (${DB_HOST}:5432)           │
                                │   Host mapped: 127.0.0.1:15432    │
                                └───────────────────────────────────┘
 ```
@@ -62,7 +62,7 @@
 
 ## 4. Automated Nightly Consolidation Cron
 
-* **Host Script:** `/root/.hermes/scripts/run-nightly-consolidation.sh`
-* **Python Engine:** `/root/.hermes/scripts/nightly_consolidation.py`
+* **Host Script:** `${HOST_SCRIPTS_DIR}/run-nightly-consolidation.sh`
+* **Python Engine:** `${HOST_SCRIPTS_DIR}/nightly_consolidation.py`
 * **Schedule:** `0 3 * * *` (Daily at 03:00 AM Europe/Berlin)
 * **Action:** Iterates through `toy_db`, `old_db`, `candy_db`, `pencil_db`, and `trader_db`, applying Ebbinghaus decay ($S_t = S_0 \times 0.95^{\text{days}}$) to active notes while exempting `pinned` and permanent knowledge.
