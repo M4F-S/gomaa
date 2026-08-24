@@ -15,9 +15,13 @@ def _get_memory() -> UnifiedMemorySystem:
     return _global_memory
 
 
-def create_note(title: str, content: str, tags=None, note_type="concept", links=None):
+def create_note(title: str, content: str, tags: Optional[List[str]] = None, note_type: str = "concept", links: Optional[List[str]] = None):
     """v1.0 compatible: Create a note."""
-    return _get_memory().remember(title, content, tags or [], note_type, links or [])
+    if links:
+        link_str = " ".join(f"[[{link}]]" for link in links if f"[[{link}]]" not in content)
+        if link_str:
+            content = f"{content}\n\nRelated: {link_str}"
+    return _get_memory().remember(title=title, content=content, tags=tags or [], note_type=note_type)
 
 
 def read_note(title: str) -> Optional[str]:
@@ -49,7 +53,6 @@ def update_note(title: str, new_content=None, append_content=None, **kwargs):
         content=content,
         tags=fm.get("tags", []),
         note_type=fm.get("type", "concept"),
-        links=fm.get("links", []),
     )
 
 
@@ -58,4 +61,4 @@ def create_moc(title: str, description: str, related_notes: List[str]):
     content = f"{description}\n\n## Overview\n\n"
     for note in related_notes:
         content += f"- [[{note}]]\n"
-    return _get_memory().remember(title, content, ["MOC", "index"], "MOC", related_notes)
+    return _get_memory().remember(title=title, content=content, tags=["MOC", "index"], note_type="MOC")

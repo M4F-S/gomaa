@@ -72,19 +72,19 @@ def create_app(model_name: str = "sentence-transformers/all-MiniLM-L6-v2") -> "F
             logger.error(f"Embedding error: {e}")
             raise HTTPException(status_code=500, detail=str(e))
 
-    return app
-
-
-def main():
+def run_service(host: str = "0.0.0.0", port: int = 8000, model_name: str = "sentence-transformers/all-MiniLM-L6-v2"):
     import uvicorn
-
-    port = int(os.environ.get("EMBED_SERVICE_PORT", "8765"))
-    host = os.environ.get("EMBED_SERVICE_HOST", "0.0.0.0")
-    model_name = os.environ.get("EMBED_MODEL", "sentence-transformers/all-MiniLM-L6-v2")
 
     app = create_app(model_name=model_name)
     logger.info(f"Starting Mnemosyne Embedding Microservice on {host}:{port}...")
     uvicorn.run(app, host=host, port=port, log_level="info")
+
+
+def main():
+    port = int(os.environ.get("EMBED_SERVICE_PORT", "8765"))
+    host = os.environ.get("EMBED_SERVICE_HOST", "0.0.0.0")
+    model_name = os.environ.get("EMBED_MODEL", "sentence-transformers/all-MiniLM-L6-v2")
+    run_service(host=host, port=port, model_name=model_name)
 
 
 if __name__ == "__main__":
