@@ -25,3 +25,18 @@ check:          ## Run all checks (test + lint)
 
 clean:          ## Clean build artifacts
 	rm -rf build/ dist/ *.egg-info .pytest_cache .mypy_cache htmlcov/
+
+vps-status:      ## Check production VPS container and database status
+	./scripts/vps.sh status
+
+vps-audit:       ## Run MCP health audit across all 5 agents on VPS
+	./scripts/vps.sh audit
+
+vps-test:        ## Run full 52-test suite inside hermes-agent on VPS
+	./scripts/vps.sh test
+
+vps-sync:        ## Sync local codebase to VPS and install into container venvs
+	./scripts/vps.sh sync
+
+vps-restart:     ## Restart all 5 Hermes agent containers on VPS
+	./scripts/vps.sh restart
