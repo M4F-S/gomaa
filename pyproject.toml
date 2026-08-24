@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "mnemosyne-memory"
-version = "3.3.0"
+version = "3.4.0"
 description = "Production-grade local hierarchical memory platform for AI agents with Obsidian sync, hybrid RRF search, and Ebbinghaus temporal decay."
 readme = "README.md"
 requires-python = ">=3.9"
@@ -53,6 +53,14 @@ dependencies = [
 embed-service = [
     "fastapi>=0.100.0",
     "uvicorn>=0.22.0",
+]
+fastembed = [
+    "fastembed>=0.2.0",
+]
+gdrive = [
+    "google-api-python-client>=2.100.0",
+    "google-auth>=2.23.0",
+    "google-auth-oauthlib>=1.1.0",
 ]
 dev = [
     "pytest>=7.4.0",

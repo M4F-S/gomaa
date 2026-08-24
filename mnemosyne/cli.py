@@ -69,11 +69,35 @@ def main():
     p_embed_srv.add_argument("--port", type=int, default=8000, help="Bind port")
     p_embed_srv.add_argument("--model", default="all-MiniLM-L6-v2", help="Model name")
 
+    # sync-gdrive
+    p_gdrive = subparsers.add_parser("sync-gdrive", help="Synchronize Obsidian vault with Google Drive")
+    p_gdrive.add_argument("--folder", default="Mnemosyne-Vault", help="Google Drive root folder name")
+    p_gdrive.add_argument("--credentials", default=None, help="Path to Google service account JSON file")
+    p_gdrive.add_argument("--daemon", action="store_true", help="Run continuously in the background")
+    p_gdrive.add_argument("--interval", type=int, default=60, help="Sync interval in seconds for daemon mode")
+
     args = parser.parse_args()
 
     if not args.command or args.command == "server":
         server = MCPServer()
         server.run()
+        return
+
+    if args.command == "sync-gdrive":
+        from mnemosyne.sync.gdrive import GoogleDriveSyncManager
+        manager = GoogleDriveSyncManager(
+            vault_path=args.vault_path,
+            folder_name=args.folder,
+            credentials_path=args.credentials,
+        )
+        if not manager.is_available():
+            print(json.dumps({"error": "Google Drive client libraries missing. Install via: pip install 'mnemosyne[gdrive]'"}))
+            sys.exit(1)
+        if args.daemon:
+            manager.run_daemon(interval_seconds=args.interval)
+        else:
+            res = manager.sync()
+            print(json.dumps(res, indent=2))
         return
 
     if args.command == "embed-service":

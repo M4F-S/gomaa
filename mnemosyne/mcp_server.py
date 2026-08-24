@@ -49,7 +49,10 @@ class MCPServer:
                 req_id = req.get("id") if "req" in locals() and isinstance(req, dict) else None
                 logger.error(f"[{req_id}] Unexpected error: {e}")
                 resp = {"jsonrpc": "2.0", "error": {"code": -32603, "message": str(e)}, "id": req_id}
-            print(json.dumps(resp), flush=True)
+            try:
+                print(json.dumps(resp), flush=True)
+            except (BrokenPipeError, IOError):
+                break
         logger.info("MCP Memory Server shutting down...")
 
     def _setup_signal_handlers(self):
@@ -59,8 +62,15 @@ class MCPServer:
     def _handle_signal(self, signum, frame):
         self._running = False
 
-    def _handle(self, req: Dict) -> Dict:
+    def _handle(self, req: Any) -> Dict:
         self._request_count += 1
+        if not isinstance(req, dict):
+            return {
+                "jsonrpc": "2.0",
+                "error": {"code": -32600, "message": "Invalid Request: Expected JSON object"},
+                "id": None,
+            }
+
         method = req.get("method")
         params = req.get("params", {})
         req_id = req.get("id")
@@ -71,7 +81,7 @@ class MCPServer:
                 "result": {
                     "protocolVersion": "2024-11-05",
                     "capabilities": {"tools": {"listChanged": False}},
-                    "serverInfo": {"name": "mnemosyne", "version": "3.3.0"},
+                    "serverInfo": {"name": "mnemosyne", "version": "3.4.0"},
                 },
                 "id": req_id,
             }
@@ -227,7 +237,10 @@ class MCPServer:
         ]
 
     def _call_tool(self, name: str, args: Dict) -> Any:
+        args = args or {}
         if name == "memory_remember":
+            if "title" not in args or "content" not in args:
+                raise ValueError("Missing required arguments: 'title' and 'content' are required for memory_remember.")
             return self.memory.remember(
                 title=args["title"],
                 content=args["content"],
@@ -238,6 +251,8 @@ class MCPServer:
                 pinned=args.get("pinned", False),
             )
         elif name == "memory_publish_shared":
+            if "title" not in args or "content" not in args:
+                raise ValueError("Missing required arguments: 'title' and 'content' are required for memory_publish_shared.")
             return self.memory.publish_shared(
                 title=args["title"],
                 content=args["content"],
@@ -246,6 +261,8 @@ class MCPServer:
                 room=args.get("room", "general"),
             )
         elif name == "memory_recall":
+            if "query" not in args:
+                raise ValueError("Missing required argument: 'query' is required for memory_recall.")
             results = self.memory.recall(
                 query=args["query"],
                 mode=args.get("mode", "hybrid"),
@@ -255,6 +272,8 @@ class MCPServer:
             )
             return {"results": results}
         elif name == "memory_ingest_session":
+            if "transcript" not in args:
+                raise ValueError("Missing required argument: 'transcript' is required for memory_ingest_session.")
             return self.memory.ingest_session(
                 transcript=args["transcript"],
                 wing=args.get("wing", "general"),
@@ -263,8 +282,12 @@ class MCPServer:
         elif name == "memory_timeline":
             return {"timeline": self.memory.timeline(limit=args.get("limit", 20))}
         elif name == "memory_history":
+            if "title" not in args:
+                raise ValueError("Missing required argument: 'title' is required for memory_history.")
             return {"history": self.memory.note_history(title=args["title"], limit=args.get("limit", 10))}
         elif name == "memory_remind_me":
+            if "title" not in args or "trigger_at" not in args:
+                raise ValueError("Missing required arguments: 'title' and 'trigger_at' are required for memory_remind_me.")
             return self.memory.remind_me(
                 title=args["title"],
                 content=args.get("content", ""),
@@ -283,7 +306,7 @@ class MCPServer:
         return {
             "server": {
                 "name": "mnemosyne",
-                "version": "3.3.0",
+                "version": "3.4.0",
                 "status": "healthy",
                 "uptime_seconds": round(self._uptime(), 2),
                 "requests_served": self._request_count,

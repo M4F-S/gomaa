@@ -12,6 +12,7 @@ import sys
 import hashlib
 import time
 import logging
+import threading
 from typing import List, Optional
 
 # Disable tokenizer parallelism and progress bars to keep stdio stream pristine
@@ -37,13 +38,15 @@ class Embedder:
         self.dim = 384
         self._provider = None
         self._local_model = None
+        self._fastembed_model = None
 
         # Remote microservice settings
         self.embed_url = embed_url or os.environ.get("MEMORY_EMBED_URL")
         self._prefer_remote = prefer_remote and bool(self.embed_url)
         self._http_client = None
 
-        # Circuit breaker state
+        # Thread-safe circuit breaker state
+        self._lock = threading.Lock()
         self._failure_count = 0
         self._circuit_open_until = 0.0
         self._failure_threshold = 3
@@ -64,6 +67,18 @@ class Embedder:
             self._init_local_model()
 
     def _init_local_model(self):
+        # 1. Optional fastembed ONNX runtime (ultra-low RAM ~30MB, no PyTorch)
+        try:
+            from fastembed import TextEmbedding
+            self._fastembed_model = TextEmbedding(model_name="BAAI/bge-small-en-v1.5")
+            self._provider = "fastembed-onnx"
+            self.dim = 384
+            logger.info("Embedder: using local FastEmbed ONNX runtime (~30MB RAM)")
+            return
+        except (ImportError, Exception):
+            pass
+
+        # 2. Local SentenceTransformers (PyTorch)
         try:
             from sentence_transformers import SentenceTransformer
             self._local_model = SentenceTransformer(self.model_name)
@@ -78,18 +93,21 @@ class Embedder:
             logger.warning("Embedder: sentence-transformers not found; using deterministic hash fallback.")
 
     def _check_circuit(self):
-        if time.time() < self._circuit_open_until:
-            raise CircuitBreakerOpen("Embedding microservice circuit breaker is OPEN")
+        with self._lock:
+            if time.time() < self._circuit_open_until:
+                raise CircuitBreakerOpen("Embedding microservice circuit breaker is OPEN")
 
     def _record_success(self):
-        self._failure_count = 0
-        self._circuit_open_until = 0.0
+        with self._lock:
+            self._failure_count = 0
+            self._circuit_open_until = 0.0
 
     def _record_failure(self):
-        self._failure_count += 1
-        if self._failure_count >= self._failure_threshold:
-            self._circuit_open_until = time.time() + self._recovery_timeout
-            logger.warning(f"Embedding circuit breaker OPEN for {self._recovery_timeout}s after {self._failure_count} failures.")
+        with self._lock:
+            self._failure_count += 1
+            if self._failure_count >= self._failure_threshold:
+                self._circuit_open_until = time.time() + self._recovery_timeout
+                logger.warning(f"Embedding circuit breaker OPEN for {self._recovery_timeout}s after {self._failure_count} failures.")
 
     def embed_documents(self, texts: List[str]) -> List[List[float]]:
         if not texts:
@@ -107,7 +125,16 @@ class Embedder:
                 if self._local_model is None:
                     return [self._hash_embed(t) for t in texts]
 
-        # 2. Local Model (for standalone developer workstations)
+        # 2. Local FastEmbed ONNX Model
+        if self._fastembed_model is not None:
+            try:
+                embeddings = list(self._fastembed_model.embed(texts))
+                return [e.tolist() if hasattr(e, "tolist") else list(e) for e in embeddings]
+            except Exception as e:
+                logger.error(f"FastEmbed ONNX error: {e}")
+                return [self._hash_embed(t) for t in texts]
+
+        # 3. Local SentenceTransformers (PyTorch)
         if self._local_model is not None:
             try:
                 embeddings = self._local_model.encode(texts, show_progress_bar=False, normalize_embeddings=True)
@@ -116,7 +143,7 @@ class Embedder:
                 logger.error(f"Local embedding error: {e}")
                 return [self._hash_embed(t) for t in texts]
 
-        # 3. Deterministic Hash Fallback
+        # 4. Deterministic Hash Fallback
         return [self._hash_embed(t) for t in texts]
 
     def embed(self, texts: List[str]) -> List[List[float]]:

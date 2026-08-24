@@ -43,6 +43,7 @@ case "${1:-}" in
     test)
         echo "=== Running Mnemosyne Test Suite on VPS ($VPS_HOST) ==="
         $SSH_CMD "
+            docker exec hermes-agent rm -rf /tmp/tests
             docker cp /tmp/mnemosyne-repo/tests hermes-agent:/tmp/tests
             docker exec -e PYTHONPATH=/tmp/mnemosyne-repo -e MEMORY_DB_DSN='postgresql://mnemosyne:mnemosyne@172.16.8.2:5432/toy_db' hermes-agent /opt/data/mcp-servers/venv/bin/pytest -p no:postgresql /tmp/tests -v
         "

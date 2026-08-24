@@ -84,7 +84,16 @@ class PgVectorStore(MemoryStore):
                         CONSTRAINT notes_title_vault_unique UNIQUE (title, vault_path)
                     );
 
-                    CREATE INDEX IF NOT EXISTS notes_embedding_idx ON notes USING ivfflat (embedding vector_cosine_ops) WITH (lists = 100);
+                    -- High-recall HNSW vector index (pgvector >= 0.5.0) with fallback
+                    DO $$
+                    BEGIN
+                        BEGIN
+                            CREATE INDEX IF NOT EXISTS notes_embedding_hnsw_idx ON notes USING hnsw (embedding vector_cosine_ops) WITH (m = 16, ef_construction = 64);
+                        EXCEPTION WHEN OTHERS THEN
+                            CREATE INDEX IF NOT EXISTS notes_embedding_idx ON notes USING ivfflat (embedding vector_cosine_ops) WITH (lists = 100);
+                        END;
+                    END $$;
+
                     CREATE INDEX IF NOT EXISTS notes_tsv_idx ON notes USING gin (tsv);
                     CREATE INDEX IF NOT EXISTS notes_tags_idx ON notes USING gin (tags);
                     CREATE INDEX IF NOT EXISTS notes_wing_room_idx ON notes (wing, room);

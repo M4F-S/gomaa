@@ -15,7 +15,9 @@ Mnemosyne equips AI agents (Hermes, OpenClaw, OpenManus, Claude Desktop, Cursor,
 ## ⚡ Key Capabilities
 
 * **🤖 MCP Native (Model Context Protocol):** Standardized stdio protocol server compatible with Claude Desktop, Claude Code, Cursor, Windsurf, OpenClaw, and Hermes.
-* **🔎 Hybrid RRF Retrieval:** Combines dense semantic vector search (`all-MiniLM-L6-v2`), PostgreSQL GIN full-text search (`tsvector`), and recursive graph traversal into a single salience-weighted ranking.
+* **🔎 High-Recall HNSW & Hybrid RRF Retrieval:** Combines dense vector similarity (`all-MiniLM-L6-v2` / `FastEmbed ONNX`) indexed with `pgvector HNSW (vector_cosine_ops)`, PostgreSQL GIN full-text search (`tsvector`), and recursive graph traversal into a single salience-weighted ranking.
+* **🌐 Cross-Agent Shared Memory Layer:** Enables autonomous multi-agent fleets to publish sanitized, vetted findings to a global shared memory (`shared_db`) with strict regex credential screening.
+* **☁️ Asynchronous Google Drive Synchronization:** Local-first bidirectional sync engine supporting Google Cloud Service Accounts and OAuth2 tokens with MD5 checksum verification and conflict branch preservation.
 * **🏛️ Hierarchical Wing & Room Scoping:** Segment memories by domains (`wing`) and projects/channels (`room`), preventing context cross-contamination across multi-agent fleets.
 * **⏳ Ebbinghaus Temporal Decay with Pinned Immunity:** Automatically decays stale memories over time while preserving critical system notes marked `pinned=True` or tagged `pinned`/`permanent`/`core`.
 * **📖 Obsidian Markdown Vault Synchronization:** Every memory is written as an Obsidian-compatible `.md` note with YAML frontmatter and `[[Wikilinks]]`, allowing developers to browse agent thoughts natively in Obsidian.
@@ -183,13 +185,14 @@ for note in results:
 
 ---
 
-## 🛠️ MCP Tools Reference
+## 🛠️ MCP Tools Reference (8 Tools)
 
 | Tool | Parameters | Description |
 |---|---|---|
-| `memory_remember` | `title`, `content`, `tags`, `wing`, `room`, `salience` | Store a markdown note in the vault with semantic vector embedding |
-| `memory_recall` | `query`, `mode` (hybrid/semantic/keyword/graph), `scope`, `top_k` | Retrieve memories using RRF hybrid search or graph traversal |
-| `memory_ingest_session` | `transcript`, `wing`, `room` | Chunk and ingest full conversation transcripts along turn boundaries |
+| `memory_remember` | `title`, `content`, `tags`, `wing`, `room`, `salience`, `pinned` | Store a markdown note in the vault with semantic vector embedding and decay immunity option |
+| `memory_publish_shared` | `title`, `content`, `tags`, `wing`, `room` | Publish a vetted, sanitized policy or finding to the global fleet shared memory (`shared_db`) |
+| `memory_recall` | `query`, `mode` (hybrid/semantic/keyword/graph), `scope`, `top_k`, `include_shared` | Retrieve memories using RRF hybrid search, pgvector HNSW, or graph traversal across private & shared stores |
+| `memory_ingest_session` | `transcript`, `wing`, `room` | Chunk and ingest full conversation transcripts along turn boundaries with linear sliding-window overlap |
 | `memory_timeline` | `limit` | View chronological activity timeline of memory operations |
 | `memory_history` | `title`, `limit` | Inspect version snapshots and past edits of a specific note |
 | `memory_remind_me` | `title`, `content`, `trigger_at`, `recurring` | Schedule prospective memory reminders |
@@ -203,8 +206,17 @@ for note in results:
 # Store a memory
 python -m mnemosyne remember "API Architecture" "Authentication uses Bearer JWT tokens." --tags security auth --wing backend
 
+# Publish shared memory for other fleet agents
+python -m mnemosyne publish-shared "Global Production Policy" "Always check SSL certificates before deploying." --wing devops
+
 # Recall memories
 python -m mnemosyne recall "JWT authentication" --mode hybrid --wing backend
+
+# Synchronize Obsidian Vault with Google Drive (one-off)
+python -m mnemosyne sync-gdrive --credentials service-account.json
+
+# Run Google Drive sync continuously as a background daemon
+python -m mnemosyne sync-gdrive --daemon --interval 60
 
 # View operational timeline
 python -m mnemosyne timeline --limit 10

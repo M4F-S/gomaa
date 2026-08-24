@@ -5,6 +5,22 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [3.4.0] - 2026-08-24
+
+### Added
+- **Asynchronous Google Drive Synchronization (`mnemosyne.sync.gdrive`)**: Local-first sync engine supporting Service Account and OAuth2 credentials with bidirectional MD5-verified push/pull and automatic conflict branch preservation (`.conflict-TIMESTAMP.md`).
+- **CLI Sync Command (`mnemosyne sync-gdrive`)**: Run one-off or continuous background daemon synchronization (`--daemon --interval 60`).
+- **High-Recall HNSW Vector Indexing**: Upgraded PostgreSQL `pgvector` indexing to `HNSW (vector_cosine_ops) WITH (m=16, ef_construction=64)` with automated fallback to IVFFlat for legacy versions.
+- **FastEmbed ONNX Runtime Support**: Optional lightweight ONNX embedding engine (~30MB RAM footprint, zero PyTorch dependency).
+- **Expanded Credential Screening**: `_sanitize_for_shared()` strengthened with regex guards for Anthropic (`sk-ant-`), Google Gemini (`AIza...`), HuggingFace (`hf_...`), OpenAI project keys (`sk-proj-...`), Slack, AWS, and GitHub PATs.
+
+### Fixed & Hardened
+- **Transactional Dual-Write Ordering**: `remember()` commits to the local Markdown vault atomically first, rolling back and removing newly created notes if database upsert fails.
+- **MCP Error Resilience**: `MCPServer._handle` rejects non-dict payloads with code `-32600` and extracts tool parameters defensively to eliminate unhandled `KeyError` crashes.
+- **Broken Pipe Protection**: MCP stdio stdout flushes wrapped with `(BrokenPipeError, IOError)` handlers.
+- **XML Context Injection Guard**: Both opening `<recalled_memory_context` and closing `</recalled_memory_context>` tags escaped during memory recall.
+- **Admission Control Logging**: Closed silent fail-open `except Exception: pass` gaps with structured warning logs.
+
 ## [3.0.0] - 2026-08-22
 
 ### Added

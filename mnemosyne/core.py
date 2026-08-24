@@ -106,13 +106,17 @@ class UnifiedMemorySystem:
         return {"synced": count}
 
     def _sanitize_for_shared(self, content: str) -> None:
-        """Strict regex security guard to prevent private keys, auth tokens, or PII from leaking to shared_db."""
+        """Strict regex security guard to prevent private keys, auth tokens, or credentials from leaking to shared_db."""
         patterns = [
-            r"-----BEGIN (RSA|OPENSSH|PGP|PRIVATE) KEY-----",
+            r"-----BEGIN (RSA|OPENSSH|PGP|PRIVATE|EC|DSA) KEY-----",
             r"(eyJ[a-zA-Z0-9_-]{10,}\.[a-zA-Z0-9_-]{10,}\.[a-zA-Z0-9_-]{10,})",  # JWT
             r"(ghp_[a-zA-Z0-9]{36}|gho_[a-zA-Z0-9]{36}|github_pat_[a-zA-Z0-9_]{40,})",  # GitHub Tokens
-            r"(sk-[a-zA-Z0-9]{32,}|xox[baprs]-[a-zA-Z0-9-]{10,})",  # OpenAI / Slack
-            r"(AKIA[0-9A-Z]{16})",  # AWS Key ID
+            r"(sk-ant-api\d\d-[a-zA-Z0-9_\-]{50,}|sk-ant-[a-zA-Z0-9_\-]{20,})",  # Anthropic Claude API Keys
+            r"(AIza[0-9A-Za-z_\-]{30,35})",  # Google Gemini / Cloud API Keys
+            r"(hf_[a-zA-Z0-9]{34})",  # HuggingFace Hub Tokens
+            r"(sk-[a-zA-Z0-9]{32,}|sk-proj-[a-zA-Z0-9_\-]{40,})",  # OpenAI API Keys
+            r"(xox[baprs]-[a-zA-Z0-9\-]{10,})",  # Slack Tokens
+            r"(AKIA[0-9A-Z]{16})",  # AWS Access Key ID
         ]
         for p in patterns:
             if re.search(p, content):
@@ -144,32 +148,55 @@ class UnifiedMemorySystem:
             return {"success": False, "error": msg}
 
         emb = self.embedder.embed_query(f"{title} {safe_content}")
-
-        note_id = self.db.upsert_note(
-            title=title,
-            content=safe_content,
-            tags=tags,
-            note_type=note_type,
-            status="active",
-            salience=salience,
-            embedding=emb,
-            vault_path=str(self.vault.vault_path),
-            wing=wing,
-            room=room,
-            origin_agent=self.agent_name,
-        )
-
         wiki_links = self.vault.extract_wiki_links(safe_content)
-        self.db.update_links(note_id, wiki_links)
-        self.vault.write_note(title, safe_content, tags, note_type=note_type, status="active", salience=salience, links=wiki_links, wing=wing, room=room)
 
-        self.db.log_timeline(
-            action="remember",
-            note_title=title,
-            summary=f"wing={wing} room={room} salience={salience:.2f} origin={self.agent_name}",
-        )
+        # 1. Write to physical Markdown vault first (atomic write)
+        try:
+            written_path = self.vault.write_note(
+                title=title,
+                content=safe_content,
+                tags=tags,
+                note_type=note_type,
+                status="active",
+                salience=salience,
+                links=wiki_links,
+                wing=wing,
+                room=room,
+            )
+        except Exception as e:
+            logger.error(f"Failed writing note [{title}] to vault: {e}")
+            return {"success": False, "error": f"Vault write failed: {e}"}
 
-        return {"success": True, "note_id": note_id, "title": title}
+        # 2. Commit to database with rollback protection
+        try:
+            note_id = self.db.upsert_note(
+                title=title,
+                content=safe_content,
+                tags=tags,
+                note_type=note_type,
+                status="active",
+                salience=salience,
+                embedding=emb,
+                vault_path=str(self.vault.vault_path),
+                wing=wing,
+                room=room,
+                origin_agent=self.agent_name,
+            )
+            self.db.update_links(note_id, wiki_links)
+            self.db.log_timeline(
+                action="remember",
+                note_title=title,
+                summary=f"wing={wing} room={room} salience={salience:.2f} origin={self.agent_name}",
+            )
+            return {"success": True, "note_id": note_id, "title": title}
+        except Exception as e:
+            logger.error(f"Database upsert failed for note [{title}]: {e}; rolling back vault file.")
+            try:
+                if written_path.exists():
+                    written_path.unlink()
+            except Exception as cleanup_err:
+                logger.warning(f"Failed to remove vault file on rollback: {cleanup_err}")
+            return {"success": False, "error": f"Database write failed: {e}"}
 
     def publish_shared(
         self,
@@ -199,27 +226,31 @@ class UnifiedMemorySystem:
 
         emb = self.embedder.embed_query(f"{title} {safe_content}")
 
-        note_id = self.shared_db.upsert_note(
-            title=title,
-            content=safe_content,
-            tags=tags,
-            note_type="shared_policy",
-            status="active",
-            salience=0.8,
-            embedding=emb,
-            vault_path="shared",
-            wing=wing,
-            room=room,
-            origin_agent=self.agent_name,
-        )
+        try:
+            note_id = self.shared_db.upsert_note(
+                title=title,
+                content=safe_content,
+                tags=tags,
+                note_type="shared_policy",
+                status="active",
+                salience=0.8,
+                embedding=emb,
+                vault_path="shared",
+                wing=wing,
+                room=room,
+                origin_agent=self.agent_name,
+            )
 
-        self.db.log_timeline(
-            action="publish_shared",
-            note_title=title,
-            summary=f"published to shared_db (wing={wing}, room={room})",
-        )
+            self.db.log_timeline(
+                action="publish_shared",
+                note_title=title,
+                summary=f"published to shared_db (wing={wing}, room={room})",
+            )
 
-        return {"success": True, "note_id": note_id, "title": title, "scope": "shared"}
+            return {"success": True, "note_id": note_id, "title": title, "scope": "shared"}
+        except Exception as e:
+            logger.error(f"Failed publishing note [{title}] to shared database: {e}")
+            return {"success": False, "error": f"Shared database write failed: {e}"}
 
     def recall(
         self,
@@ -269,10 +300,13 @@ class UnifiedMemorySystem:
 
         results = list(merged_dict.values())[:top_k]
 
-        # Enclose memory content in structured XML context tags with closing tag escaping
+        # Enclose memory content in structured XML context tags with tag escaping
         for r in results:
             content_raw = r.get("content", "")
-            safe_text = content_raw.replace("</recalled_memory_context>", "<\\/recalled_memory_context>")
+            safe_text = (
+                content_raw.replace("</recalled_memory_context>", "<\\/recalled_memory_context>")
+                .replace("<recalled_memory_context", "<\\recalled_memory_context")
+            )
             r["formatted_context"] = (
                 f'<recalled_memory_context id="{r.get("id")}" title="{r.get("title")}" '
                 f'wing="{r.get("wing", "general")}" room="{r.get("room", "general")}" '

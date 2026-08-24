@@ -46,13 +46,19 @@ class AdmissionControl:
         # Near-duplicate detection
         if self.db is not None and self.embedder is not None:
             try:
-                emb = self.embedder.embed([content])[0]
-                similar = self.db.search_semantic(emb, top_k=5)
-                for s in similar:
-                    if s.get("score", 0) > 0.92:
-                        checks.append((True, f"Near-duplicate of existing note: {s['title']}"))
-            except Exception:
-                pass
+                if hasattr(self.embedder, "embed_query"):
+                    emb = self.embedder.embed_query(content)
+                elif hasattr(self.embedder, "embed"):
+                    emb = self.embedder.embed([content])[0]
+                else:
+                    emb = []
+                if emb:
+                    similar = self.db.search_semantic(emb, top_k=5)
+                    for s in similar:
+                        if s.get("score", 0) > 0.92:
+                            checks.append((True, f"Near-duplicate of existing note: {s['title']}"))
+            except Exception as e:
+                logger.warning(f"AdmissionControl near-duplicate check bypassed due to error: {e}")
 
         # Contradiction check
         if self.db is not None:
@@ -60,8 +66,8 @@ class AdmissionControl:
                 existing = self.db.search_keyword(title, top_k=1)
                 if existing and existing[0]["title"].lower() == title.lower():
                     checks.append((True, "Title exists — will update rather than create new"))
-            except Exception:
-                pass
+            except Exception as e:
+                logger.warning(f"AdmissionControl contradiction check bypassed due to error: {e}")
 
         if any(not c[0] for c in checks):
             reason = "; ".join(c[1] for c in checks if not c[0])
