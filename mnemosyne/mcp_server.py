@@ -1,5 +1,5 @@
 """
-MCP Server for Mnemosyne Unified Memory Platform (v3.3.0).
+MCP Server for Mnemosyne Unified Memory Platform (v3.4.0).
 Exposes memory tools over standard MCP JSON-RPC protocol via stdio.
 """
 
@@ -31,7 +31,7 @@ class MCPServer:
         self._setup_signal_handlers()
 
     def run(self):
-        logger.info("MCP Memory Server v3.3.0 starting...")
+        logger.info("MCP Memory Server v3.4.0 starting...")
         for line in sys.stdin:
             if not self._running:
                 break

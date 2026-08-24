@@ -1,7 +1,7 @@
 # 🧠 Mnemosyne Autonomous Agent Ecosystem & VPS Operations Guide
 
 > **Notice for all AI Coding Assistants (Antigravity, Cursor, Claude Code, Codex, Windsurf):**
-> This repository is the source code and orchestration center for **Mnemosyne v3.3.0** and the 5-agent Hermes fleet deployed on the production VPS.
+> This repository is the source code and orchestration center for **Mnemosyne v3.4.0** and the 5-agent Hermes fleet deployed on the production VPS.
 > Use this document as your primary reference for VPS access, architecture, database topologies, and operational commands.
 
 ---
@@ -62,7 +62,7 @@ A dedicated operations tool is located at [`scripts/vps.sh`](scripts/vps.sh). An
 
 ---
 
-## 🛠️ Mnemosyne v3.3.0 Tool Reference (8 Tools)
+## 🛠️ Mnemosyne v3.4.0 Tool Reference (8 Tools)
 
 All 5 agents have the following 8 MCP tools available under the `mcp__obsidian_memory__` prefix:
 

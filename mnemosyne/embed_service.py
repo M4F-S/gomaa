@@ -1,5 +1,5 @@
 """
-Mnemosyne Centralized Embedding Microservice (v3.3.0).
+Mnemosyne Centralized Embedding Microservice (v3.4.0).
 FastAPI microservice hosting sentence-transformers in a single dedicated process (~75MB RAM).
 """
 
@@ -45,7 +45,7 @@ def create_app(model_name: str = "sentence-transformers/all-MiniLM-L6-v2") -> "F
     model = SentenceTransformer(model_name)
     logger.info(f"Embedding model {model_name} loaded successfully (dim={model.get_sentence_embedding_dimension()}).")
 
-    app = FastAPI(title="Mnemosyne Embedding Service", version="3.3.0")
+    app = FastAPI(title="Mnemosyne Embedding Service", version="3.4.0")
 
     @app.get("/health")
     def health():
@@ -54,7 +54,7 @@ def create_app(model_name: str = "sentence-transformers/all-MiniLM-L6-v2") -> "F
             "model": model_name,
             "dim": model.get_sentence_embedding_dimension(),
             "service": "mnemosyne-embed-service",
-            "version": "3.3.0",
+            "version": "3.4.0",
         }
 
     @app.post("/embed", response_model=EmbedResponse)
