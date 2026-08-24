@@ -12,7 +12,7 @@ from .stores import create_store
 from .stores.base import MemoryStore
 from .vault import VaultManager
 
-# Stdio protocol stream safety
+# Stdio stream protection
 os.environ["TOKENIZERS_PARALLELISM"] = "false"
 os.environ["HF_HUB_DISABLE_PROGRESS_BARS"] = "1"
 
@@ -22,6 +22,40 @@ logger = logging.getLogger("mnemosyne-core")
 
 class SecurityCheckError(ValueError):
     pass
+
+
+def _neutralize_control_tokens(text: str) -> str:
+    """
+    Neutralize LLM prompt injection control tokens in prose while preserving
+    exact text inside markdown code blocks (``` ... ```) and inline code (`...`).
+    """
+    if not text:
+        return ""
+
+    tokens_to_neutralize = [
+        (r"<\|im_start\|>", "<\u200b|im_start|\u200b>"),
+        (r"<\|system\|>", "<\u200b|system|\u200b>"),
+        (r"<\|user\|>", "<\u200b|user|\u200b>"),
+        (r"<\|assistant\|>", "<\u200b|assistant|\u200b>"),
+        (r"\[INST\]", "[\u200bINST\u200b]"),
+        (r"\[/INST\]", "[\u200b/INST\u200b]"),
+        (r"<<SYS>>", "<\u200b<SYS>\u200b>"),
+        (r"<</SYS>>", "<\u200b</SYS>\u200b>"),
+    ]
+
+    parts = re.split(r"(```[\s\S]*?```|`[^`]*?`)", text)
+    processed = []
+    for part in parts:
+        if part.startswith("`"):
+            # Inside code block -> preserve verbatim
+            processed.append(part)
+        else:
+            # Prose text -> neutralize control markers
+            cur = part
+            for pat, repl in tokens_to_neutralize:
+                cur = re.sub(pat, repl, cur, flags=re.IGNORECASE)
+            processed.append(cur)
+    return "".join(processed)
 
 
 class UnifiedMemorySystem:
@@ -54,17 +88,19 @@ class UnifiedMemorySystem:
         count = 0
         for f in files:
             try:
-                content = self.vault.read_note(f)
-                note_id = self.db.upsert_note(
-                    title=f,
-                    content=content,
-                    tags=[],
-                    vault_path=self.vault.vault_path,
-                    origin_agent=self.agent_name,
-                )
-                links = self.vault.extract_wiki_links(content)
-                self.db.update_links(note_id, links)
-                count += 1
+                content = self.vault.read_note(f.stem)
+                if content:
+                    raw = content.get("content", "")
+                    note_id = self.db.upsert_note(
+                        title=f.stem,
+                        content=raw,
+                        tags=content.get("frontmatter", {}).get("tags", []),
+                        vault_path=str(self.vault.vault_path),
+                        origin_agent=self.agent_name,
+                    )
+                    links = self.vault.extract_wiki_links(raw)
+                    self.db.update_links(note_id, links)
+                    count += 1
             except Exception as e:
                 logger.error(f"Error syncing {f}: {e}")
         return {"synced": count}
@@ -99,30 +135,33 @@ class UnifiedMemorySystem:
                 tags.append("pinned")
             salience = max(salience, 1.0)
 
-        is_valid, msg = self.security.validate(title, content, tags)
+        # Code-block-aware injection neutralization
+        safe_content = _neutralize_control_tokens(content)
+
+        is_valid, msg = self.security.validate(title, safe_content, tags)
         if not is_valid:
             logger.warning(f"Admission control rejected note [{title}]: {msg}")
             return {"success": False, "error": msg}
 
-        emb = self.embedder.embed_query(f"{title} {content}")
+        emb = self.embedder.embed_query(f"{title} {safe_content}")
 
         note_id = self.db.upsert_note(
             title=title,
-            content=content,
+            content=safe_content,
             tags=tags,
             note_type=note_type,
             status="active",
             salience=salience,
             embedding=emb,
-            vault_path=self.vault.vault_path,
+            vault_path=str(self.vault.vault_path),
             wing=wing,
             room=room,
             origin_agent=self.agent_name,
         )
 
-        wiki_links = self.vault.extract_wiki_links(content)
+        wiki_links = self.vault.extract_wiki_links(safe_content)
         self.db.update_links(note_id, wiki_links)
-        self.vault.write_note(title, content, tags)
+        self.vault.write_note(title, safe_content, tags, note_type=note_type, status="active", salience=salience, links=wiki_links, wing=wing, room=room)
 
         self.db.log_timeline(
             action="remember",
@@ -153,15 +192,16 @@ class UnifiedMemorySystem:
         except SecurityCheckError as e:
             return {"success": False, "error": str(e)}
 
-        is_valid, msg = self.security.validate(title, content, tags)
+        safe_content = _neutralize_control_tokens(content)
+        is_valid, msg = self.security.validate(title, safe_content, tags)
         if not is_valid:
             return {"success": False, "error": msg}
 
-        emb = self.embedder.embed_query(f"{title} {content}")
+        emb = self.embedder.embed_query(f"{title} {safe_content}")
 
         note_id = self.shared_db.upsert_note(
             title=title,
-            content=content,
+            content=safe_content,
             tags=tags,
             note_type="shared_policy",
             status="active",
@@ -220,21 +260,34 @@ class UnifiedMemorySystem:
 
         self.db.log_timeline(action="recall", query=query, summary=f"mode={mode} scope={scope} shared={len(shared_results)}")
 
-        if not shared_results:
-            return private_results
-
-        # Merge and deduplicate by title
-        combined: Dict[str, Dict] = {}
+        merged_dict: Dict[str, Dict] = {}
         for r in private_results:
-            combined[r["title"]] = r
+            merged_dict[r["title"]] = r
         for r in shared_results:
-            if r["title"] not in combined:
-                combined[r["title"]] = r
+            if r["title"] not in merged_dict:
+                merged_dict[r["title"]] = r
 
-        return list(combined.values())[:top_k]
+        results = list(merged_dict.values())[:top_k]
+
+        # Enclose memory content in structured XML context tags with closing tag escaping
+        for r in results:
+            content_raw = r.get("content", "")
+            safe_text = content_raw.replace("</recalled_memory_context>", "<\\/recalled_memory_context>")
+            r["formatted_context"] = (
+                f'<recalled_memory_context id="{r.get("id")}" title="{r.get("title")}" '
+                f'wing="{r.get("wing", "general")}" room="{r.get("room", "general")}" '
+                f'source="{r.get("source_store", "private")}">\n'
+                f"{safe_text}\n"
+                f"</recalled_memory_context>"
+            )
+
+        return results
 
     def ingest_session(self, transcript: str, wing: str = "general", room: str = "sessions") -> Dict[str, Any]:
-        """Ingest a full conversation transcript verbatim along turn boundaries."""
+        """
+        Ingest a full conversation transcript verbatim along turn boundaries,
+        applying linear sequence sliding-window chunking for turns > 1,500 chars.
+        """
         if not transcript or not transcript.strip():
             return {"success": False, "error": "Empty transcript provided."}
 
@@ -243,25 +296,51 @@ class UnifiedMemorySystem:
         ingested_count = 0
 
         for idx, turn in enumerate(turns, 1):
-            title = f"Session {timestamp} Turn {idx:02d}"
-            res = self.remember(
-                title=title,
-                content=turn,
-                tags=["session", "transcript"],
-                note_type="session",
-                salience=0.4,
-                wing=wing,
-                room=room,
-            )
-            if res.get("success"):
-                ingested_count += 1
+            if len(turn) > 1500:
+                chunks = self._chunk_text(turn, max_chars=1500, overlap=200)
+                for c_idx, chunk in enumerate(chunks, 1):
+                    title = f"Session {timestamp} Turn {idx:02d} Part {c_idx:02d}"
+                    next_link = f"\n\n[[Session {timestamp} Turn {idx:02d} Part {c_idx+1:02d}]]" if c_idx < len(chunks) else ""
+                    res = self.remember(
+                        title=title,
+                        content=chunk + next_link,
+                        tags=["session", "transcript", "chunk"],
+                        note_type="session",
+                        salience=0.3,
+                        wing=wing,
+                        room=room,
+                    )
+                    if res.get("success"):
+                        ingested_count += 1
+            else:
+                title = f"Session {timestamp} Turn {idx:02d}"
+                res = self.remember(
+                    title=title,
+                    content=turn,
+                    tags=["session", "transcript"],
+                    note_type="session",
+                    salience=0.4,
+                    wing=wing,
+                    room=room,
+                )
+                if res.get("success"):
+                    ingested_count += 1
 
         self.db.log_timeline(
             action="ingest_session",
-            summary=f"ingested {ingested_count}/{len(turns)} turns to wing={wing} room={room}",
+            summary=f"ingested {ingested_count} units from {len(turns)} turns into wing={wing} room={room}",
         )
 
-        return {"success": True, "turns_total": len(turns), "turns_ingested": ingested_count, "wing": wing, "room": room}
+        return {"success": True, "turns_total": len(turns), "units_ingested": ingested_count, "wing": wing, "room": room}
+
+    def _chunk_text(self, text: str, max_chars: int = 1500, overlap: int = 200) -> List[str]:
+        chunks = []
+        start = 0
+        while start < len(text):
+            end = start + max_chars
+            chunks.append(text[start:end])
+            start += max_chars - overlap
+        return chunks
 
     def _split_transcript_turns(self, transcript: str) -> List[str]:
         lines = transcript.splitlines()
@@ -298,7 +377,6 @@ class UnifiedMemorySystem:
         return {"success": True, "title": title, "trigger_at": trigger_at, "recurring": recurring}
 
     def consolidate(self, decay_rate: float = 0.95, archive_threshold: float = 0.05) -> Dict[str, Any]:
-        """Apply link reconciliation and temporal decay."""
         reconciled = self.db.reconcile_links()
         decay_res = self.db.apply_decay(decay_rate=decay_rate, archive_threshold=archive_threshold)
         self.db.log_timeline(

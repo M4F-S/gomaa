@@ -37,7 +37,6 @@ class PgVectorStore(MemoryStore):
             except Exception:
                 pass
             self._pool.putconn(conn, close=True)
-            # Reacquire fresh replacement connection
             conn = self._pool.getconn()
             yield conn
             conn.commit()
@@ -130,7 +129,6 @@ class PgVectorStore(MemoryStore):
                     );
                 """
                 )
-                # Incremental column migrations
                 cur.execute(
                     """
                     SELECT column_name FROM information_schema.columns
@@ -217,7 +215,6 @@ class PgVectorStore(MemoryStore):
         vault_path = str(vault_path)
         with self._conn() as conn:
             with conn.cursor() as cur:
-                # Archive previous version if updating
                 cur.execute("SELECT id, title, content, tags, salience FROM notes WHERE title = %s AND vault_path = %s;", (title, vault_path))
                 existing = cur.fetchone()
                 if existing:
@@ -323,15 +320,16 @@ class PgVectorStore(MemoryStore):
                             "score": float(row[9]) if row[9] is not None else 0.0,
                         }
                     )
-                if results:
-                    ids = [r["id"] for r in results]
-                    cur.execute("UPDATE notes SET last_accessed_at = NOW() WHERE id = ANY(%s);", (ids,))
+                # Selective access touch (only high-confidence matches >= 0.55)
+                high_conf_ids = [r["id"] for r in results if r["score"] >= 0.55]
+                if high_conf_ids:
+                    cur.execute("UPDATE notes SET last_accessed_at = NOW() WHERE id = ANY(%s);", (high_conf_ids,))
                 return results
 
     def search_keyword(self, query: str, top_k: int = 10, scope: Optional[Dict] = None) -> List[Dict]:
         with self._conn() as conn:
             with conn.cursor() as cur:
-                where = "WHERE status = 'active' AND tsv @@ plainto_tsquery('english', %s)"
+                where = "WHERE status = 'active' AND tsv @@ websearch_to_tsquery('english', %s)"
                 where_params = [query]
 
                 scope_clause, scope_params = self._scope_clause(scope)
@@ -344,7 +342,7 @@ class PgVectorStore(MemoryStore):
                 cur.execute(
                     f"""
                     SELECT id, title, content, tags, note_type, salience, vault_path, wing, room,
-                           ts_rank_cd(tsv, plainto_tsquery('english', %s), 32) AS score
+                           ts_rank_cd(tsv, websearch_to_tsquery('english', %s), 32) AS score
                     FROM notes
                     {where}
                     ORDER BY score DESC
@@ -369,26 +367,28 @@ class PgVectorStore(MemoryStore):
                             "score": float(row[9]),
                         }
                     )
-                if results:
-                    ids = [r["id"] for r in results]
-                    cur.execute("UPDATE notes SET last_accessed_at = NOW() WHERE id = ANY(%s);", (ids,))
+                # Selective access touch (score >= 0.02)
+                high_conf_ids = [r["id"] for r in results if r["score"] >= 0.02]
+                if high_conf_ids:
+                    cur.execute("UPDATE notes SET last_accessed_at = NOW() WHERE id = ANY(%s);", (high_conf_ids,))
                 return results
 
     def search_graph(self, note_title: str, depth: int = 2, top_k: int = 10) -> List[Dict]:
+        """Graph search with formal cycle detection (immune to infinite loops on circular links)."""
         with self._conn() as conn:
             with conn.cursor() as cur:
                 cur.execute(
                     """
                     WITH RECURSIVE graph_walk AS (
-                        SELECT target_note_id AS note_id, 1 AS depth
+                        SELECT target_note_id AS note_id, 1 AS depth, ARRAY[source_note_id, target_note_id] AS path
                         FROM links l
                         JOIN notes n ON n.id = l.source_note_id
                         WHERE n.title = %s AND n.status = 'active'
                         UNION
-                        SELECT l.target_note_id, gw.depth + 1
+                        SELECT l.target_note_id, gw.depth + 1, gw.path || l.target_note_id
                         FROM links l
                         JOIN graph_walk gw ON gw.note_id = l.source_note_id
-                        WHERE gw.depth < %s
+                        WHERE gw.depth < %s AND NOT (l.target_note_id = ANY(gw.path))
                     )
                     SELECT DISTINCT ON (n.id) n.id, n.title, n.content, n.tags, n.salience, n.vault_path, n.wing, n.room, gw.depth
                     FROM graph_walk gw
@@ -452,7 +452,6 @@ class PgVectorStore(MemoryStore):
         """Apply Ebbinghaus decay with pinned / permanent immunity."""
         with self._conn() as conn:
             with conn.cursor() as cur:
-                # 1. Decay inactive, unpinned notes
                 cur.execute(
                     """
                     UPDATE notes
@@ -466,7 +465,6 @@ class PgVectorStore(MemoryStore):
                 )
                 decayed = cur.rowcount
 
-                # 2. Archive decayed notes below threshold
                 cur.execute(
                     """
                     UPDATE notes

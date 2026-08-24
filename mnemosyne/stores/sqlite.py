@@ -94,7 +94,6 @@ class SQLiteStore(MemoryStore):
                 );
             """
             )
-            # Ensure new columns exist on legacy tables
             cur = conn.cursor()
             cur.execute("PRAGMA table_info(notes);")
             columns = [row["name"] for row in cur.fetchall()]
@@ -178,6 +177,7 @@ class SQLiteStore(MemoryStore):
         room: str = "general",
         origin_agent: str = "local",
     ) -> str:
+        vault_path = str(vault_path)
         with self._conn() as conn:
             cur = conn.cursor()
             cur.execute("SELECT id, title, content, tags, salience FROM notes WHERE title = ? AND vault_path = ?;", (title, vault_path))
@@ -185,7 +185,6 @@ class SQLiteStore(MemoryStore):
 
             if existing:
                 note_id = existing["id"]
-                # Save version
                 conn.execute(
                     """
                     INSERT INTO note_versions (note_id, title, content, tags, salience)
@@ -193,7 +192,6 @@ class SQLiteStore(MemoryStore):
                 """,
                     (note_id, existing["title"], existing["content"], existing["tags"], existing["salience"]),
                 )
-                # Update
                 conn.execute(
                     """
                     UPDATE notes
@@ -251,6 +249,7 @@ class SQLiteStore(MemoryStore):
             return note_id
 
     def delete_note(self, title: str, vault_path: str = "") -> bool:
+        vault_path = str(vault_path)
         with self._conn() as conn:
             cur = conn.cursor()
             cur.execute("DELETE FROM notes WHERE title = ? AND vault_path = ?;", (title, vault_path))
@@ -308,19 +307,27 @@ class SQLiteStore(MemoryStore):
             scored.sort(key=lambda x: x["score"], reverse=True)
             results = scored[:top_k]
 
-            if results:
-                ids = [r["id"] for r in results]
-                placeholders = ",".join("?" for _ in ids)
-                conn.execute(f"UPDATE notes SET last_accessed_at = datetime('now') WHERE id IN ({placeholders});", ids)
+            high_conf = [r["id"] for r in results if r["score"] >= 0.55]
+            if high_conf:
+                placeholders = ",".join("?" for _ in high_conf)
+                conn.execute(f"UPDATE notes SET last_accessed_at = datetime('now') WHERE id IN ({placeholders});", high_conf)
 
             return results
 
     def search_keyword(self, query: str, top_k: int = 10, scope: Optional[Dict] = None) -> List[Dict]:
         with self._conn() as conn:
             cur = conn.cursor()
-            where = "WHERE status = 'active' AND (title LIKE ? OR content LIKE ?)"
-            pattern = f"%{query}%"
-            params = [pattern, pattern]
+            words = [w for w in re.split(r"\s+", query) if w and len(w) > 1 and w not in ('!', '&', '|', ':')]
+            if not words:
+                words = [query]
+
+            where_conditions = []
+            params = []
+            for w in words:
+                where_conditions.append("(title LIKE ? OR content LIKE ?)")
+                params.extend([f"%{w}%", f"%{w}%"])
+
+            where = "WHERE status = 'active' AND (" + " OR ".join(where_conditions) + ")"
 
             scope_clause, scope_params = self._scope_clause(scope)
             if scope_clause:
@@ -506,7 +513,6 @@ class SQLiteStore(MemoryStore):
 
             for note in notes:
                 content = note["content"]
-                # Strip code blocks
                 clean = re.sub(r"```[\s\S]*?```", "", content)
                 clean = re.sub(r"`[^`]*`", "", clean)
                 matches = set(link_pattern.findall(clean))

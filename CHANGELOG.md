@@ -35,3 +35,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Thread-Safe Self-Healing Database Pooling:** `PgVectorStore` uses `ThreadedConnectionPool` with liveness checks and auto-reconnect on dead sockets.
 - **Cross-Agent Shared Memory Layer (`shared_db`):** Multi-tenant fleet memory with `memory_publish_shared`, regex credential sanitization, and fail-soft recall.
 - **Real-Time & Set-Based Wikilink Graph Engine:** O(1) reverse link resolution on note creation and sub-second set-based SQL graph reconciliation.
+
+## [3.3.0] - 2026-08-24
+### Security & Resilience Patch
+- **Strict Path Traversal Immunity:** Dual-resolved canonical path verification preventing directory traversal across wings, rooms, and titles.
+- **Atomic Sibling File Writes:** Atomic `.tmp` to destination writes with `EXDEV` cross-device fallback handling for Docker volume mounts.
+- **Code-Safe Injection Neutralizer:** Neutralizes prompt injection control tokens (`<|im_start|>`, `[INST]`) in prose while preserving code blocks.
+- **Structured XML Context Enclosure:** Recalled memories wrapped in `<recalled_memory_context>` tags with closing tag escaping.
+- **Recursive Graph Cycle Prevention:** Added `ARRAY[]` path accumulation and cycle termination to PostgreSQL recursive CTEs.
+- **WebSearch FTS (`websearch_to_tsquery`):** Native phrase quotes and `-exclusions` with unescaped punctuation safety.
+- **Selective Access Touch (Decay Feedback Fix):** Mode-specific relevance thresholds preventing low-confidence matches from resetting Ebbinghaus decay.
+- **Linear Sliding-Window Chunking:** Turns $>1,500$ chars chunked into overlapping linear sequences, ensuring 100% vector indexing without Obsidian graph mesh clutter.
