@@ -1,20 +1,30 @@
 """Mnemosyne v3.0 MCP Server — JSON-RPC stdio transport."""
 
-import json
+import os
 import sys
+
+# Silence Hugging Face, tokenizers, and PyTorch from writing to stdout
+os.environ["TOKENIZERS_PARALLELISM"] = "false"
+os.environ["HF_HUB_DISABLE_PROGRESS_BARS"] = "1"
+
+import json
 import time
 import signal
 import logging
-from typing import Dict, List
+from typing import Dict, List, Optional
 
 from mnemosyne.core import UnifiedMemorySystem
 
 logger = logging.getLogger("mcp-server")
-logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
+logging.basicConfig(
+    stream=sys.stderr,
+    level=logging.INFO,
+    format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
+)
 
 
 class MCPServer:
-    def __init__(self, memory=None):
+    def __init__(self, memory: Optional[UnifiedMemorySystem] = None):
         self.memory = memory if memory is not None else UnifiedMemorySystem()
         self._running = True
         self._start_time = time.time()
@@ -33,18 +43,16 @@ class MCPServer:
             line = line.strip()
             if not line:
                 continue
-            req_id = None
+            self._request_count += 1
             try:
                 req = json.loads(line)
-                req_id = req.get("id")
                 resp = self._handle(req)
-                if resp is None:
-                    continue
-            except json.JSONDecodeError as e:
+            except json.JSONDecodeError:
                 self._error_count += 1
-                resp = {"jsonrpc": "2.0", "error": {"code": -32700, "message": str(e)}, "id": req_id}
+                resp = {"jsonrpc": "2.0", "error": {"code": -32700, "message": "Parse error"}, "id": None}
             except Exception as e:
                 self._error_count += 1
+                req_id = req.get("id") if "req" in locals() and isinstance(req, dict) else None
                 logger.error(f"[{req_id}] Unexpected error: {e}")
                 resp = {"jsonrpc": "2.0", "error": {"code": -32603, "message": str(e)}, "id": req_id}
             print(json.dumps(resp), flush=True)
@@ -58,55 +66,69 @@ class MCPServer:
         self._running = False
 
     def _handle(self, req: Dict) -> Dict:
+        self._request_count += 1
         method = req.get("method")
         params = req.get("params", {})
         req_id = req.get("id")
-        self._request_count += 1
 
-        try:
-            if req_id is None:
-                return None
-            if method == "ping":
-                return {"jsonrpc": "2.0", "result": {}, "id": req_id}
-            if method == "initialize":
+        if method == "initialize":
+            return {
+                "jsonrpc": "2.0",
+                "result": {
+                    "protocolVersion": "2024-11-05",
+                    "capabilities": {"tools": {"listChanged": False}},
+                    "serverInfo": {"name": "mnemosyne", "version": "3.0.0"},
+                },
+                "id": req_id,
+            }
+        elif method == "notifications/initialized":
+            return {}
+        elif method == "ping":
+            return {"jsonrpc": "2.0", "result": {}, "id": req_id}
+        elif method == "tools/list":
+            return {"jsonrpc": "2.0", "result": {"tools": self._get_tools()}, "id": req_id}
+        elif method == "tools/call":
+            tool_name = params.get("name")
+            tool_args = params.get("arguments", {})
+            try:
+                result = self._call_tool(tool_name, tool_args)
                 return {
                     "jsonrpc": "2.0",
                     "result": {
-                        "protocolVersion": "2024-11-05",
-                        "capabilities": {},
-                        "serverInfo": {"name": "mnemosyne", "version": "3.0.0"},
+                        "content": [{"type": "text", "text": json.dumps(result, indent=2, default=str)}]
                     },
                     "id": req_id,
                 }
-            if method == "tools/list":
-                return {"jsonrpc": "2.0", "result": {"tools": self._tools()}, "id": req_id}
-            if method == "tools/call":
-                name = params.get("name", "")
-                args = params.get("arguments", {})
-                result = self._call_tool(name, args)
+            except Exception as e:
+                self._error_count += 1
+                logger.error(f"Tool call failed [{tool_name}]: {e}")
                 return {
                     "jsonrpc": "2.0",
-                    "result": {"content": [{"type": "text", "text": json.dumps(result, default=str)}]},
+                    "result": {
+                        "content": [{"type": "text", "text": json.dumps({"error": str(e)})}],
+                        "isError": True,
+                    },
                     "id": req_id,
                 }
-            return {"jsonrpc": "2.0", "error": {"code": -32601, "message": f"Method not found: {method}"}, "id": req_id}
-        except Exception as e:
-            self._error_count += 1
-            logger.error(f"[{req_id}] Tool error in {method}: {e}")
-            return {"jsonrpc": "2.0", "error": {"code": -32000, "message": str(e)}, "id": req_id}
+        else:
+            return {
+                "jsonrpc": "2.0",
+                "error": {"code": -32601, "message": f"Method not found: {method}"},
+                "id": req_id,
+            }
 
-    def _tools(self) -> List[Dict]:
+    def _get_tools(self) -> List[Dict]:
         return [
             {
                 "name": "memory_remember",
-                "description": "Save a fact, decision, or observation to persistent memory. Use wing/room to organize hierarchically.",
+                "description": "Store a memory note in the vault with semantic embedding, tags, and hierarchical wing/room scope.",
                 "inputSchema": {
                     "type": "object",
                     "properties": {
-                        "title": {"type": "string", "description": "Short descriptive title for the memory"},
-                        "content": {"type": "string", "description": "The full content to remember"},
-                        "tags": {"type": "array", "items": {"type": "string"}},
-                        "salience": {"type": "number", "description": "Importance score 0.0-1.0"},
+                        "title": {"type": "string", "description": "Short, unique title for the memory"},
+                        "content": {"type": "string", "description": "The memory content in markdown"},
+                        "tags": {"type": "array", "items": {"type": "string"}, "description": "Categorical tags"},
+                        "salience": {"type": "number", "description": "Importance score 0.0-1.0 (default 0.5)"},
                         "wing": {"type": "string", "description": "Project/domain grouping (e.g. ecommerce, security, devops)", "default": "general"},
                         "room": {"type": "string", "description": "Topic within the wing (e.g. woocommerce, firewall, docker)", "default": "general"},
                     },
@@ -136,7 +158,7 @@ class MCPServer:
             },
             {
                 "name": "memory_ingest_session",
-                "description": "Ingest a full conversation transcript verbatim into memory, auto-chunked.",
+                "description": "Ingest a full conversation transcript verbatim into memory, split along conversational turn boundaries.",
                 "inputSchema": {
                     "type": "object",
                     "properties": {
@@ -149,7 +171,7 @@ class MCPServer:
             },
             {
                 "name": "memory_timeline",
-                "description": "View recent memory operations (remember, recall, remind) as a timeline.",
+                "description": "View recent memory operations (remember, recall, remind, consolidate) as a chronological timeline.",
                 "inputSchema": {
                     "type": "object",
                     "properties": {
@@ -185,7 +207,7 @@ class MCPServer:
             },
             {
                 "name": "memory_audit",
-                "description": "Get memory system statistics, health check, and version info",
+                "description": "Get memory system statistics, health check, active wings, and version info",
                 "inputSchema": {"type": "object", "properties": {}},
             },
         ]

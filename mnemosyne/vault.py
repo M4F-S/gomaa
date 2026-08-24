@@ -11,7 +11,7 @@ from typing import List, Dict, Optional
 logger = logging.getLogger("unified-memory")
 
 VAULT_PATH = os.environ.get(
-    "MEMORY_VAULT_PATH", "~/.mnemosyne/vault"
+    "MEMORY_VAULT_PATH", os.path.expanduser("~/.mnemosyne/vault")
 )
 
 
@@ -30,7 +30,7 @@ class VaultManager:
     """
 
     def __init__(self, vault_path: str = VAULT_PATH) -> None:
-        self.vault_path = Path(vault_path)
+        self.vault_path = Path(os.path.expanduser(str(vault_path)))
         self.vault_path.mkdir(parents=True, exist_ok=True)
 
     def write_note(
@@ -106,8 +106,30 @@ class VaultManager:
         return {"frontmatter": {}, "body": text, "raw": text}
 
     def extract_wiki_links(self, text: str) -> List[str]:
-        """Extract [[Wiki Links]] from text."""
-        return re.findall(r"\[\[(.*?)\]\]", text)
+        """
+        Extract canonical target note titles from [[Wiki Links]],
+        ignoring code blocks, section headers (#section), and aliases (|alias).
+        """
+        if not text:
+            return []
+
+        # 1. Strip triple-backtick code blocks
+        clean_text = re.sub(r"```[\s\S]*?```", "", text)
+        # 2. Strip inline code
+        clean_text = re.sub(r"`[^`]*?`", "", clean_text)
+
+        # 3. Match [[Target#Section|Alias]] -> captures "Target"
+        matches = re.findall(r"\[\[([^\]\|#]+)(?:#[^\]\|]+)?(?:\|[^\]]+)?\]\]", clean_text)
+
+        # 4. Strip whitespace and deduplicate preserving order
+        seen = set()
+        result = []
+        for m in matches:
+            target = m.strip()
+            if target and target not in seen:
+                seen.add(target)
+                result.append(target)
+        return result
 
     def _extract_wiki_links(self, text: str) -> List[str]:
         """Private alias for extract_wiki_links."""

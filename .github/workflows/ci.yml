@@ -7,7 +7,8 @@ on:
     branches: [ main ]
 
 jobs:
-  test:
+  unit-tests:
+    name: Unit Tests (Python ${{ matrix.python-version }})
     runs-on: ubuntu-latest
     strategy:
       matrix:
@@ -20,7 +21,7 @@ jobs:
       uses: actions/setup-python@v5
       with:
         python-version: ${{ matrix.python-version }}
-        cache: pip
+        cache: 'pip'
 
     - name: Install dependencies
       run: |
@@ -30,3 +31,43 @@ jobs:
     - name: Run unit tests
       run: |
         pytest tests/ -v -m "not integration"
+
+  integration-tests:
+    name: PostgreSQL + pgvector Integration Tests
+    runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: ankane/pgvector:latest
+        env:
+          POSTGRES_USER: mnemosyne
+          POSTGRES_PASSWORD: mnemosyne
+          POSTGRES_DB: mnemosyne
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Set up Python 3.11
+      uses: actions/setup-python@v5
+      with:
+        python-version: "3.11"
+        cache: 'pip'
+
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install -e ".[dev]"
+
+    - name: Run integration tests with live PostgreSQL
+      env:
+        MEMORY_DB_DSN: "postgresql://mnemosyne:mnemosyne@localhost:5432/mnemosyne"
+        MEMORY_REQUIRE_POSTGRES: "true"
+      run: |
+        pytest tests/test_integration.py -v

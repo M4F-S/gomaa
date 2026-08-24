@@ -6,7 +6,7 @@ services:
       POSTGRES_PASSWORD: mnemosyne
       POSTGRES_DB: mnemosyne
     ports:
-      - "15432:5432"
+      - "127.0.0.1:15432:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
     healthcheck:

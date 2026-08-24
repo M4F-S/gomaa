@@ -10,3 +10,5 @@ from mnemosyne.mcp_server import MCPServer
 __all__ = ["UnifiedMemorySystem", "MCPServer", "__version__"]
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
+
+MemoryMCPServer = MCPServer

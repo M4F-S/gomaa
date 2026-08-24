@@ -25,5 +25,23 @@ class TestVaultManager:
 
     def test_wiki_links_extraction(self, vault):
         content = "See [[Another Note]] and [[Third Note]]"
-        links = vault._extract_wiki_links(content)
+        links = vault.extract_wiki_links(content)
         assert links == ["Another Note", "Third Note"]
+
+    def test_piped_and_section_wiki_links(self, vault):
+        content = "Check [[Architecture#Database|DB Schema]] and [[DevOps/Deployment#Staging]]"
+        links = vault.extract_wiki_links(content)
+        assert links == ["Architecture", "DevOps/Deployment"]
+
+    def test_wiki_links_ignores_code_blocks(self, vault):
+        content = """
+Here is a normal link: [[ValidNote]].
+And here is a code block:
+```python
+matrix = [[1, 2], [3, 4]]
+val = matrix[[0]]
+```
+And inline code `array[[1]]`.
+"""
+        links = vault.extract_wiki_links(content)
+        assert links == ["ValidNote"]

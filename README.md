@@ -133,7 +133,7 @@ memory = UnifiedMemorySystem()
 # 1. Store a memory with hierarchical scope
 memory.remember(
     title="PostgreSQL Production Cluster Setup",
-    content="Primary cluster operates at 172.16.8.2:5432 with pgvector 0.7 enabled.",
+    content="Primary cluster operates at localhost:5432 with pgvector 0.7 enabled.",
     tags=["infra", "database"],
     wing="devops",
     room="databases",
@@ -209,7 +209,7 @@ mcp_servers:
     command: /opt/data/mcp-servers/venv/bin/python
     args: [/opt/data/mcp-servers/obsidian_memory_mcp.py]
     env:
-      MEMORY_DB_DSN: postgresql://mnemosyne:mnemosyne@172.16.8.2:5432/toy_db
+      MEMORY_DB_DSN: postgresql://mnemosyne:mnemosyne@localhost:5432/agent_db
       MEMORY_VAULT_PATH: /root/.hermes/vault
 ```
 

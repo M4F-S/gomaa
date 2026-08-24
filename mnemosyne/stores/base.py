@@ -1,7 +1,7 @@
 """Abstract base class for memory stores."""
 
 from abc import ABC, abstractmethod
-from typing import List, Dict, Optional
+from typing import List, Dict, Optional, Any
 
 
 class MemoryStore(ABC):
@@ -18,6 +18,8 @@ class MemoryStore(ABC):
         salience: float,
         embedding: List[float],
         vault_path: str,
+        wing: str = "general",
+        room: str = "general",
     ) -> str:
         """Insert or update a note. Returns note ID."""
         pass
@@ -29,26 +31,42 @@ class MemoryStore(ABC):
 
     @abstractmethod
     def search_semantic(
-        self, query_embedding: List[float], top_k: int = 10,
-        filters: Optional[Dict] = None
+        self,
+        query_embedding: List[float],
+        top_k: int = 10,
+        filters: Optional[Dict] = None,
+        scope: Optional[Dict] = None,
     ) -> List[Dict]:
-        """Vector similarity search."""
+        """Vector similarity search with optional scoping."""
         pass
 
     @abstractmethod
-    def search_keyword(self, query: str, top_k: int = 10) -> List[Dict]:
-        """Full-text search."""
+    def search_keyword(
+        self,
+        query: str,
+        top_k: int = 10,
+        scope: Optional[Dict] = None,
+    ) -> List[Dict]:
+        """Full-text / keyword search with optional scoping."""
         pass
 
     @abstractmethod
-    def search_graph(self, note_title: str, depth: int = 2,
-                     top_k: int = 10) -> List[Dict]:
+    def search_graph(
+        self,
+        note_title: str,
+        depth: int = 2,
+        top_k: int = 10,
+    ) -> List[Dict]:
         """Graph traversal via wiki-links."""
         pass
 
     @abstractmethod
     def hybrid_search(
-        self, query: str, query_embedding: List[float], top_k: int = 10
+        self,
+        query: str,
+        query_embedding: List[float],
+        top_k: int = 10,
+        scope: Optional[Dict] = None,
     ) -> List[Dict]:
         """Reciprocal Rank Fusion of semantic + keyword + salience."""
         pass
@@ -59,6 +77,36 @@ class MemoryStore(ABC):
         pass
 
     @abstractmethod
-    def get_stats(self) -> Dict[str, int]:
+    def log_timeline(
+        self,
+        action: str,
+        note_title: Optional[str] = None,
+        query: Optional[str] = None,
+        summary: Optional[str] = None,
+    ) -> None:
+        """Log an operation to the timeline."""
+        pass
+
+    @abstractmethod
+    def get_timeline(self, limit: int = 20) -> List[Dict]:
+        """Get recent timeline entries."""
+        pass
+
+    @abstractmethod
+    def get_note_history(self, title: str, limit: int = 10) -> List[Dict]:
+        """Get version history of a note."""
+        pass
+
+    @abstractmethod
+    def apply_decay(
+        self,
+        decay_rate: float = 0.95,
+        archive_threshold: float = 0.05,
+    ) -> Dict:
+        """Apply Ebbinghaus temporal decay to inactive notes."""
+        pass
+
+    @abstractmethod
+    def get_stats(self) -> Dict[str, Any]:
         """Get vault statistics."""
         pass

@@ -1,11 +1,16 @@
-"""Embedding engine with 3-tier fallback."""
+"""Embedding engine with multi-tier fallback (local, Ollama, deterministic hash)."""
 
 import os
+import sys
 import json
 import hashlib
 import logging
 import threading
 from typing import List, Optional, Any
+
+# Ensure Hugging Face and tokenizers do not output to stdout (prevents MCP stdio corruption)
+os.environ["TOKENIZERS_PARALLELISM"] = "false"
+os.environ["HF_HUB_DISABLE_PROGRESS_BARS"] = "1"
 
 logger = logging.getLogger("unified-memory")
 
@@ -70,7 +75,7 @@ class Embedder:
             if self._provider == "sentence-transformers":
                 try:
                     assert self._model is not None
-                    vectors = self._model.encode(texts, convert_to_numpy=True)
+                    vectors = self._model.encode(texts, convert_to_numpy=True, show_progress_bar=False)
                     return [self._normalize(v.tolist()) for v in vectors]
                 except Exception as e:
                     logger.error(f"sentence-transformers failed: {e}, falling back")

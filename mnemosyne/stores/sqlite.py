@@ -1,4 +1,4 @@
-"""SQLite store with pure-Python vector similarity."""
+"""SQLite store with pure-Python vector similarity and full v3.0 feature parity."""
 
 import os
 import json
@@ -6,7 +6,8 @@ import math
 import logging
 import sqlite3
 import uuid
-from typing import List, Dict, Optional
+from datetime import datetime, timezone
+from typing import List, Dict, Optional, Any
 
 from mnemosyne.stores.base import MemoryStore
 
@@ -20,13 +21,13 @@ SQLITE_PATH = os.environ.get(
 class SQLiteStore(MemoryStore):
     """
     SQLite-backed store with JSON-encoded embeddings.
-    Semantic search uses brute-force cosine similarity in Python.
-    Good for <10K notes (fast enough for early users).
+    Full v3.0 feature parity: Wing/Room scoping, timeline, versioning,
+    RRF hybrid search, and temporal decay.
     """
 
     def __init__(self, db_path: str = SQLITE_PATH) -> None:
-        self.db_path = db_path
-        os.makedirs(os.path.dirname(db_path), exist_ok=True)
+        self.db_path = os.path.expanduser(db_path)
+        os.makedirs(os.path.dirname(self.db_path), exist_ok=True)
         self._ensure_schema()
 
     def _conn(self) -> sqlite3.Connection:
@@ -36,7 +37,7 @@ class SQLiteStore(MemoryStore):
         return conn
 
     def _ensure_schema(self) -> None:
-        """Create tables if they don't exist."""
+        """Create tables if they don't exist and run incremental column additions."""
         with self._conn() as conn:
             conn.executescript(
                 """
@@ -50,6 +51,9 @@ class SQLiteStore(MemoryStore):
                     salience REAL DEFAULT 0.5,
                     embedding TEXT,
                     vault_path TEXT NOT NULL,
+                    wing TEXT NOT NULL DEFAULT 'general',
+                    room TEXT NOT NULL DEFAULT 'general',
+                    last_accessed_at TEXT NOT NULL DEFAULT (datetime('now')),
                     created_at TEXT NOT NULL DEFAULT (datetime('now')),
                     updated_at TEXT NOT NULL DEFAULT (datetime('now')),
                     UNIQUE(title, vault_path)
@@ -57,11 +61,9 @@ class SQLiteStore(MemoryStore):
 
                 CREATE TABLE IF NOT EXISTS links (
                     id TEXT PRIMARY KEY,
-                    source_note_id TEXT NOT NULL
-                        REFERENCES notes(id) ON DELETE CASCADE,
-                    target_note_id TEXT NOT NULL
-                        REFERENCES notes(id) ON DELETE CASCADE,
-                    link_type TEXT DEFAULT 'wiki',
+                    source_note_id TEXT NOT NULL,
+                    target_note_id TEXT NOT NULL,
+                    link_type TEXT NOT NULL DEFAULT 'wiki',
                     created_at TEXT NOT NULL DEFAULT (datetime('now')),
                     UNIQUE(source_note_id, target_note_id)
                 );
@@ -69,21 +71,83 @@ class SQLiteStore(MemoryStore):
                 CREATE TABLE IF NOT EXISTS prospective (
                     id TEXT PRIMARY KEY,
                     title TEXT NOT NULL,
-                    content TEXT,
+                    content TEXT DEFAULT '',
                     trigger_at TEXT NOT NULL,
                     recurring TEXT,
-                    status TEXT DEFAULT 'pending',
+                    status TEXT NOT NULL DEFAULT 'pending',
                     created_at TEXT NOT NULL DEFAULT (datetime('now'))
                 );
 
-                CREATE INDEX IF NOT EXISTS notes_status_idx ON notes(status);
-                CREATE INDEX IF NOT EXISTS notes_type_idx ON notes(note_type);
-                CREATE INDEX IF NOT EXISTS prospective_trigger_idx
-                    ON prospective(trigger_at);
-                """
+                CREATE TABLE IF NOT EXISTS timeline (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    action TEXT NOT NULL,
+                    note_title TEXT,
+                    query TEXT,
+                    summary TEXT,
+                    created_at TEXT NOT NULL DEFAULT (datetime('now'))
+                );
+
+                CREATE TABLE IF NOT EXISTS note_versions (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    note_id TEXT,
+                    title TEXT,
+                    content TEXT,
+                    tags TEXT,
+                    salience REAL,
+                    version_at TEXT NOT NULL DEFAULT (datetime('now'))
+                );
+            """
             )
+            # Ensure new columns exist on legacy tables
+            cur = conn.cursor()
+            cur.execute("PRAGMA table_info(notes);")
+            columns = [row["name"] for row in cur.fetchall()]
+            if "wing" not in columns:
+                cur.execute("ALTER TABLE notes ADD COLUMN wing TEXT NOT NULL DEFAULT 'general';")
+            if "room" not in columns:
+                cur.execute("ALTER TABLE notes ADD COLUMN room TEXT NOT NULL DEFAULT 'general';")
+            if "last_accessed_at" not in columns:
+                cur.execute("ALTER TABLE notes ADD COLUMN last_accessed_at TEXT NOT NULL DEFAULT '';")
             conn.commit()
-            logger.info("SQLite schema initialized.")
+
+    def _archive_version(self, cur, title: str, vault_path: str):
+        cur.execute("SELECT id, content, tags, salience FROM notes WHERE title = ? AND vault_path = ?;", (title, vault_path))
+        row = cur.fetchone()
+        if row:
+            cur.execute(
+                "INSERT INTO note_versions (note_id, title, content, tags, salience) VALUES (?, ?, ?, ?, ?);",
+                (row["id"], title, row["content"], row["tags"], row["salience"]),
+            )
+
+    def log_timeline(self, action: str, note_title: Optional[str] = None, query: Optional[str] = None, summary: Optional[str] = None):
+        try:
+            with self._conn() as conn:
+                conn.execute(
+                    "INSERT INTO timeline (action, note_title, query, summary) VALUES (?, ?, ?, ?);",
+                    (action, note_title, query, summary),
+                )
+                conn.commit()
+        except Exception as e:
+            logger.warning(f"Failed to log timeline event: {e}")
+
+    def get_timeline(self, limit: int = 20) -> List[Dict]:
+        with self._conn() as conn:
+            cur = conn.cursor()
+            cur.execute("SELECT id, action as operation, note_title as title, query, summary, created_at FROM timeline ORDER BY id DESC LIMIT ?;", (limit,))
+            return [dict(row) for row in cur.fetchall()]
+
+    def get_note_history(self, title: str, limit: int = 10) -> List[Dict]:
+        with self._conn() as conn:
+            cur = conn.cursor()
+            cur.execute(
+                """SELECT nv.id, nv.title, SUBSTR(nv.content, 1, 200) as preview, nv.tags, nv.salience, nv.version_at
+                   FROM note_versions nv
+                   JOIN notes n ON nv.note_id = n.id
+                   WHERE n.title = ?
+                   ORDER BY nv.id DESC LIMIT ?;""",
+                (title, limit),
+            )
+            return [dict(row) for row in cur.fetchall()]
 
     def upsert_note(
         self,
@@ -95,170 +159,243 @@ class SQLiteStore(MemoryStore):
         salience: float,
         embedding: List[float],
         vault_path: str,
+        wing: str = "general",
+        room: str = "general",
     ) -> str:
-        """Insert or update a note."""
-        note_id = str(uuid.uuid4())
         with self._conn() as conn:
-            # Check if note exists
-            row = conn.execute(
-                "SELECT id FROM notes WHERE title = ? AND vault_path = ?",
-                (title, vault_path),
-            ).fetchone()
-            if row:
-                note_id = row["id"]
-                conn.execute(
-                    """
-                    UPDATE notes SET
-                        content = ?, tags = ?, note_type = ?, status = ?,
-                        salience = ?, embedding = ?,
-                        updated_at = datetime('now')
-                    WHERE id = ?
-                """,
-                    (
-                        content,
-                        json.dumps(tags),
-                        note_type,
-                        status,
-                        salience,
-                        json.dumps(embedding),
-                        note_id,
-                    ),
+            cur = conn.cursor()
+            self._archive_version(cur, title, vault_path)
+            note_id = str(uuid.uuid4())
+            emb_json = json.dumps(embedding)
+            tags_json = json.dumps(tags)
+
+            cur.execute(
+                """
+                INSERT INTO notes (
+                    id, title, content, tags, note_type, status,
+                    salience, embedding, vault_path, wing, room, last_accessed_at, updated_at
                 )
-            else:
-                conn.execute(
-                    """
-                    INSERT INTO notes (
-                        id, title, content, tags, note_type,
-                        status, salience, embedding, vault_path
-                    )
-                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-                """,
-                    (
-                        note_id,
-                        title,
-                        content,
-                        json.dumps(tags),
-                        note_type,
-                        status,
-                        salience,
-                        json.dumps(embedding),
-                        vault_path,
-                    ),
-                )
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'), datetime('now'))
+                ON CONFLICT(title, vault_path) DO UPDATE SET
+                    content = excluded.content,
+                    tags = excluded.tags,
+                    note_type = excluded.note_type,
+                    status = excluded.status,
+                    salience = excluded.salience,
+                    embedding = excluded.embedding,
+                    wing = excluded.wing,
+                    room = excluded.room,
+                    last_accessed_at = datetime('now'),
+                    updated_at = datetime('now');
+            """,
+                (
+                    note_id,
+                    title,
+                    content,
+                    tags_json,
+                    note_type,
+                    status,
+                    salience,
+                    emb_json,
+                    vault_path,
+                    wing,
+                    room,
+                ),
+            )
+            cur.execute("SELECT id FROM notes WHERE title = ? AND vault_path = ?;", (title, vault_path))
+            row = cur.fetchone()
             conn.commit()
-            return note_id
+            return row["id"] if row else note_id
 
     def delete_note(self, title: str, vault_path: str) -> bool:
-        """Delete a note."""
         with self._conn() as conn:
-            cur = conn.execute(
-                "DELETE FROM notes WHERE title = ? AND vault_path = ?",
-                (title, vault_path),
-            )
+            cur = conn.cursor()
+            cur.execute("DELETE FROM notes WHERE title = ? AND vault_path = ?;", (title, vault_path))
             conn.commit()
-            return bool(cur.rowcount > 0)
+            return cur.rowcount > 0
+
+    def _cosine_sim(self, a: List[float], b: List[float]) -> float:
+        if not a or not b or len(a) != len(b):
+            return 0.0
+        dot = sum(x * y for x, y in zip(a, b))
+        norm_a = math.sqrt(sum(x * x for x in a))
+        norm_b = math.sqrt(sum(x * x for x in b))
+        if norm_a == 0 or norm_b == 0:
+            return 0.0
+        return dot / (norm_a * norm_b)
 
     def search_semantic(
-        self, query_embedding: List[float], top_k: int = 10,
-        filters: Optional[Dict] = None
+        self,
+        query_embedding: List[float],
+        top_k: int = 10,
+        filters: Optional[Dict] = None,
+        scope: Optional[Dict] = None,
     ) -> List[Dict]:
-        """Brute-force cosine similarity in Python."""
         with self._conn() as conn:
-            where = "status = 'active'"
-            params: List[str] = []
+            cur = conn.cursor()
+            query_sql = "SELECT id, title, content, tags, note_type, salience, vault_path, wing, room, embedding FROM notes WHERE status = 'active'"
+            params = []
+
+            if scope:
+                if scope.get("wing"):
+                    query_sql += " AND wing = ?"
+                    params.append(scope["wing"])
+                if scope.get("room"):
+                    query_sql += " AND room = ?"
+                    params.append(scope["room"])
+
             if filters:
                 if filters.get("note_type"):
-                    where += " AND note_type = ?"
+                    query_sql += " AND note_type = ?"
                     params.append(filters["note_type"])
-            rows = conn.execute(
-                f"SELECT * FROM notes WHERE {where}", params
-            ).fetchall()
 
-        results = []
-        for row in rows:
-            emb = json.loads(row["embedding"] or "[]")
-            if not emb:
-                continue
-            score = self._cosine_similarity(query_embedding, emb)
-            results.append({**dict(row), "score": score})
+            cur.execute(query_sql, params)
+            rows = cur.fetchall()
 
-        results.sort(key=lambda x: x["score"], reverse=True)
-        return results[:top_k]
+            scored = []
+            for row in rows:
+                if not row["embedding"]:
+                    continue
+                emb = json.loads(row["embedding"])
+                score = self._cosine_sim(query_embedding, emb)
+                note_tags = json.loads(row["tags"]) if row["tags"] else []
 
-    def search_keyword(self, query: str, top_k: int = 10) -> List[Dict]:
-        """Simple substring search (SQLite has no native full-text)."""
-        terms = query.lower().split()
+                if filters and filters.get("tags"):
+                    if not any(t in note_tags for t in filters["tags"]):
+                        continue
+
+                scored.append(
+                    {
+                        "id": row["id"],
+                        "title": row["title"],
+                        "content": row["content"],
+                        "tags": note_tags,
+                        "note_type": row["note_type"],
+                        "salience": row["salience"],
+                        "vault_path": row["vault_path"],
+                        "wing": row["wing"],
+                        "room": row["room"],
+                        "score": score,
+                    }
+                )
+
+            scored.sort(key=lambda x: x["score"], reverse=True)
+            results = scored[:top_k]
+            if results:
+                ids = [r["id"] for r in results]
+                placeholders = ",".join("?" for _ in ids)
+                conn.execute(f"UPDATE notes SET last_accessed_at = datetime('now') WHERE id IN ({placeholders});", ids)
+                conn.commit()
+            return results
+
+    def search_keyword(self, query: str, top_k: int = 10, scope: Optional[Dict] = None) -> List[Dict]:
         with self._conn() as conn:
-            rows = conn.execute(
-                "SELECT * FROM notes WHERE status = 'active'"
-            ).fetchall()
+            cur = conn.cursor()
+            query_sql = """
+                SELECT id, title, content, tags, note_type, salience, vault_path, wing, room
+                FROM notes
+                WHERE status = 'active' AND (title LIKE ? OR content LIKE ?)
+            """
+            params = [f"%{query}%", f"%{query}%"]
 
-        results = []
-        for row in rows:
-            text = (row["title"] + " " + row["content"]).lower()
-            score = (
-                sum(1 for term in terms if term in text) / len(terms)
-                if terms else 0
-            )
-            if score > 0:
-                results.append({**dict(row), "score": score})
+            if scope:
+                if scope.get("wing"):
+                    query_sql += " AND wing = ?"
+                    params.append(scope["wing"])
+                if scope.get("room"):
+                    query_sql += " AND room = ?"
+                    params.append(scope["room"])
 
-        results.sort(key=lambda x: x["score"], reverse=True)
-        return results[:top_k]
+            query_sql += " ORDER BY salience DESC LIMIT ?;"
+            params.append(top_k)
 
-    def search_graph(self, note_title: str, depth: int = 2,
-                     top_k: int = 10) -> List[Dict]:
-        """BFS graph traversal via wiki-links."""
+            cur.execute(query_sql, params)
+            results = []
+            for row in cur.fetchall():
+                results.append(
+                    {
+                        "id": row["id"],
+                        "title": row["title"],
+                        "content": row["content"],
+                        "tags": json.loads(row["tags"]) if row["tags"] else [],
+                        "note_type": row["note_type"],
+                        "salience": row["salience"],
+                        "vault_path": row["vault_path"],
+                        "wing": row["wing"],
+                        "room": row["room"],
+                        "score": 1.0,
+                    }
+                )
+            if results:
+                ids = [r["id"] for r in results]
+                placeholders = ",".join("?" for _ in ids)
+                conn.execute(f"UPDATE notes SET last_accessed_at = datetime('now') WHERE id IN ({placeholders});", ids)
+                conn.commit()
+            return results
+
+    def search_graph(self, note_title: str, depth: int = 2, top_k: int = 10) -> List[Dict]:
         with self._conn() as conn:
-            # Find starting note
-            start = conn.execute(
-                "SELECT id FROM notes WHERE title = ? AND status = 'active'",
-                (note_title,),
-            ).fetchone()
-            if not start:
+            cur = conn.cursor()
+            cur.execute("SELECT id FROM notes WHERE title = ? AND status = 'active';", (note_title,))
+            root = cur.fetchone()
+            if not root:
                 return []
 
             visited = set()
-            queue = [(start["id"], 0)]
+            current_level = {root["id"]}
             results = []
 
-            while queue:
-                nid, d = queue.pop(0)
-                if nid in visited or d >= depth:
-                    continue
-                visited.add(nid)
+            for d in range(1, depth + 1):
+                if not current_level:
+                    break
+                next_level = set()
+                for nid in current_level:
+                    if nid in visited:
+                        continue
+                    visited.add(nid)
+                    cur.execute(
+                        """
+                        SELECT n.id, n.title, n.content, n.tags, n.salience, n.vault_path, n.wing, n.room
+                        FROM links l
+                        JOIN notes n ON n.id = l.target_note_id
+                        WHERE l.source_note_id = ? AND n.status = 'active';
+                    """,
+                        (nid,),
+                    )
+                    for row in cur.fetchall():
+                        if row["id"] != root["id"] and row["id"] not in visited:
+                            results.append(
+                                {
+                                    "id": row["id"],
+                                    "title": row["title"],
+                                    "content": row["content"],
+                                    "tags": json.loads(row["tags"]) if row["tags"] else [],
+                                    "salience": row["salience"],
+                                    "vault_path": row["vault_path"],
+                                    "wing": row["wing"],
+                                    "room": row["room"],
+                                    "depth": d,
+                                }
+                            )
+                            next_level.add(row["id"])
+                current_level = next_level
 
-                # Find neighbors
-                neighbors = conn.execute(
-                    """
-                    SELECT n.* FROM notes n
-                    JOIN links l ON l.target_note_id = n.id
-                    WHERE l.source_note_id = ? AND n.status = 'active'
-                """,
-                    (nid,),
-                ).fetchall()
-
-                for neighbor in neighbors:
-                    if neighbor["id"] not in visited:
-                        results.append({**dict(neighbor), "depth": d + 1})
-                        queue.append((neighbor["id"], d + 1))
-
-            # Sort by depth then salience
-            results.sort(key=lambda x: (x["depth"], -x.get("salience", 0)))
+            results.sort(key=lambda x: (x["depth"], -x["salience"]))
             return results[:top_k]
 
     def hybrid_search(
-        self, query: str, query_embedding: List[float], top_k: int = 10
+        self,
+        query: str,
+        query_embedding: List[float],
+        top_k: int = 10,
+        scope: Optional[Dict] = None,
     ) -> List[Dict]:
-        """RRF of semantic + keyword + salience."""
-        semantic = self.search_semantic(query_embedding, top_k=top_k * 2)
-        keyword = self.search_keyword(query, top_k=top_k * 2)
+        semantic = self.search_semantic(query_embedding, top_k=top_k * 2, scope=scope)
+        keyword = self.search_keyword(query, top_k=top_k * 2, scope=scope)
 
         scores: Dict[str, Dict] = {}
 
-        def add_results(
-            results: List[Dict], source: str, weight: float
-        ) -> None:
+        def add_results(results, source, weight):
             for rank, r in enumerate(results, 1):
                 nid = str(r["id"])
                 if nid not in scores:
@@ -274,54 +411,90 @@ class SQLiteStore(MemoryStore):
         for nid in scores:
             scores[nid]["rrf_score"] += scores[nid].get("salience", 0.5) * 0.2
 
-        sorted_results = sorted(
-            scores.values(), key=lambda x: x["rrf_score"], reverse=True
-        )
+        sorted_results = sorted(scores.values(), key=lambda x: x["rrf_score"], reverse=True)
         return sorted_results[:top_k]
 
-    def update_links(self, note_id: str, wiki_links: List[str]) -> None:
-        """Update graph edges."""
+    def apply_decay(self, decay_rate: float = 0.95, archive_threshold: float = 0.05) -> Dict:
+        """Apply Ebbinghaus temporal decay to inactive notes in SQLite."""
+        decayed_count = 0
+        archived_count = 0
+        now = datetime.now(timezone.utc)
+
         with self._conn() as conn:
-            conn.execute("DELETE FROM links WHERE source_note_id = ?",
-                         (note_id,))
+            cur = conn.cursor()
+            cur.execute("SELECT id, salience, tags, last_accessed_at FROM notes WHERE status = 'active';")
+            rows = cur.fetchall()
+
+            for row in rows:
+                tags = json.loads(row["tags"]) if row["tags"] else []
+                # Pinned immunity
+                if any(t in tags for t in ["pinned", "permanent", "core"]) or row["salience"] >= 1.0:
+                    continue
+
+                last_str = row["last_accessed_at"]
+                try:
+                    last_dt = datetime.fromisoformat(last_str.replace("Z", "+00:00"))
+                    if last_dt.tzinfo is None:
+                        last_dt = last_dt.replace(tzinfo=timezone.utc)
+                except Exception:
+                    last_dt = now
+
+                days_elapsed = (now - last_dt).total_seconds() / 86400.0
+                if days_elapsed >= 1.0:
+                    new_salience = row["salience"] * (decay_rate ** days_elapsed)
+                    if new_salience < archive_threshold:
+                        cur.execute("UPDATE notes SET status = 'archived', salience = ? WHERE id = ?;", (new_salience, row["id"]))
+                        archived_count += 1
+                    else:
+                        cur.execute("UPDATE notes SET salience = ? WHERE id = ?;", (new_salience, row["id"]))
+                        decayed_count += 1
+
+            conn.commit()
+            return {"decayed": decayed_count, "archived": archived_count}
+
+    def update_links(self, note_id: str, wiki_links: List[str]) -> None:
+        with self._conn() as conn:
+            cur = conn.cursor()
+            cur.execute("DELETE FROM links WHERE source_note_id = ?;", (note_id,))
             for target_title in wiki_links:
-                target = conn.execute(
-                    "SELECT id FROM notes WHERE title = ? AND status = 'active'",
-                    (target_title.strip(),),
-                ).fetchone()
+                cur.execute("SELECT id FROM notes WHERE title = ? AND status = 'active';", (target_title.strip(),))
+                target = cur.fetchone()
                 if target:
-                    conn.execute(
+                    link_id = str(uuid.uuid4())
+                    cur.execute(
                         """
-                        INSERT OR IGNORE INTO links (
-                            id, source_note_id, target_note_id, link_type
-                        )
+                        INSERT INTO links (id, source_note_id, target_note_id, link_type)
                         VALUES (?, ?, ?, 'wiki')
+                        ON CONFLICT (source_note_id, target_note_id) DO NOTHING;
                     """,
-                        (str(uuid.uuid4()), note_id, target["id"]),
+                        (link_id, note_id, target["id"]),
                     )
             conn.commit()
 
-    def get_stats(self) -> Dict[str, int]:
-        """Get vault statistics."""
+    def get_stats(self) -> Dict[str, Any]:
         with self._conn() as conn:
-            note_count = conn.execute(
-                "SELECT COUNT(*) FROM notes WHERE status = 'active'"
-            ).fetchone()[0]
-            link_count = conn.execute(
-                "SELECT COUNT(*) FROM links"
-            ).fetchone()[0]
-            pending = conn.execute(
-                "SELECT COUNT(*) FROM prospective WHERE status = 'pending'"
-            ).fetchone()[0]
-            return {"notes": note_count, "links": link_count,
-                    "pending_reminders": pending}
-
-    @staticmethod
-    def _cosine_similarity(a: List[float], b: List[float]) -> float:
-        """Compute cosine similarity between two vectors."""
-        dot = sum(x * y for x, y in zip(a, b))
-        norm_a = math.sqrt(sum(x * x for x in a))
-        norm_b = math.sqrt(sum(x * x for x in b))
-        if norm_a == 0 or norm_b == 0:
-            return 0.0
-        return dot / (norm_a * norm_b)
+            cur = conn.cursor()
+            cur.execute("SELECT COUNT(*) FROM notes WHERE status = 'active';")
+            notes = cur.fetchone()[0]
+            cur.execute("SELECT COUNT(*) FROM links;")
+            links = cur.fetchone()[0]
+            cur.execute("SELECT COUNT(*) FROM prospective WHERE status = 'pending';")
+            pending = cur.fetchone()[0]
+            cur.execute("SELECT COUNT(*) FROM timeline;")
+            timeline_count = cur.fetchone()[0]
+            cur.execute("SELECT COUNT(*) FROM note_versions;")
+            version_count = cur.fetchone()[0]
+            cur.execute("SELECT COUNT(*) FROM notes WHERE status = 'archived';")
+            archived = cur.fetchone()[0]
+            cur.execute("SELECT DISTINCT wing FROM notes WHERE status = 'active';")
+            wings = [r[0] for r in cur.fetchall()]
+            return {
+                "notes": notes,
+                "links": links,
+                "pending_reminders": pending,
+                "timeline_entries": timeline_count,
+                "versions": version_count,
+                "archived": archived,
+                "wings": wings,
+                "version": "3.0",
+            }

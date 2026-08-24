@@ -211,22 +211,22 @@ class PgVectorStore(MemoryStore):
         with self._conn() as conn:
             with conn.cursor() as cur:
                 where = "WHERE status = 'active'"
-                params = []
+                where_params = []
 
                 scope_clause, scope_params = self._scope_clause(scope)
                 if scope_clause:
                     where += ' AND ' + scope_clause
-                    params.extend(scope_params)
+                    where_params.extend(scope_params)
 
                 if filters:
                     if filters.get('tags'):
                         where += ' AND tags && %s'
-                        params.append(filters['tags'])
+                        where_params.append(filters['tags'])
                     if filters.get('note_type'):
                         where += ' AND note_type = %s'
-                        params.append(filters['note_type'])
+                        where_params.append(filters['note_type'])
 
-                params.extend([query_embedding, query_embedding, top_k])
+                params = [query_embedding] + where_params + [query_embedding, top_k]
 
                 cur.execute(
                     f"""
@@ -251,14 +251,14 @@ class PgVectorStore(MemoryStore):
         with self._conn() as conn:
             with conn.cursor() as cur:
                 where = "WHERE status = 'active' AND tsv @@ plainto_tsquery('english', %s)"
-                params = [query]
+                where_params = [query]
 
                 scope_clause, scope_params = self._scope_clause(scope)
                 if scope_clause:
                     where += ' AND ' + scope_clause
-                    params.extend(scope_params)
+                    where_params.extend(scope_params)
 
-                params.extend([query, top_k])
+                params = [query] + where_params + [top_k]
 
                 cur.execute(
                     f"""
@@ -338,13 +338,22 @@ class PgVectorStore(MemoryStore):
                 cur.execute("""
                     UPDATE notes
                     SET salience = salience * POWER(%s, EXTRACT(EPOCH FROM (NOW() - last_accessed_at)) / 86400.0)
-                    WHERE status = 'active' AND last_accessed_at < NOW() - INTERVAL '1 day';
+                    WHERE status = 'active'
+                      AND last_accessed_at < NOW() - INTERVAL '1 day'
+                      AND NOT ('pinned' = ANY(tags))
+                      AND NOT ('permanent' = ANY(tags))
+                      AND NOT ('core' = ANY(tags))
+                      AND salience < 1.0;
                 """, (decay_rate,))
                 decayed = cur.rowcount
 
                 cur.execute("""
                     UPDATE notes SET status = 'archived'
-                    WHERE status = 'active' AND salience < %s;
+                    WHERE status = 'active'
+                      AND salience < %s
+                      AND NOT ('pinned' = ANY(tags))
+                      AND NOT ('permanent' = ANY(tags))
+                      AND NOT ('core' = ANY(tags));
                 """, (archive_threshold,))
                 archived = cur.rowcount
                 conn.commit()
