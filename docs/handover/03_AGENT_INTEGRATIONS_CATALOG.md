@@ -29,8 +29,8 @@ mcp_servers:
     args:
       - /opt/data/mcp-servers/obsidian_memory_mcp.py
     env:
-      MEMORY_DB_DSN: postgresql://mnemosyne:mnemosyne@172.16.8.2:5432/toy_db
-      MEMORY_VAULT_PATH: /root/.hermes/vault
+      MEMORY_DB_DSN: postgresql://mnemosyne:***@${DB_HOST}:5432/toy_db
+      MEMORY_VAULT_PATH: ${VAULT_PATH}
 ```
 
 ---
@@ -82,7 +82,7 @@ mem = UnifiedMemorySystem(vault_path="~/.agent/vault")
 # Remember note with domain scoping
 mem.remember(
     title="Infrastructure Decision",
-    content="Use Docker bridge network 172.16.8.0/24 for PostgreSQL inter-container traffic.",
+    content="Use Docker bridge network ${DB_NETWORK} for PostgreSQL inter-container traffic.",
     wing="devops",
     room="networking",
     tags=["infra", "docker"],

@@ -267,7 +267,7 @@ In multi-agent production setups (such as the 5-agent Hermes fleet), Mnemosyne i
 
 ```
                                   ┌─────────────────────────────────────────┐
-                                  │      Production VPS (187.124.2.26)      │
+                                  │      Production VPS (${VPS_HOST})      │
                                   └────────────────────┬────────────────────┘
                                                        │
          ┌───────────────────┬──────────────────┼───────────────────┬──────────────────┐
@@ -323,7 +323,7 @@ docker compose up -d
 python -m mnemosyne server
 
 # With PostgreSQL + pgvector
-MEMORY_DB_DSN="postgresql://mnemosyne:mnemosyne@localhost:5432/my_agent_db" python -m mnemosyne server
+MEMORY_DB_DSN="postgresql://mnemosyne:***@localhost:5432/my_agent_db" python -m mnemosyne server
 ```
 
 ---
@@ -369,8 +369,8 @@ mcp_servers:
     command: python3
     args: ["-m", "mnemosyne", "server"]
     env:
-      MEMORY_DB_DSN: "postgresql://mnemosyne:mnemosyne@172.16.8.2:5432/toy_db"
-      MEMORY_SHARED_DSN: "postgresql://mnemosyne:mnemosyne@172.16.8.2:5432/shared_db"
+      MEMORY_DB_DSN: "postgresql://mnemosyne:***@${DB_HOST}:5432/toy_db"
+      MEMORY_SHARED_DSN: "postgresql://mnemosyne:***@${DB_HOST}:5432/shared_db"
       MEMORY_VAULT_PATH: "/opt/data/vault"
 ```
 
@@ -392,8 +392,8 @@ from mnemosyne import UnifiedMemorySystem
 
 mem = UnifiedMemorySystem(
     vault_path="~/.agent/vault",
-    dsn="postgresql://mnemosyne:mnemosyne@localhost:5432/agent_db",
-    shared_dsn="postgresql://mnemosyne:mnemosyne@localhost:5432/shared_db"
+    dsn="postgresql://mnemosyne:***@localhost:5432/agent_db",
+    shared_dsn="postgresql://mnemosyne:***@localhost:5432/shared_db"
 )
 
 # Remember fact
@@ -481,7 +481,7 @@ Mnemosyne maintains a comprehensive test suite (unit tests, security injection t
 pytest tests/ -v -m "not integration"
 
 # Run full test suite including live PostgreSQL + pgvector tests
-MEMORY_DB_DSN="postgresql://mnemosyne:mnemosyne@localhost:5432/test_db" pytest tests/ -v
+MEMORY_DB_DSN="postgresql://mnemosyne:***@localhost:5432/test_db" pytest tests/ -v
 ```
 
 ---

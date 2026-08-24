@@ -24,7 +24,7 @@ docker exec -e PYTHONPATH=/tmp hermes-agent /opt/data/mcp-servers/venv/bin/pytes
 
 ```bash
 # On VPS host: runs decay engine across all 5 agent databases
-python3 /root/.hermes/scripts/nightly_consolidation.py
+python3 ${HOST_SCRIPTS_DIR}/nightly_consolidation.py
 ```
 
 ---
@@ -49,4 +49,4 @@ docker exec mo-graphify-obsidian-memory-postgres-1 pg_dumpall -U mnemosyne > /ro
 
 ### Issue B: MCP Server Connection Closed
 * **Symptom:** `Failed to connect to MCP server 'obsidian_memory'`.
-* **Verification:** Ensure `MEMORY_DB_DSN` inside the container points to `postgresql://mnemosyne:mnemosyne@172.16.8.2:5432/<agent_db>`.
+* **Verification:** Ensure `MEMORY_DB_DSN` inside the container points to `postgresql://mnemosyne:***@${DB_HOST}:5432/<agent_db>`.

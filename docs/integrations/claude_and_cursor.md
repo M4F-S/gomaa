@@ -17,7 +17,7 @@ Mnemosyne is built on the Model Context Protocol (MCP). It can be configured in 
       "command": "python3",
       "args": ["-m", "mnemosyne", "server"],
       "env": {
-        "MEMORY_DB_DSN": "postgresql://mnemosyne:mnemosyne@localhost:5432/claude_memory",
+        "MEMORY_DB_DSN": "postgresql://mnemosyne:***@localhost:5432/claude_memory",
         "MEMORY_VAULT_PATH": "~/Documents/Obsidian/ClaudeVault",
         "MEMORY_DEFAULT_WING": "personal"
       }
