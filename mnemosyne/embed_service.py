@@ -72,7 +72,15 @@ def create_app(model_name: str = "sentence-transformers/all-MiniLM-L6-v2") -> "F
             logger.error(f"Embedding error: {e}")
             raise HTTPException(status_code=500, detail=str(e))
 
-def run_service(host: str = "0.0.0.0", port: int = 8000, model_name: str = "sentence-transformers/all-MiniLM-L6-v2"):
+    return app
+
+
+def run_service(
+    host: str = "0.0.0.0",
+    port: int = 8000,
+    model_name: str = "sentence-transformers/all-MiniLM-L6-v2",
+) -> None:
+    """Run the embedding microservice with explicit host/port/model bindings."""
     import uvicorn
 
     app = create_app(model_name=model_name)
@@ -81,6 +89,7 @@ def run_service(host: str = "0.0.0.0", port: int = 8000, model_name: str = "sent
 
 
 def main():
+    """Entry point: honors EMBED_SERVICE_PORT / EMBED_SERVICE_HOST / EMBED_MODEL env vars."""
     port = int(os.environ.get("EMBED_SERVICE_PORT", "8765"))
     host = os.environ.get("EMBED_SERVICE_HOST", "0.0.0.0")
     model_name = os.environ.get("EMBED_MODEL", "sentence-transformers/all-MiniLM-L6-v2")

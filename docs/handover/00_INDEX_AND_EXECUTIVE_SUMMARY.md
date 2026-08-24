@@ -2,8 +2,8 @@
 
 **Generated:** 2026-08-24  
 **Repository:** [https://github.com/M4F-S/mnemosyne](https://github.com/M4F-S/mnemosyne)  
-**Package:** `mnemosyne-memory` (v3.1.0)  
-**Live Production Host:** VPS `<YOUR_VPS_IP>`  
+**Package:** `mnemosyne-memory` (v3.4.0)  
+**Live Production Host:** VPS `187.124.2.26`  
 
 ---
 
