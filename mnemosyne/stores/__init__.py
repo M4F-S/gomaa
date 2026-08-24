@@ -18,16 +18,20 @@ def create_store(dsn: Optional[str] = None) -> MemoryStore:
     Auto-detect the best available store.
 
     Priority:
-    1. PostgreSQL (if dsn provided or MEMORY_DB_DSN set and connection works)
-    2. SQLite (fallback, always works — unless MEMORY_REQUIRE_POSTGRES=true)
-
-    Set MEMORY_REQUIRE_POSTGRES=true to raise an error instead of silently
-    falling back to SQLite when PostgreSQL is unreachable.
+    1. Direct SQLite file path or sqlite:// URI
+    2. PostgreSQL (if dsn provided or MEMORY_DB_DSN set and connection works)
+    3. SQLite (fallback, always works — unless MEMORY_REQUIRE_POSTGRES=true)
     """
     dsn = dsn or os.environ.get("MEMORY_DB_DSN")
     require_pg = os.environ.get("MEMORY_REQUIRE_POSTGRES", "").lower() in ("true", "1", "yes")
 
     if dsn:
+        # Check if explicitly an SQLite path
+        if dsn.startswith("sqlite://"):
+            return SQLiteStore(db_path=dsn.replace("sqlite://", ""))
+        if dsn.endswith(".db") or dsn.endswith(".sqlite") or "/" in dsn and not (dsn.startswith("postgresql://") or dsn.startswith("postgres://") or "dbname=" in dsn or "host=" in dsn):
+            return SQLiteStore(db_path=dsn)
+
         try:
             store = PgVectorStore(dsn)
             logger.info(f"Using PostgreSQL store: {dsn}")

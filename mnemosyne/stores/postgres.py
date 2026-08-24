@@ -1,209 +1,276 @@
-"""PostgreSQL + pgvector store — Mnemosyne v3.0."""
-
-import os
+import json
 import logging
-import threading
-from typing import List, Dict, Optional
+import re
+import sys
+from contextlib import contextmanager
+from typing import Any, Dict, List, Optional, Tuple
+import psycopg2
+from psycopg2.extras import RealDictCursor
+from psycopg2.pool import ThreadedConnectionPool
 
-from mnemosyne.stores.base import MemoryStore
+from .base import MemoryStore
 
-logger = logging.getLogger("unified-memory")
-
-DB_DSN = os.environ.get("MEMORY_DB_DSN", "postgresql://localhost:5432/mnemosyne")
+logger = logging.getLogger("mnemosyne-postgres")
 
 
 class PgVectorStore(MemoryStore):
-    def __init__(self, dsn: str = DB_DSN):
+    def __init__(self, dsn: str, minconn: int = 1, maxconn: int = 10):
         self.dsn = dsn
-        self._local = threading.local()
-        self._init_schema()
+        self._minconn = minconn
+        self._maxconn = maxconn
+        self._pool = ThreadedConnectionPool(self._minconn, self._maxconn, dsn=self.dsn)
+        self._ensure_schema()
 
+    @contextmanager
     def _conn(self):
-        if not hasattr(self._local, "conn") or self._local.conn is None or self._local.conn.closed:
-            import psycopg2
-            self._local.conn = psycopg2.connect(self.dsn)
-        return self._local.conn
+        """Thread-safe, self-healing connection pool manager."""
+        conn = self._pool.getconn()
+        try:
+            if conn.closed != 0:
+                raise psycopg2.OperationalError("Stale closed connection acquired from pool")
+            yield conn
+            conn.commit()
+        except psycopg2.OperationalError as e:
+            logger.warning(f"Evicting dead connection from pool: {e}")
+            try:
+                conn.rollback()
+            except Exception:
+                pass
+            self._pool.putconn(conn, close=True)
+            # Reacquire fresh replacement connection
+            conn = self._pool.getconn()
+            yield conn
+            conn.commit()
+        except Exception:
+            try:
+                conn.rollback()
+            except Exception:
+                pass
+            raise
+        finally:
+            if not conn.closed:
+                self._pool.putconn(conn)
 
-    def _init_schema(self):
+    def close(self):
+        if self._pool is not None:
+            self._pool.closeall()
+
+    def _ensure_schema(self) -> None:
         with self._conn() as conn:
             with conn.cursor() as cur:
-                cur.execute("CREATE EXTENSION IF NOT EXISTS vector;")
-                cur.execute("""
+                cur.execute(
+                    """
+                    CREATE EXTENSION IF NOT EXISTS vector;
+
                     CREATE TABLE IF NOT EXISTS notes (
                         id SERIAL PRIMARY KEY,
                         title TEXT NOT NULL,
-                        content TEXT NOT NULL DEFAULT '',
+                        content TEXT NOT NULL,
                         tags TEXT[] DEFAULT '{}',
-                        note_type TEXT DEFAULT 'concept',
-                        status TEXT DEFAULT 'active',
-                        salience FLOAT DEFAULT 0.5,
+                        note_type TEXT NOT NULL DEFAULT 'concept',
+                        status TEXT NOT NULL DEFAULT 'active',
+                        salience REAL DEFAULT 0.5,
                         embedding vector(384),
-                        vault_path TEXT DEFAULT '',
-                        wing TEXT DEFAULT 'general',
-                        room TEXT DEFAULT 'general',
-                        last_accessed_at TIMESTAMPTZ DEFAULT NOW(),
+                        vault_path TEXT NOT NULL,
+                        wing TEXT NOT NULL DEFAULT 'general',
+                        room TEXT NOT NULL DEFAULT 'general',
+                        origin_agent VARCHAR(64) DEFAULT 'local',
+                        last_accessed_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+                        created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+                        updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
                         tsv tsvector GENERATED ALWAYS AS (
-                            setweight(to_tsvector('english', COALESCE(title, '')), 'A') ||
-                            setweight(to_tsvector('english', COALESCE(content, '')), 'B')
+                            setweight(to_tsvector('english', coalesce(title, '')), 'A') ||
+                            setweight(to_tsvector('english', coalesce(content, '')), 'B')
                         ) STORED,
-                        created_at TIMESTAMPTZ DEFAULT NOW(),
-                        updated_at TIMESTAMPTZ DEFAULT NOW(),
-                        UNIQUE(title, vault_path)
+                        CONSTRAINT notes_title_vault_unique UNIQUE (title, vault_path)
                     );
-                """)
-                cur.execute("CREATE INDEX IF NOT EXISTS idx_notes_embedding ON notes USING ivfflat (embedding vector_cosine_ops) WITH (lists = 10);")
-                cur.execute("CREATE INDEX IF NOT EXISTS idx_notes_tsv ON notes USING gin(tsv);")
-                cur.execute("CREATE INDEX IF NOT EXISTS idx_notes_tags ON notes USING gin(tags);")
-                cur.execute("CREATE INDEX IF NOT EXISTS idx_notes_wing_room ON notes(wing, room);")
-                cur.execute("""
+
+                    CREATE INDEX IF NOT EXISTS notes_embedding_idx ON notes USING ivfflat (embedding vector_cosine_ops) WITH (lists = 100);
+                    CREATE INDEX IF NOT EXISTS notes_tsv_idx ON notes USING gin (tsv);
+                    CREATE INDEX IF NOT EXISTS notes_tags_idx ON notes USING gin (tags);
+                    CREATE INDEX IF NOT EXISTS notes_wing_room_idx ON notes (wing, room);
+                    CREATE INDEX IF NOT EXISTS notes_status_idx ON notes (status);
+
                     CREATE TABLE IF NOT EXISTS links (
                         id SERIAL PRIMARY KEY,
-                        source_note_id INTEGER REFERENCES notes(id) ON DELETE CASCADE,
-                        target_note_id INTEGER REFERENCES notes(id) ON DELETE CASCADE,
-                        link_type TEXT DEFAULT 'wiki',
-                        created_at TIMESTAMPTZ DEFAULT NOW(),
-                        UNIQUE(source_note_id, target_note_id)
+                        source_note_id INT REFERENCES notes(id) ON DELETE CASCADE,
+                        target_note_id INT REFERENCES notes(id) ON DELETE CASCADE,
+                        link_type TEXT NOT NULL DEFAULT 'wiki',
+                        created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+                        CONSTRAINT links_unique_edge UNIQUE (source_note_id, target_note_id)
                     );
-                """)
-                cur.execute("""
+
                     CREATE TABLE IF NOT EXISTS prospective (
                         id SERIAL PRIMARY KEY,
                         title TEXT NOT NULL,
                         content TEXT DEFAULT '',
                         trigger_at TIMESTAMPTZ NOT NULL,
                         recurring TEXT,
-                        status TEXT DEFAULT 'pending',
-                        created_at TIMESTAMPTZ DEFAULT NOW()
+                        status TEXT NOT NULL DEFAULT 'pending',
+                        created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
                     );
-                """)
-                cur.execute("""
+
                     CREATE TABLE IF NOT EXISTS timeline (
                         id SERIAL PRIMARY KEY,
                         action TEXT NOT NULL,
                         note_title TEXT,
                         query TEXT,
                         summary TEXT,
-                        created_at TIMESTAMPTZ DEFAULT NOW()
+                        created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
                     );
-                """)
-                cur.execute("CREATE INDEX IF NOT EXISTS idx_timeline_created ON timeline(created_at DESC);")
-                cur.execute("""
+
                     CREATE TABLE IF NOT EXISTS note_versions (
                         id SERIAL PRIMARY KEY,
-                        note_id INTEGER REFERENCES notes(id) ON DELETE SET NULL,
+                        note_id INT REFERENCES notes(id) ON DELETE CASCADE,
                         title TEXT,
                         content TEXT,
                         tags TEXT[],
-                        salience FLOAT,
-                        version_at TIMESTAMPTZ DEFAULT NOW()
+                        salience REAL,
+                        version_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
                     );
-                """)
-                cur.execute("CREATE INDEX IF NOT EXISTS idx_versions_note_id ON note_versions(note_id);")
-                conn.commit()
-                logger.info("Database schema initialized (v3.0).")
-
-    def log_timeline(self, action: str, note_title: str = None, query: str = None, summary: str = None):
-        try:
-            with self._conn() as conn:
-                with conn.cursor() as cur:
-                    cur.execute(
-                        "INSERT INTO timeline (action, note_title, query, summary) VALUES (%s, %s, %s, %s);",
-                        (action, note_title, query, summary),
-                    )
-                    conn.commit()
-        except Exception as e:
-            logger.warning(f"Timeline log failed: {e}")
-
-    def get_timeline(self, limit: int = 20) -> List[Dict]:
-        with self._conn() as conn:
-            with conn.cursor() as cur:
-                cur.execute(
-                    "SELECT id, action, note_title, query, summary, created_at FROM timeline ORDER BY created_at DESC LIMIT %s;",
-                    (limit,),
+                """
                 )
-                cols = [d[0] for d in cur.description]
-                return [dict(zip(cols, row)) for row in cur.fetchall()]
-
-    def _archive_version(self, cur, title: str, vault_path: str):
-        cur.execute(
-            "SELECT id, content, tags, salience FROM notes WHERE title = %s AND vault_path = %s;",
-            (title, vault_path),
-        )
-        row = cur.fetchone()
-        if row:
-            cur.execute(
-                "INSERT INTO note_versions (note_id, title, content, tags, salience) VALUES (%s, %s, %s, %s, %s);",
-                (row[0], title, row[1], row[2], row[3]),
-            )
-
-    def get_note_history(self, title: str, limit: int = 10) -> List[Dict]:
-        with self._conn() as conn:
-            with conn.cursor() as cur:
-                cur.execute(
-                    """SELECT nv.id, nv.title, LEFT(nv.content, 200) as preview, nv.tags, nv.salience, nv.version_at
-                       FROM note_versions nv
-                       JOIN notes n ON nv.note_id = n.id
-                       WHERE n.title = %s
-                       ORDER BY nv.version_at DESC LIMIT %s;""",
-                    (title, limit),
-                )
-                cols = [d[0] for d in cur.description]
-                return [dict(zip(cols, row)) for row in cur.fetchall()]
-
-    def upsert_note(
-        self, title: str, content: str, tags: List[str], note_type: str,
-        status: str, salience: float, embedding: List[float], vault_path: str,
-        wing: str = 'general', room: str = 'general',
-    ) -> str:
-        with self._conn() as conn:
-            with conn.cursor() as cur:
-                self._archive_version(cur, title, vault_path)
+                # Incremental column migrations
                 cur.execute(
                     """
-                    INSERT INTO notes (
-                        title, content, tags, note_type,
-                        status, salience, embedding, vault_path,
-                        wing, room, last_accessed_at
+                    SELECT column_name FROM information_schema.columns
+                    WHERE table_name = 'notes' AND column_name IN ('wing', 'room', 'last_accessed_at', 'origin_agent');
+                """
+                )
+                existing = {row[0] for row in cur.fetchall()}
+                if "wing" not in existing:
+                    cur.execute("ALTER TABLE notes ADD COLUMN wing TEXT NOT NULL DEFAULT 'general';")
+                if "room" not in existing:
+                    cur.execute("ALTER TABLE notes ADD COLUMN room TEXT NOT NULL DEFAULT 'general';")
+                if "origin_agent" not in existing:
+                    cur.execute("ALTER TABLE notes ADD COLUMN origin_agent VARCHAR(64) DEFAULT 'local';")
+                if "last_accessed_at" not in existing:
+                    cur.execute("ALTER TABLE notes ADD COLUMN last_accessed_at TIMESTAMPTZ NOT NULL DEFAULT NOW();")
+
+    def _scope_clause(self, scope: Optional[Dict]) -> Tuple[str, List[Any]]:
+        if not scope:
+            return "", []
+        clauses, params = [], []
+        if scope.get("wing"):
+            clauses.append("wing = %s")
+            params.append(scope["wing"])
+        if scope.get("room"):
+            clauses.append("room = %s")
+            params.append(scope["room"])
+        return " AND ".join(clauses), params
+
+    def log_timeline(self, action: str, note_title: Optional[str] = None, query: Optional[str] = None, summary: Optional[str] = None) -> None:
+        with self._conn() as conn:
+            with conn.cursor() as cur:
+                cur.execute(
+                    """
+                    INSERT INTO timeline (action, note_title, query, summary)
+                    VALUES (%s, %s, %s, %s);
+                """,
+                    (action, note_title, query, summary),
+                )
+
+    def get_timeline(self, limit: int = 20) -> List[Dict[str, Any]]:
+        with self._conn() as conn:
+            with conn.cursor(cursor_factory=RealDictCursor) as cur:
+                cur.execute(
+                    """
+                    SELECT id, action AS operation, note_title AS title, query, summary, created_at
+                    FROM timeline
+                    ORDER BY id DESC
+                    LIMIT %s;
+                """,
+                    (limit,),
+                )
+                return [dict(row) for row in cur.fetchall()]
+
+    def get_note_history(self, title: str, limit: int = 10) -> List[Dict[str, Any]]:
+        with self._conn() as conn:
+            with conn.cursor(cursor_factory=RealDictCursor) as cur:
+                cur.execute(
+                    """
+                    SELECT v.id, v.title, v.content AS preview, v.tags, v.salience, v.version_at
+                    FROM note_versions v
+                    JOIN notes n ON n.id = v.note_id
+                    WHERE n.title = %s
+                    ORDER BY v.id DESC
+                    LIMIT %s;
+                """,
+                    (title, limit),
+                )
+                return [dict(row) for row in cur.fetchall()]
+
+    def upsert_note(
+        self,
+        title: str,
+        content: str,
+        tags: List[str],
+        note_type: str = "concept",
+        status: str = "active",
+        salience: float = 0.5,
+        embedding: Optional[List[float]] = None,
+        vault_path: str = "",
+        wing: str = "general",
+        room: str = "general",
+        origin_agent: str = "local",
+    ) -> int:
+        vault_path = str(vault_path)
+        with self._conn() as conn:
+            with conn.cursor() as cur:
+                # Archive previous version if updating
+                cur.execute("SELECT id, title, content, tags, salience FROM notes WHERE title = %s AND vault_path = %s;", (title, vault_path))
+                existing = cur.fetchone()
+                if existing:
+                    cur.execute(
+                        """
+                        INSERT INTO note_versions (note_id, title, content, tags, salience)
+                        VALUES (%s, %s, %s, %s, %s);
+                    """,
+                        (existing[0], existing[1], existing[2], existing[3], existing[4]),
                     )
-                    VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, NOW())
+
+                cur.execute(
+                    """
+                    INSERT INTO notes (title, content, tags, note_type, status, salience, embedding, vault_path, wing, room, origin_agent, last_accessed_at, updated_at)
+                    VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, NOW(), NOW())
                     ON CONFLICT (title, vault_path) DO UPDATE SET
                         content = EXCLUDED.content,
                         tags = EXCLUDED.tags,
                         note_type = EXCLUDED.note_type,
                         status = EXCLUDED.status,
                         salience = EXCLUDED.salience,
-                        embedding = EXCLUDED.embedding,
+                        embedding = COALESCE(EXCLUDED.embedding, notes.embedding),
                         wing = EXCLUDED.wing,
                         room = EXCLUDED.room,
+                        origin_agent = EXCLUDED.origin_agent,
                         last_accessed_at = NOW(),
                         updated_at = NOW()
                     RETURNING id;
                 """,
-                    (title, content, tags, note_type, status, salience, embedding, vault_path, wing, room),
+                    (title, content, tags, note_type, status, salience, embedding, vault_path, wing, room, origin_agent),
                 )
                 note_id = cur.fetchone()[0]
-                conn.commit()
-                return str(note_id)
 
-    def delete_note(self, title: str, vault_path: str) -> bool:
+                # Real-Time $O(1)$ Reverse Wikilink Resolution
+                cur.execute(
+                    """
+                    INSERT INTO links (source_note_id, target_note_id, link_type)
+                    SELECT n.id, %s, 'wiki'
+                    FROM notes n
+                    WHERE n.content LIKE %s AND n.status = 'active' AND n.id != %s
+                    ON CONFLICT (source_note_id, target_note_id) DO NOTHING;
+                """,
+                    (note_id, f"%[[{title}%", note_id),
+                )
+
+                return note_id
+
+    def delete_note(self, title: str, vault_path: str = "") -> bool:
+        vault_path = str(vault_path)
         with self._conn() as conn:
             with conn.cursor() as cur:
-                cur.execute("DELETE FROM notes WHERE title = %s AND vault_path = %s RETURNING id;", (title, vault_path))
-                deleted = cur.fetchone()
-                conn.commit()
-                return deleted is not None
-
-    def _scope_clause(self, scope: Optional[Dict]) -> tuple:
-        clauses = []
-        params = []
-        if scope:
-            if scope.get('wing'):
-                clauses.append('wing = %s')
-                params.append(scope['wing'])
-            if scope.get('room'):
-                clauses.append('room = %s')
-                params.append(scope['room'])
-        return ' AND '.join(clauses), params
+                cur.execute("DELETE FROM notes WHERE title = %s AND vault_path = %s;", (title, vault_path))
+                return cur.rowcount > 0
 
     def search_semantic(
         self, query_embedding: List[float], top_k: int = 10, filters: Optional[Dict] = None, scope: Optional[Dict] = None,
@@ -215,16 +282,16 @@ class PgVectorStore(MemoryStore):
 
                 scope_clause, scope_params = self._scope_clause(scope)
                 if scope_clause:
-                    where += ' AND ' + scope_clause
+                    where += " AND " + scope_clause
                     where_params.extend(scope_params)
 
                 if filters:
-                    if filters.get('tags'):
-                        where += ' AND tags && %s'
-                        where_params.append(filters['tags'])
-                    if filters.get('note_type'):
-                        where += ' AND note_type = %s'
-                        where_params.append(filters['note_type'])
+                    if filters.get("tags"):
+                        where += " AND tags && %s"
+                        where_params.append(filters["tags"])
+                    if filters.get("note_type"):
+                        where += " AND note_type = %s"
+                        where_params.append(filters["note_type"])
 
                 params = [query_embedding] + where_params + [query_embedding, top_k]
 
@@ -239,12 +306,26 @@ class PgVectorStore(MemoryStore):
                 """,
                     params,
                 )
-                cols = [d[0] for d in cur.description]
-                results = [dict(zip(cols, row)) for row in cur.fetchall()]
+                rows = cur.fetchall()
+                results = []
+                for row in rows:
+                    results.append(
+                        {
+                            "id": row[0],
+                            "title": row[1],
+                            "content": row[2],
+                            "tags": row[3],
+                            "note_type": row[4],
+                            "salience": row[5],
+                            "vault_path": row[6],
+                            "wing": row[7],
+                            "room": row[8],
+                            "score": float(row[9]) if row[9] is not None else 0.0,
+                        }
+                    )
                 if results:
-                    ids = [r['id'] for r in results]
+                    ids = [r["id"] for r in results]
                     cur.execute("UPDATE notes SET last_accessed_at = NOW() WHERE id = ANY(%s);", (ids,))
-                    conn.commit()
                 return results
 
     def search_keyword(self, query: str, top_k: int = 10, scope: Optional[Dict] = None) -> List[Dict]:
@@ -255,7 +336,7 @@ class PgVectorStore(MemoryStore):
 
                 scope_clause, scope_params = self._scope_clause(scope)
                 if scope_clause:
-                    where += ' AND ' + scope_clause
+                    where += " AND " + scope_clause
                     where_params.extend(scope_params)
 
                 params = [query] + where_params + [top_k]
@@ -271,12 +352,26 @@ class PgVectorStore(MemoryStore):
                 """,
                     params,
                 )
-                cols = [d[0] for d in cur.description]
-                results = [dict(zip(cols, row)) for row in cur.fetchall()]
+                rows = cur.fetchall()
+                results = []
+                for row in rows:
+                    results.append(
+                        {
+                            "id": row[0],
+                            "title": row[1],
+                            "content": row[2],
+                            "tags": row[3],
+                            "note_type": row[4],
+                            "salience": row[5],
+                            "vault_path": row[6],
+                            "wing": row[7],
+                            "room": row[8],
+                            "score": float(row[9]),
+                        }
+                    )
                 if results:
-                    ids = [r['id'] for r in results]
+                    ids = [r["id"] for r in results]
                     cur.execute("UPDATE notes SET last_accessed_at = NOW() WHERE id = ANY(%s);", (ids,))
-                    conn.commit()
                 return results
 
     def search_graph(self, note_title: str, depth: int = 2, top_k: int = 10) -> List[Dict]:
@@ -284,119 +379,161 @@ class PgVectorStore(MemoryStore):
             with conn.cursor() as cur:
                 cur.execute(
                     """
-                    WITH RECURSIVE graph AS (
-                        SELECT n.id, n.title, n.content, n.tags, n.salience, n.vault_path, n.wing, n.room,
-                               0 AS depth, n.id AS root_id
-                        FROM notes n WHERE n.title = %s AND n.status = 'active'
-                        UNION ALL
-                        SELECT n2.id, n2.title, n2.content, n2.tags, n2.salience, n2.vault_path, n2.wing, n2.room,
-                               g.depth + 1, g.root_id
-                        FROM graph g
-                        JOIN links l ON l.source_note_id = g.id
-                        JOIN notes n2 ON n2.id = l.target_note_id
-                        WHERE n2.status = 'active' AND g.depth < %s
+                    WITH RECURSIVE graph_walk AS (
+                        SELECT target_note_id AS note_id, 1 AS depth
+                        FROM links l
+                        JOIN notes n ON n.id = l.source_note_id
+                        WHERE n.title = %s AND n.status = 'active'
+                        UNION
+                        SELECT l.target_note_id, gw.depth + 1
+                        FROM links l
+                        JOIN graph_walk gw ON gw.note_id = l.source_note_id
+                        WHERE gw.depth < %s
                     )
-                    SELECT DISTINCT id, title, content, tags, salience, vault_path, wing, room, depth
-                    FROM graph WHERE depth > 0
-                    ORDER BY depth, salience DESC LIMIT %s;
+                    SELECT DISTINCT ON (n.id) n.id, n.title, n.content, n.tags, n.salience, n.vault_path, n.wing, n.room, gw.depth
+                    FROM graph_walk gw
+                    JOIN notes n ON n.id = gw.note_id
+                    WHERE n.status = 'active'
+                    ORDER BY n.id, gw.depth ASC
+                    LIMIT %s;
                 """,
                     (note_title, depth, top_k),
                 )
-                cols = [d[0] for d in cur.description]
-                return [dict(zip(cols, row)) for row in cur.fetchall()]
+                rows = cur.fetchall()
+                results = []
+                for row in rows:
+                    results.append(
+                        {
+                            "id": row[0],
+                            "title": row[1],
+                            "content": row[2],
+                            "tags": row[3],
+                            "salience": row[4],
+                            "vault_path": row[5],
+                            "wing": row[6],
+                            "room": row[7],
+                            "depth": row[8],
+                        }
+                    )
+                return results
 
     def hybrid_search(
-        self, query: str, query_embedding: List[float], top_k: int = 10, scope: Optional[Dict] = None,
+        self,
+        query: str,
+        query_embedding: List[float],
+        top_k: int = 10,
+        scope: Optional[Dict] = None,
     ) -> List[Dict]:
         semantic = self.search_semantic(query_embedding, top_k=top_k * 2, scope=scope)
         keyword = self.search_keyword(query, top_k=top_k * 2, scope=scope)
 
-        scores: Dict[str, Dict] = {}
+        scores: Dict[int, Dict] = {}
 
         def add_results(results, source, weight):
             for rank, r in enumerate(results, 1):
-                nid = str(r['id'])
+                nid = r["id"]
                 if nid not in scores:
                     scores[nid] = dict(r)
-                    scores[nid]['rrf_score'] = 0.0
-                    scores[nid]['sources'] = []
-                scores[nid]['rrf_score'] += weight * (1.0 / (60 + rank))
-                scores[nid]['sources'].append(source)
+                    scores[nid]["rrf_score"] = 0.0
+                    scores[nid]["sources"] = []
+                scores[nid]["rrf_score"] += weight * (1.0 / (60 + rank))
+                scores[nid]["sources"].append(source)
 
-        add_results(semantic, 'semantic', 1.0)
-        add_results(keyword, 'keyword', 0.8)
+        add_results(semantic, "semantic", 1.0)
+        add_results(keyword, "keyword", 0.8)
 
         for nid in scores:
-            scores[nid]['rrf_score'] += scores[nid].get('salience', 0.5) * 0.2
+            scores[nid]["rrf_score"] += scores[nid].get("salience", 0.5) * 0.2
 
-        sorted_results = sorted(scores.values(), key=lambda x: x['rrf_score'], reverse=True)
+        sorted_results = sorted(scores.values(), key=lambda x: x["rrf_score"], reverse=True)
         return sorted_results[:top_k]
 
     def apply_decay(self, decay_rate: float = 0.95, archive_threshold: float = 0.05) -> Dict:
+        """Apply Ebbinghaus decay with pinned / permanent immunity."""
         with self._conn() as conn:
             with conn.cursor() as cur:
-                cur.execute("""
+                # 1. Decay inactive, unpinned notes
+                cur.execute(
+                    """
                     UPDATE notes
-                    SET salience = salience * POWER(%s, EXTRACT(EPOCH FROM (NOW() - last_accessed_at)) / 86400.0)
+                    SET salience = salience * power(%s::float, EXTRACT(EPOCH FROM (NOW() - last_accessed_at)) / 86400.0)
                     WHERE status = 'active'
                       AND last_accessed_at < NOW() - INTERVAL '1 day'
-                      AND NOT ('pinned' = ANY(tags))
-                      AND NOT ('permanent' = ANY(tags))
-                      AND NOT ('core' = ANY(tags))
+                      AND NOT ('pinned' = ANY(tags) OR 'permanent' = ANY(tags) OR 'core' = ANY(tags))
                       AND salience < 1.0;
-                """, (decay_rate,))
+                """,
+                    (decay_rate,),
+                )
                 decayed = cur.rowcount
 
-                cur.execute("""
-                    UPDATE notes SET status = 'archived'
+                # 2. Archive decayed notes below threshold
+                cur.execute(
+                    """
+                    UPDATE notes
+                    SET status = 'archived'
                     WHERE status = 'active'
                       AND salience < %s
-                      AND NOT ('pinned' = ANY(tags))
-                      AND NOT ('permanent' = ANY(tags))
-                      AND NOT ('core' = ANY(tags));
-                """, (archive_threshold,))
+                      AND NOT ('pinned' = ANY(tags) OR 'permanent' = ANY(tags) OR 'core' = ANY(tags))
+                      AND salience < 1.0;
+                """,
+                    (archive_threshold,),
+                )
                 archived = cur.rowcount
-                conn.commit()
-                return {'decayed': decayed, 'archived': archived}
 
-    def update_links(self, note_id: str, wiki_links: List[str]):
+                return {"decayed": decayed, "archived": archived}
+
+    def update_links(self, note_id: int, wiki_links: List[str]) -> None:
         with self._conn() as conn:
             with conn.cursor() as cur:
                 cur.execute("DELETE FROM links WHERE source_note_id = %s;", (note_id,))
                 for target_title in wiki_links:
-                    cur.execute(
-                        """INSERT INTO links (source_note_id, target_note_id, link_type)
-                           SELECT %s, id, 'wiki' FROM notes
-                           WHERE title = %s AND status = 'active'
-                           ON CONFLICT (source_note_id, target_note_id) DO NOTHING;""",
-                        (note_id, target_title.strip()),
-                    )
-                conn.commit()
+                    cur.execute("SELECT id FROM notes WHERE title = %s AND status = 'active';", (target_title.strip(),))
+                    target = cur.fetchone()
+                    if target:
+                        cur.execute(
+                            """
+                            INSERT INTO links (source_note_id, target_note_id, link_type)
+                            VALUES (%s, %s, 'wiki')
+                            ON CONFLICT (source_note_id, target_note_id) DO NOTHING;
+                        """,
+                            (note_id, target[0]),
+                        )
 
-    def get_stats(self) -> Dict:
+    def reconcile_links(self) -> int:
+        """Set-based single-query graph reconciliation."""
         with self._conn() as conn:
             with conn.cursor() as cur:
-                cur.execute("SELECT COUNT(*) FROM notes WHERE status = 'active';")
+                cur.execute(
+                    """
+                    INSERT INTO links (source_note_id, target_note_id, link_type)
+                    SELECT n.id, target.id, 'wiki'
+                    FROM notes n
+                    CROSS JOIN LATERAL regexp_matches(n.content, '\\[\\[([^\\]|#]+)(?:#[^\\]|]+)?(?:\\|[^\\]]+)?\\]\\]', 'g') AS m(match)
+                    JOIN notes target ON target.title = trim(m.match[1]) AND target.status = 'active'
+                    WHERE n.status = 'active' AND n.id != target.id
+                    ON CONFLICT (source_note_id, target_note_id) DO NOTHING;
+                """
+                )
+                return cur.rowcount
+
+    def get_stats(self) -> Dict[str, Any]:
+        with self._conn() as conn:
+            with conn.cursor() as cur:
+                cur.execute("SELECT count(*) FROM notes WHERE status = 'active';")
                 note_count = cur.fetchone()[0]
-                cur.execute("SELECT COUNT(*) FROM links;")
+                cur.execute("SELECT count(*) FROM notes WHERE status = 'archived';")
+                archived_count = cur.fetchone()[0]
+                cur.execute("SELECT count(*) FROM links;")
                 link_count = cur.fetchone()[0]
-                cur.execute("SELECT COUNT(*) FROM prospective WHERE status = 'pending';")
-                pending = cur.fetchone()[0]
-                cur.execute("SELECT COUNT(*) FROM timeline;")
-                timeline_count = cur.fetchone()[0]
-                cur.execute("SELECT COUNT(*) FROM note_versions;")
-                version_count = cur.fetchone()[0]
-                cur.execute("SELECT COUNT(*) FROM notes WHERE status = 'archived';")
-                archived = cur.fetchone()[0]
+                cur.execute("SELECT count(*) FROM prospective WHERE status = 'pending';")
+                pending_reminders = cur.fetchone()[0]
                 cur.execute("SELECT DISTINCT wing FROM notes WHERE status = 'active';")
-                wings = [r[0] for r in cur.fetchall()]
+                wings = [row[0] for row in cur.fetchall()]
                 return {
-                    'notes': note_count,
-                    'links': link_count,
-                    'pending_reminders': pending,
-                    'timeline_entries': timeline_count,
-                    'versions': version_count,
-                    'archived': archived,
-                    'wings': wings,
-                    'version': '3.0',
+                    "notes": note_count,
+                    "archived": archived_count,
+                    "links": link_count,
+                    "pending_reminders": pending_reminders,
+                    "wings": wings,
+                    "backend": "postgresql",
                 }

@@ -1,139 +1,130 @@
-"""Mnemosyne CLI — command-line interface for the memory engine."""
+"""
+Mnemosyne CLI Interface (v3.2)
+"""
 
 import argparse
 import json
-import sys
 import os
+import sys
 
-from mnemosyne.core import UnifiedMemorySystem
-
-
-def get_memory():
-    """Create a UnifiedMemorySystem from environment or defaults."""
-    return UnifiedMemorySystem()
-
-
-def cmd_remember(args):
-    """Store a memory."""
-    mem = get_memory()
-    result = mem.remember(
-        title=args.title,
-        content=args.content,
-        tags=args.tags.split(",") if args.tags else [],
-        wing=args.wing,
-        room=args.room,
-        salience=args.salience,
-    )
-    print(json.dumps(result, indent=2, default=str))
-
-
-def cmd_recall(args):
-    """Search memories."""
-    mem = get_memory()
-    results = mem.recall(
-        query=args.query,
-        mode=args.mode,
-        top_k=args.top_k,
-        scope={"wing": args.wing} if args.wing else None,
-    )
-    for r in results:
-        wing_val = r.get('wing', '?')
-        room_val = r.get('room', '?')
-        title_val = r.get('title', '?')
-        print(f"  [{wing_val}/{room_val}] {title_val}")
-        content_preview = (r.get("content", "") or "")[:120]
-        print(f"    {content_preview}...")
-        print()
-
-
-def cmd_timeline(args):
-    """Show recent memory activity."""
-    mem = get_memory()
-    entries = mem.timeline(limit=args.limit)
-    for e in entries:
-        ts = e.get('created_at', '?')
-        op = e.get('operation', '?')
-        title = e.get('title', '?')
-        print(f"  {ts}  {op}  {title}")
-
-
-def cmd_stats(args):
-    """Show memory system statistics."""
-    mem = get_memory()
-    stats = mem.stats()
-    print(json.dumps(stats, indent=2, default=str))
-
-
-def cmd_consolidate(args):
-    """Run nightly consolidation: temporal decay + archive stale memories."""
-    mem = get_memory()
-    if hasattr(mem.db, "apply_decay"):
-        result = mem.db.apply_decay(
-            decay_rate=args.decay_rate,
-            archive_threshold=args.threshold,
-        )
-        print(json.dumps(result, indent=2, default=str))
-    else:
-        print("Temporal decay requires PostgreSQL (not available with SQLite fallback).")
-        sys.exit(1)
-
-
-def cmd_server(args):
-    """Run MCP server."""
-    from mnemosyne.mcp_server import MCPServer
-    server = MCPServer()
-    server.run()
+from mnemosyne import UnifiedMemorySystem
+from mnemosyne.mcp_server import MCPServer
 
 
 def main():
     parser = argparse.ArgumentParser(
         prog="mnemosyne",
-        description="Mnemosyne - Local-first memory engine for AI agents",
+        description="Mnemosyne: Local Hierarchical Memory Engine for AI Agents",
     )
-    sub = parser.add_subparsers(dest="command", help="Available commands")
+    parser.add_argument("--vault-path", default=None, help="Path to Obsidian vault")
+    parser.add_argument("--dsn", default=None, help="PostgreSQL connection string")
+    parser.add_argument("--shared-dsn", default=None, help="Shared PostgreSQL fleet connection string")
+
+    subparsers = parser.add_subparsers(dest="command", help="Available commands")
 
     # remember
-    p_rem = sub.add_parser("remember", help="Store a memory")
-    p_rem.add_argument("title", help="Memory title")
-    p_rem.add_argument("content", help="Memory content")
-    p_rem.add_argument("--tags", default="", help="Comma-separated tags")
-    p_rem.add_argument("--wing", default="general", help="Domain/project wing")
-    p_rem.add_argument("--room", default="general", help="Topic room")
-    p_rem.add_argument("--salience", type=float, default=0.5, help="Salience score 0-1")
-    p_rem.set_defaults(func=cmd_remember)
+    p_remember = subparsers.add_parser("remember", help="Store a memory note")
+    p_remember.add_argument("title", help="Note title")
+    p_remember.add_argument("content", help="Note markdown content")
+    p_remember.add_argument("--tags", nargs="*", default=[], help="Tags list")
+    p_remember.add_argument("--salience", type=float, default=0.5, help="Salience 0.0-1.0")
+    p_remember.add_argument("--wing", default="general", help="Domain wing")
+    p_remember.add_argument("--room", default="general", help="Topic room")
+    p_remember.add_argument("--pinned", action="store_true", help="Make note permanent and immune to decay")
+
+    # publish-shared
+    p_pub = subparsers.add_parser("publish-shared", help="Publish a curated note to shared fleet memory")
+    p_pub.add_argument("title", help="Note title")
+    p_pub.add_argument("content", help="Note markdown content")
+    p_pub.add_argument("--tags", nargs="*", default=[], help="Tags list")
+    p_pub.add_argument("--wing", default="shared", help="Domain wing")
+    p_pub.add_argument("--room", default="general", help="Topic room")
 
     # recall
-    p_rec = sub.add_parser("recall", help="Search memories")
-    p_rec.add_argument("query", help="Search query")
-    p_rec.add_argument("--mode", default="hybrid", choices=["hybrid", "semantic", "keyword", "graph"])
-    p_rec.add_argument("--top-k", type=int, default=5, dest="top_k")
-    p_rec.add_argument("--wing", default=None, help="Restrict to wing")
-    p_rec.set_defaults(func=cmd_recall)
+    p_recall = subparsers.add_parser("recall", help="Search memory")
+    p_recall.add_argument("query", help="Search query")
+    p_recall.add_argument("--mode", choices=["hybrid", "semantic", "keyword", "graph"], default="hybrid")
+    p_recall.add_argument("--top-k", type=int, default=5, help="Number of results")
+    p_recall.add_argument("--wing", default=None, help="Filter by wing")
+    p_recall.add_argument("--room", default=None, help="Filter by room")
 
     # timeline
-    p_tl = sub.add_parser("timeline", help="Show recent activity")
-    p_tl.add_argument("--limit", type=int, default=20)
-    p_tl.set_defaults(func=cmd_timeline)
+    p_timeline = subparsers.add_parser("timeline", help="View memory activity timeline")
+    p_timeline.add_argument("--limit", type=int, default=20, help="Number of events")
 
     # stats
-    p_st = sub.add_parser("stats", help="Show system statistics")
-    p_st.set_defaults(func=cmd_stats)
+    subparsers.add_parser("stats", help="Get memory store statistics")
 
     # consolidate
-    p_con = sub.add_parser("consolidate", help="Run temporal decay and archive stale memories")
-    p_con.add_argument("--decay-rate", type=float, default=0.95, dest="decay_rate")
-    p_con.add_argument("--threshold", type=float, default=0.05, help="Archive below this salience")
-    p_con.set_defaults(func=cmd_consolidate)
+    p_consolidate = subparsers.add_parser("consolidate", help="Apply link reconciliation and temporal decay")
+    p_consolidate.add_argument("--decay-rate", type=float, default=0.95, help="Daily retention factor")
+    p_consolidate.add_argument("--archive-threshold", type=float, default=0.05, help="Salience threshold for archiving")
 
     # server
-    p_srv = sub.add_parser("server", help="Run MCP server (stdio)")
-    p_srv.set_defaults(func=cmd_server)
+    subparsers.add_parser("server", help="Run MCP stdio server")
+
+    # embed-service
+    p_embed_srv = subparsers.add_parser("embed-service", help="Run standalone embedding microservice")
+    p_embed_srv.add_argument("--host", default="0.0.0.0", help="Bind host")
+    p_embed_srv.add_argument("--port", type=int, default=8000, help="Bind port")
+    p_embed_srv.add_argument("--model", default="all-MiniLM-L6-v2", help="Model name")
 
     args = parser.parse_args()
-    if not args.command:
-        parser.print_help()
-        sys.exit(0)
-    args.func(args)
+
+    if not args.command or args.command == "server":
+        server = MCPServer()
+        server.run()
+        return
+
+    if args.command == "embed-service":
+        from mnemosyne.embed_service import run_service
+        run_service(host=args.host, port=args.port, model_name=args.model)
+        return
+
+    mem = UnifiedMemorySystem(vault_path=args.vault_path, dsn=args.dsn, shared_dsn=args.shared_dsn)
+
+    if args.command == "remember":
+        res = mem.remember(
+            args.title,
+            args.content,
+            tags=args.tags,
+            salience=args.salience,
+            wing=args.wing,
+            room=args.room,
+            pinned=args.pinned,
+        )
+        print(json.dumps(res, indent=2))
+
+    elif args.command == "publish-shared":
+        res = mem.publish_shared(
+            args.title,
+            args.content,
+            tags=args.tags,
+            wing=args.wing,
+            room=args.room,
+        )
+        print(json.dumps(res, indent=2))
+
+    elif args.command == "recall":
+        scope = {}
+        if args.wing:
+            scope["wing"] = args.wing
+        if args.room:
+            scope["room"] = args.room
+        results = mem.recall(args.query, mode=args.mode, top_k=args.top_k, scope=scope or None)
+        print(json.dumps(results, indent=2, default=str))
+
+    elif args.command == "timeline":
+        res = mem.timeline(limit=args.limit)
+        print(json.dumps(res, indent=2, default=str))
+
+    elif args.command == "stats":
+        res = mem.stats()
+        print(json.dumps(res, indent=2))
+
+    elif args.command == "consolidate":
+        res = mem.consolidate(decay_rate=args.decay_rate, archive_threshold=args.archive_threshold)
+        print(json.dumps(res, indent=2))
 
 
 if __name__ == "__main__":

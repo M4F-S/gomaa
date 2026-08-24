@@ -1,0 +1,19 @@
+FROM python:3.11-slim
+
+WORKDIR /app
+
+RUN pip install --no-cache-dir \
+    fastapi \
+    uvicorn \
+    sentence-transformers \
+    httpx
+
+COPY mnemosyne /app/mnemosyne
+
+ENV PORT=8000
+ENV TOKENIZERS_PARALLELISM=false
+ENV HF_HUB_DISABLE_PROGRESS_BARS=1
+
+EXPOSE 8000
+
+CMD ["python", "-m", "mnemosyne.embed_service"]

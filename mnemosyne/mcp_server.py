@@ -1,26 +1,19 @@
-"""Mnemosyne v3.0 MCP Server — JSON-RPC stdio transport."""
-
+import json
+import logging
 import os
+import signal
 import sys
+import time
+from typing import Any, Dict, List, Optional
 
-# Silence Hugging Face, tokenizers, and PyTorch from writing to stdout
+from .core import UnifiedMemorySystem
+
+# Protocol stream protection
 os.environ["TOKENIZERS_PARALLELISM"] = "false"
 os.environ["HF_HUB_DISABLE_PROGRESS_BARS"] = "1"
 
-import json
-import time
-import signal
-import logging
-from typing import Dict, List, Optional
-
-from mnemosyne.core import UnifiedMemorySystem
-
+logging.basicConfig(stream=sys.stderr, level=logging.INFO, format="%(asctime)s [%(levelname)s] %(message)s")
 logger = logging.getLogger("mcp-server")
-logging.basicConfig(
-    stream=sys.stderr,
-    level=logging.INFO,
-    format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
-)
 
 
 class MCPServer:
@@ -36,14 +29,13 @@ class MCPServer:
         return time.time() - self._start_time
 
     def run(self):
-        logger.info("MCP Memory Server v3.0 starting...")
+        logger.info("MCP Memory Server v3.2 starting...")
         for line in sys.stdin:
             if not self._running:
                 break
             line = line.strip()
             if not line:
                 continue
-            self._request_count += 1
             try:
                 req = json.loads(line)
                 resp = self._handle(req)
@@ -77,7 +69,7 @@ class MCPServer:
                 "result": {
                     "protocolVersion": "2024-11-05",
                     "capabilities": {"tools": {"listChanged": False}},
-                    "serverInfo": {"name": "mnemosyne", "version": "3.0.0"},
+                    "serverInfo": {"name": "mnemosyne", "version": "3.2.0"},
                 },
                 "id": req_id,
             }
@@ -121,7 +113,7 @@ class MCPServer:
         return [
             {
                 "name": "memory_remember",
-                "description": "Store a memory note in the vault with semantic embedding, tags, and hierarchical wing/room scope.",
+                "description": "Store a private memory note in the vault with semantic embedding, tags, and hierarchical wing/room scope.",
                 "inputSchema": {
                     "type": "object",
                     "properties": {
@@ -131,13 +123,29 @@ class MCPServer:
                         "salience": {"type": "number", "description": "Importance score 0.0-1.0 (default 0.5)"},
                         "wing": {"type": "string", "description": "Project/domain grouping (e.g. ecommerce, security, devops)", "default": "general"},
                         "room": {"type": "string", "description": "Topic within the wing (e.g. woocommerce, firewall, docker)", "default": "general"},
+                        "pinned": {"type": "boolean", "description": "Set true to make permanently immune to Ebbinghaus temporal decay", "default": False},
+                    },
+                    "required": ["title", "content"],
+                },
+            },
+            {
+                "name": "memory_publish_shared",
+                "description": "Publish a sanitized, curated finding or policy to the cross-agent shared fleet memory.",
+                "inputSchema": {
+                    "type": "object",
+                    "properties": {
+                        "title": {"type": "string", "description": "Title for the shared policy or finding"},
+                        "content": {"type": "string", "description": "The shared knowledge content in markdown (must not contain private credentials)"},
+                        "tags": {"type": "array", "items": {"type": "string"}, "description": "Tags"},
+                        "wing": {"type": "string", "default": "shared"},
+                        "room": {"type": "string", "default": "general"},
                     },
                     "required": ["title", "content"],
                 },
             },
             {
                 "name": "memory_recall",
-                "description": "Search memory by semantic meaning, keywords, or graph. Use scope to restrict to a wing/room.",
+                "description": "Search memory by semantic meaning, keywords, or graph. Retrieves from both private and shared stores.",
                 "inputSchema": {
                     "type": "object",
                     "properties": {
@@ -152,6 +160,7 @@ class MCPServer:
                                 "room": {"type": "string"},
                             },
                         },
+                        "include_shared": {"type": "boolean", "default": True, "description": "Whether to include cross-agent shared fleet memory"},
                     },
                     "required": ["query"],
                 },
@@ -208,76 +217,85 @@ class MCPServer:
             {
                 "name": "memory_audit",
                 "description": "Get memory system statistics, health check, active wings, and version info",
-                "inputSchema": {"type": "object", "properties": {}},
+                "inputSchema": {
+                    "type": "object",
+                    "properties": {},
+                },
             },
         ]
 
-    def _call_tool(self, name: str, args: Dict) -> Dict:
+    def _call_tool(self, name: str, args: Dict) -> Any:
         if name == "memory_remember":
             return self.memory.remember(
-                title=args.get("title", ""),
-                content=args.get("content", ""),
-                tags=args.get("tags", []),
-                salience=args.get("salience"),
+                title=args["title"],
+                content=args["content"],
+                tags=args.get("tags"),
+                salience=args.get("salience", 0.5),
                 wing=args.get("wing", "general"),
+                room=args.get("room", "general"),
+                pinned=args.get("pinned", False),
+            )
+        elif name == "memory_publish_shared":
+            return self.memory.publish_shared(
+                title=args["title"],
+                content=args["content"],
+                tags=args.get("tags"),
+                wing=args.get("wing", "shared"),
                 room=args.get("room", "general"),
             )
         elif name == "memory_recall":
-            return {
-                "results": self.memory.recall(
-                    query=args.get("query", ""),
-                    mode=args.get("mode", "hybrid"),
-                    top_k=args.get("top_k", 5),
-                    scope=args.get("scope"),
-                )
-            }
+            results = self.memory.recall(
+                query=args["query"],
+                mode=args.get("mode", "hybrid"),
+                top_k=args.get("top_k", 5),
+                scope=args.get("scope"),
+                include_shared=args.get("include_shared", True),
+            )
+            return {"results": results}
         elif name == "memory_ingest_session":
             return self.memory.ingest_session(
-                transcript=args.get("transcript", ""),
+                transcript=args["transcript"],
                 wing=args.get("wing", "general"),
                 room=args.get("room", "sessions"),
             )
         elif name == "memory_timeline":
             return {"timeline": self.memory.timeline(limit=args.get("limit", 20))}
         elif name == "memory_history":
-            return {"versions": self.memory.history(
-                title=args.get("title", ""),
-                limit=args.get("limit", 10),
-            )}
+            return {"history": self.memory.note_history(title=args["title"], limit=args.get("limit", 10))}
         elif name == "memory_remind_me":
-            return {
-                "reminder_id": self.memory.remind_me(
-                    title=args.get("title", ""),
-                    trigger_at=args.get("trigger_at", ""),
-                    content=args.get("content", ""),
-                    recurring=args.get("recurring"),
-                )
-            }
+            return self.memory.remind_me(
+                title=args["title"],
+                content=args.get("content", ""),
+                trigger_at=args["trigger_at"],
+                recurring=args.get("recurring"),
+            )
         elif name == "memory_audit":
-            stats = self.memory.stats()
-            stats["health"] = self._health()
-            return stats
+            return {
+                "stats": self.memory.stats(),
+                "health": self._health(),
+            }
         else:
             return {"error": f"Unknown tool: {name}"}
 
-    def _health(self) -> Dict:
-        store_type = type(self.memory.db).__name__
-        embedder_provider = self.memory.embedder._provider or "unknown"
+    def _health(self) -> Dict[str, Any]:
         return {
             "server": {
+                "name": "mnemosyne",
+                "version": "3.2.0",
                 "status": "healthy",
-                "version": "3.0.0",
                 "uptime_seconds": round(self._uptime(), 2),
-                "requests": self._request_count,
-                "errors": self._error_count,
+                "requests_served": self._request_count,
+                "error_count": self._error_count,
             },
-            "store": {"type": store_type, "vault_path": str(self.memory.vault.vault_path)},
+            "store": {
+                "backend": getattr(self.memory.db, "__class__", type(self.memory.db)).__name__,
+                "vault_path": getattr(self.memory.vault, "vault_path", None),
+                "shared_store": bool(self.memory.shared_db),
+            },
             "embedder": {
-                "provider": embedder_provider,
-                "model": self.memory.embedder.model_name,
-                "dimension": self.memory.embedder.dim,
+                "provider": getattr(self.memory.embedder, "_provider", "unknown"),
+                "model": getattr(self.memory.embedder, "model_name", "unknown"),
+                "dim": getattr(self.memory.embedder, "dim", 384),
+                "remote_url": getattr(self.memory.embedder, "embed_url", None),
             },
         }
-
-# Backwards compatibility alias
-MemoryMCPServer = MCPServer

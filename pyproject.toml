@@ -1,68 +1,70 @@
 [build-system]
-requires = ["setuptools>=61.0", "wheel"]
-build-backend = "setuptools.build_meta"
+requires = ["hatchling"]
+build-backend = "hatchling.build"
 
 [project]
-name = "mnemosyne"
-version = "3.0.0"
-description = "Local-first memory system for AI agents"
+name = "mnemosyne-memory"
+version = "3.2.0"
+description = "Production-grade local hierarchical memory platform for AI agents with Obsidian sync, hybrid RRF search, and Ebbinghaus temporal decay."
 readme = "README.md"
-license = {text = "Apache-2.0"}
+requires-python = ">=3.9"
+license = "MIT"
 authors = [
-    {name = "Mohamed Fathy", email = "Mmmmfathy7@gmail.com"}
+    { name = "Mohamed Fathy", email = "mfathy7@users.noreply.github.com" },
+]
+keywords = [
+    "memory",
+    "mcp",
+    "model-context-protocol",
+    "ai-agents",
+    "obsidian",
+    "pgvector",
+    "hermes",
+    "openclaw",
+    "claude",
+    "cursor",
+    "knowledge-graph",
+    "ebbinghaus-decay",
+    "vector-database"
 ]
 classifiers = [
-    "Development Status :: 4 - Beta",
+    "Development Status :: 5 - Production/Stable",
     "Intended Audience :: Developers",
-    "License :: OSI Approved :: Apache Software License",
+    "License :: OSI Approved :: MIT License",
     "Programming Language :: Python :: 3",
     "Programming Language :: Python :: 3.9",
     "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
     "Topic :: Software Development :: Libraries :: Python Modules",
+    "Topic :: Scientific/Engineering :: Artificial Intelligence",
 ]
-requires-python = ">=3.9"
+
 dependencies = [
-    "psycopg2-binary>=2.9",
-    "pyyaml>=6.0",
-    "numpy>=1.24",
-    "sentence-transformers>=2.2",
+    "psycopg2-binary>=2.9.9",
+    "pgvector>=0.2.4",
+    "sentence-transformers>=2.2.2",
+    "pyyaml>=6.0.1",
+    "httpx>=0.25.0",
 ]
 
 [project.optional-dependencies]
+embed-service = [
+    "fastapi>=0.100.0",
+    "uvicorn>=0.22.0",
+]
 dev = [
-    "pytest>=7.0",
-    "pytest-cov>=4.0",
-    "flake8>=5.0",
-    "black>=22.0",
-    "mypy>=1.0",
-    "pytest-postgresql>=5.0",
-    "types-PyYAML>=6.0",
+    "pytest>=7.4.0",
+    "pytest-cov>=4.1.0",
+    "black>=23.7.0",
+    "ruff>=0.0.280",
+    "fastapi>=0.100.0",
+    "uvicorn>=0.22.0",
 ]
 
 [project.scripts]
 mnemosyne = "mnemosyne.cli:main"
 
-[tool.setuptools.packages.find]
-where = ["."]
-include = ["mnemosyne*"]
-
-[tool.black]
-line-length = 100
-target-version = ['py39']
-
-[tool.mypy]
-python_version = "3.9"
-warn_return_any = false
-warn_unused_configs = true
-ignore_missing_imports = true
-
-[tool.pytest.ini_options]
-testpaths = ["tests"]
-python_files = ["test_*.py"]
-python_classes = ["Test*"]
-python_functions = ["test_*"]
-markers = [
-    "integration: marks tests as integration tests (requires PostgreSQL)",
-]
+[tool.hatch.build.targets.wheel]
+packages = ["mnemosyne"]

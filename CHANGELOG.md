@@ -27,3 +27,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Hybrid search merging semantic similarity, full-text tsvector rank, and salience scoring via Reciprocal Rank Fusion (RRF).
 - Graph search traversing wiki-link relationships using recursive CTEs.
 
+
+## [3.2.0] - 2026-08-24
+### Added
+- **Centralized Embedding Microservice (`mnemosyne.embed_service`):** High-efficiency FastAPI microservice running ONNX/SentenceTransformers in ~75MB RAM.
+- **Circuit Breaker & Zero-RAM Fallback:** Embedder client includes connection reuse with `httpx`, circuit breaker, and keyword-search graceful degradation.
+- **Thread-Safe Self-Healing Database Pooling:** `PgVectorStore` uses `ThreadedConnectionPool` with liveness checks and auto-reconnect on dead sockets.
+- **Cross-Agent Shared Memory Layer (`shared_db`):** Multi-tenant fleet memory with `memory_publish_shared`, regex credential sanitization, and fail-soft recall.
+- **Real-Time & Set-Based Wikilink Graph Engine:** O(1) reverse link resolution on note creation and sub-second set-based SQL graph reconciliation.
