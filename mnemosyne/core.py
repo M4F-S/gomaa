@@ -298,7 +298,13 @@ class UnifiedMemorySystem:
             if r["title"] not in merged_dict:
                 merged_dict[r["title"]] = r
 
-        results = list(merged_dict.values())[:top_k]
+        # Sort merged results by relevance (rrf_score or score) so high-value shared memories rank properly
+        sorted_results = sorted(
+            merged_dict.values(),
+            key=lambda x: x.get("rrf_score", x.get("score", 0.0)),
+            reverse=True
+        )
+        results = sorted_results[:top_k]
 
         # Enclose memory content in structured XML context tags with tag escaping
         for r in results:

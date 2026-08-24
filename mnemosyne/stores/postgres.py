@@ -182,7 +182,7 @@ class PgVectorStore(MemoryStore):
             with conn.cursor(cursor_factory=RealDictCursor) as cur:
                 cur.execute(
                     """
-                    SELECT id, action AS operation, note_title AS title, query, summary, created_at
+                    SELECT id, action, action AS operation, note_title, note_title AS title, query, summary, created_at
                     FROM timeline
                     ORDER BY id DESC
                     LIMIT %s;
