@@ -1,12 +1,21 @@
 #!/usr/bin/env bash
 # ==============================================================================
 # Mnemosyne Fleet VPS Management & Diagnostic CLI
-# Connects directly to the production VPS (<YOUR_VPS_IP>)
+# Connects to your production VPS
 # ==============================================================================
 
 set -euo pipefail
 
+# Load local environment overrides if present (.env is gitignored)
+if [ -f "$(dirname "$0")/../.env" ]; then
+    # shellcheck disable=SC1091
+    source "$(dirname "$0")/../.env"
+fi
+
 VPS_HOST="${VPS_HOST:-root@<YOUR_VPS_IP>}"
+POSTGRES_HOST="${POSTGRES_HOST:-<POSTGRES_INTERNAL_IP>}"
+DB_USER="${DB_USER:-<DB_USER>}"
+DB_PASSWORD="${DB_PASSWORD:-<DB_PASSWORD>}"
 CONTAINERS=("hermes-agent" "hermes-assistant" "hermes-marketing" "hermes-pentest" "hermes-trader")
 
 SSH_CMD="ssh -o ConnectTimeout=10 -o BatchMode=yes $VPS_HOST"
@@ -31,7 +40,7 @@ case "${1:-}" in
         $SSH_CMD "docker ps --format 'table {{.Names}}\t{{.Status}}\t{{.Ports}}'"
         echo ""
         echo "=== [2/3] PostgreSQL Fleet Databases ==="
-        $SSH_CMD "docker exec -i \$(docker ps -q -f name=postgres) psql -U mnemosyne -d postgres -c '\l'" 2>/dev/null || true
+        $SSH_CMD "docker exec -i \$(docker ps -q -f name=postgres) psql -U $DB_USER -d postgres -c '\l'" 2>/dev/null || true
         echo ""
         echo "=== [3/3] MCP Memory Server Status in Agent Logs ==="
         for c in "${CONTAINERS[@]}"; do
@@ -45,7 +54,7 @@ case "${1:-}" in
         $SSH_CMD "
             docker exec hermes-agent rm -rf /tmp/tests
             docker cp /tmp/mnemosyne-repo/tests hermes-agent:/tmp/tests
-            docker exec -e PYTHONPATH=/tmp/mnemosyne-repo -e MEMORY_DB_DSN='postgresql://<DB_USER>:<DB_PASSWORD>@<POSTGRES_INTERNAL_IP>:5432/toy_db' hermes-agent /opt/data/mcp-servers/venv/bin/pytest -p no:postgresql /tmp/tests -v
+            docker exec -e PYTHONPATH=/tmp/mnemosyne-repo -e MEMORY_DB_DSN=\"postgresql://$DB_USER:$DB_PASSWORD@$POSTGRES_HOST:5432/toy_db\" hermes-agent /opt/data/mcp-servers/venv/bin/pytest -p no:postgresql /tmp/tests -v
         "
         ;;
 
@@ -78,30 +87,30 @@ case "${1:-}" in
 
     audit)
         echo "=== Running Memory MCP Runtime Audit Across Fleet ==="
-        $SSH_CMD '
+        $SSH_CMD "
         for c in hermes-agent hermes-assistant hermes-marketing hermes-pentest hermes-trader; do
-            echo "----------------------------------------------------"
-            echo "Agent Container: $c"
+            echo '----------------------------------------------------'
+            echo \"Agent Container: \$c\"
             
-            DB="toy_db"
-            if [ "$c" = "hermes-assistant" ]; then DB="old_db"; fi
-            if [ "$c" = "hermes-marketing" ]; then DB="candy_db"; fi
-            if [ "$c" = "hermes-pentest" ]; then DB="pencil_db"; fi
-            if [ "$c" = "hermes-trader" ]; then DB="trader_db"; fi
+            DB=\"toy_db\"
+            if [ \"\$c\" = \"hermes-assistant\" ]; then DB=\"old_db\"; fi
+            if [ \"\$c\" = \"hermes-marketing\" ]; then DB=\"candy_db\"; fi
+            if [ \"\$c\" = \"hermes-pentest\" ]; then DB=\"pencil_db\"; fi
+            if [ \"\$c\" = \"hermes-trader\" ]; then DB=\"trader_db\"; fi
 
-            docker exec -e MEMORY_DB_DSN="postgresql://<DB_USER>:<DB_PASSWORD>@<POSTGRES_INTERNAL_IP>:5432/$DB" -e MEMORY_SHARED_DSN="postgresql://<DB_USER>:<DB_PASSWORD>@<POSTGRES_INTERNAL_IP>:5432/shared_db" $c /opt/data/mcp-servers/venv/bin/python -c "
+            docker exec -e MEMORY_DB_DSN=\"postgresql://$DB_USER:$DB_PASSWORD@$POSTGRES_HOST:5432/\$DB\" -e MEMORY_SHARED_DSN=\"postgresql://$DB_USER:$DB_PASSWORD@$POSTGRES_HOST:5432/shared_db\" \$c /opt/data/mcp-servers/venv/bin/python -c \"
 import os, json
 from mnemosyne.mcp_server import MCPServer
 server = MCPServer()
 health = server._health()
-print(\"  Version:\", health[\"server\"][\"version\"])
-print(\"  Status:\", health[\"server\"][\"status\"])
-print(\"  Backend:\", health[\"store\"][\"backend\"])
-print(\"  Shared connected:\", health[\"store\"][\"shared_store\"])
-print(\"  Tools count:\", len(server._get_tools()))
-"
+print('  Version:', health['server']['version'])
+print('  Status:', health['server']['status'])
+print('  Backend:', health['store']['backend'])
+print('  Shared connected:', health['store']['shared_store'])
+print('  Tools count:', len(server._get_tools()))
+\"
         done
-        '
+        "
         ;;
 
     shell)
