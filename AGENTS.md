@@ -10,12 +10,12 @@
 
 | Resource | Value / Configuration |
 |---|---|
-| **VPS IP Address** | `187.124.2.26` |
+| **VPS IP Address** | `<YOUR_VPS_IP>` |
 | **SSH User** | `root` |
-| **Direct SSH Command** | `ssh -o ConnectTimeout=10 -o BatchMode=yes root@187.124.2.26` |
+| **Direct SSH Command** | `ssh -o ConnectTimeout=10 -o BatchMode=yes root@<YOUR_VPS_IP>` |
 | **SSH Aliases** | `ssh ai-club-vps` or `ssh my-vps` |
 | **Local SSH Key** | Automatically configured at `~/.ssh/id_vps` & `~/.ssh/id_ed25519_ai_club` |
-| **PostgreSQL Internal IP** | `172.16.8.2:5432` (Docker network `hermes-net`) |
+| **PostgreSQL Internal IP** | `<POSTGRES_INTERNAL_IP>:5432` (Docker network `hermes-net`) |
 | **Database Credentials** | User: `mnemosyne`, Password: `mnemosyne` |
 
 ---
@@ -24,12 +24,12 @@
 
 | Container Name | Agent Name | Domain / Role | Private Database DSN | Vault Path |
 |---|---|---|---|---|
-| **`hermes-agent`** | **Toy** | Chief Orchestrator & Lead Researcher | `postgresql://mnemosyne:mnemosyne@172.16.8.2:5432/toy_db` | `/opt/data/vault` |
-| **`hermes-assistant`** | **Old** | Executive Task Manager & Personal Ops | `postgresql://mnemosyne:mnemosyne@172.16.8.2:5432/old_db` | `/opt/data/obsidian-vault` |
-| **`hermes-marketing`** | **Candy** | Content Pipeline & Social Marketing | `postgresql://mnemosyne:mnemosyne@172.16.8.2:5432/candy_db` | `/opt/data/obsidian-vault` |
-| **`hermes-pentest`** | **Pencil** | Security Auditing (154 Hexstrike tools) | `postgresql://mnemosyne:mnemosyne@172.16.8.2:5432/pencil_db` | `/opt/data/obsidian-vault` |
-| **`hermes-trader`** | **Coin** | Crypto & Market Quantitative Intelligence | `postgresql://mnemosyne:mnemosyne@172.16.8.2:5432/trader_db` | `/opt/data/obsidian-vault` |
-| **Cross-Agent Shared** | **Fleet** | Global Knowledge & Threat Intelligence | `postgresql://mnemosyne:mnemosyne@172.16.8.2:5432/shared_db` | *Shared DB* |
+| **`hermes-agent`** | **Toy** | Chief Orchestrator & Lead Researcher | `postgresql://<DB_USER>:<DB_PASSWORD>@<POSTGRES_INTERNAL_IP>:5432/toy_db` | `/opt/data/vault` |
+| **`hermes-assistant`** | **Old** | Executive Task Manager & Personal Ops | `postgresql://<DB_USER>:<DB_PASSWORD>@<POSTGRES_INTERNAL_IP>:5432/old_db` | `/opt/data/obsidian-vault` |
+| **`hermes-marketing`** | **Candy** | Content Pipeline & Social Marketing | `postgresql://<DB_USER>:<DB_PASSWORD>@<POSTGRES_INTERNAL_IP>:5432/candy_db` | `/opt/data/obsidian-vault` |
+| **`hermes-pentest`** | **Pencil** | Security Auditing (154 Hexstrike tools) | `postgresql://<DB_USER>:<DB_PASSWORD>@<POSTGRES_INTERNAL_IP>:5432/pencil_db` | `/opt/data/obsidian-vault` |
+| **`hermes-trader`** | **Coin** | Crypto & Market Quantitative Intelligence | `postgresql://<DB_USER>:<DB_PASSWORD>@<POSTGRES_INTERNAL_IP>:5432/trader_db` | `/opt/data/obsidian-vault` |
+| **Cross-Agent Shared** | **Fleet** | Global Knowledge & Threat Intelligence | `postgresql://<DB_USER>:<DB_PASSWORD>@<POSTGRES_INTERNAL_IP>:5432/shared_db` | *Shared DB* |
 
 ---
 

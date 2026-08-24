@@ -1,12 +1,12 @@
 #!/usr/bin/env bash
 # ==============================================================================
 # Mnemosyne Fleet VPS Management & Diagnostic CLI
-# Connects directly to the production VPS (187.124.2.26)
+# Connects directly to the production VPS (<YOUR_VPS_IP>)
 # ==============================================================================
 
 set -euo pipefail
 
-VPS_HOST="${VPS_HOST:-root@187.124.2.26}"
+VPS_HOST="${VPS_HOST:-root@<YOUR_VPS_IP>}"
 CONTAINERS=("hermes-agent" "hermes-assistant" "hermes-marketing" "hermes-pentest" "hermes-trader")
 
 SSH_CMD="ssh -o ConnectTimeout=10 -o BatchMode=yes $VPS_HOST"
@@ -45,7 +45,7 @@ case "${1:-}" in
         $SSH_CMD "
             docker exec hermes-agent rm -rf /tmp/tests
             docker cp /tmp/mnemosyne-repo/tests hermes-agent:/tmp/tests
-            docker exec -e PYTHONPATH=/tmp/mnemosyne-repo -e MEMORY_DB_DSN='postgresql://mnemosyne:mnemosyne@172.16.8.2:5432/toy_db' hermes-agent /opt/data/mcp-servers/venv/bin/pytest -p no:postgresql /tmp/tests -v
+            docker exec -e PYTHONPATH=/tmp/mnemosyne-repo -e MEMORY_DB_DSN='postgresql://<DB_USER>:<DB_PASSWORD>@<POSTGRES_INTERNAL_IP>:5432/toy_db' hermes-agent /opt/data/mcp-servers/venv/bin/pytest -p no:postgresql /tmp/tests -v
         "
         ;;
 
@@ -89,7 +89,7 @@ case "${1:-}" in
             if [ "$c" = "hermes-pentest" ]; then DB="pencil_db"; fi
             if [ "$c" = "hermes-trader" ]; then DB="trader_db"; fi
 
-            docker exec -e MEMORY_DB_DSN="postgresql://mnemosyne:mnemosyne@172.16.8.2:5432/$DB" -e MEMORY_SHARED_DSN="postgresql://mnemosyne:mnemosyne@172.16.8.2:5432/shared_db" $c /opt/data/mcp-servers/venv/bin/python -c "
+            docker exec -e MEMORY_DB_DSN="postgresql://<DB_USER>:<DB_PASSWORD>@<POSTGRES_INTERNAL_IP>:5432/$DB" -e MEMORY_SHARED_DSN="postgresql://<DB_USER>:<DB_PASSWORD>@<POSTGRES_INTERNAL_IP>:5432/shared_db" $c /opt/data/mcp-servers/venv/bin/python -c "
 import os, json
 from mnemosyne.mcp_server import MCPServer
 server = MCPServer()

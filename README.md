@@ -267,7 +267,7 @@ In multi-agent production setups (such as the 5-agent Hermes fleet), Mnemosyne i
 
 ```
                                   ┌─────────────────────────────────────────┐
-                                  │      Production VPS (187.124.2.26)      │
+                                  │      Production VPS (<YOUR_VPS_IP>)      │
                                   └────────────────────┬────────────────────┘
                                                        │
          ┌───────────────────┬──────────────────┼───────────────────┬──────────────────┐
@@ -369,8 +369,8 @@ mcp_servers:
     command: python3
     args: ["-m", "mnemosyne", "server"]
     env:
-      MEMORY_DB_DSN: "postgresql://mnemosyne:mnemosyne@172.16.8.2:5432/toy_db"
-      MEMORY_SHARED_DSN: "postgresql://mnemosyne:mnemosyne@172.16.8.2:5432/shared_db"
+      MEMORY_DB_DSN: "postgresql://mnemosyne:mnemosyne@<POSTGRES_INTERNAL_IP>:5432/toy_db"
+      MEMORY_SHARED_DSN: "postgresql://mnemosyne:mnemosyne@<POSTGRES_INTERNAL_IP>:5432/shared_db"
       MEMORY_VAULT_PATH: "/opt/data/vault"
 ```
 

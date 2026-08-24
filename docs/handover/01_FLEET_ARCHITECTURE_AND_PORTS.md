@@ -1,6 +1,6 @@
 # Live VPS Fleet Architecture & Network Topology 🌐
 
-**Server IP:** `187.124.2.26`  
+**Server IP:** `<YOUR_VPS_IP>`  
 **OS:** Ubuntu 24.04 LTS  
 **Primary Agent Container Engine:** Docker (s6-rc supervised)
 
@@ -10,12 +10,12 @@
 
 | Agent Name | Role | Container Name | Memory Database | Internal DSN | Vault Path |
 |---|---|---|---|---|---|
-| **Toy** | Core DevOps & Assistant | `hermes-agent` | `toy_db` (58 notes) | `postgresql://mnemosyne:mnemosyne@172.16.8.2:5432/toy_db` | `/root/.hermes/vault` |
-| **Old** | General Assistant | `hermes-assistant` | `old_db` (14 notes) | `postgresql://mnemosyne:mnemosyne@172.16.8.2:5432/old_db` | `/root/.hermes/vault` |
-| **Candy** | Marketing AI Agent | `hermes-marketing` | `candy_db` (3 notes) | `postgresql://mnemosyne:mnemosyne@172.16.8.2:5432/candy_db` | `/root/.hermes/vault` |
-| **Pencil** | Cybersecurity Pentester | `hermes-pentest` | `pencil_db` (5 notes) | `postgresql://mnemosyne:mnemosyne@172.16.8.2:5432/pencil_db` | `/root/.hermes/vault` |
-| **Coin** | Crypto Trader AI | `hermes-trader` | `trader_db` (2 notes) | `postgresql://mnemosyne:mnemosyne@172.16.8.2:5432/trader_db` | `/root/.hermes/vault` |
-| **PostgreSQL Database** | Storage Engine | `mo-graphify-obsidian-memory-postgres-1` | All 5 DBs | `172.16.8.2:5432` | `/var/lib/postgresql/data` |
+| **Toy** | Core DevOps & Assistant | `hermes-agent` | `toy_db` (58 notes) | `postgresql://<DB_USER>:<DB_PASSWORD>@<POSTGRES_INTERNAL_IP>:5432/toy_db` | `/root/.hermes/vault` |
+| **Old** | General Assistant | `hermes-assistant` | `old_db` (14 notes) | `postgresql://<DB_USER>:<DB_PASSWORD>@<POSTGRES_INTERNAL_IP>:5432/old_db` | `/root/.hermes/vault` |
+| **Candy** | Marketing AI Agent | `hermes-marketing` | `candy_db` (3 notes) | `postgresql://<DB_USER>:<DB_PASSWORD>@<POSTGRES_INTERNAL_IP>:5432/candy_db` | `/root/.hermes/vault` |
+| **Pencil** | Cybersecurity Pentester | `hermes-pentest` | `pencil_db` (5 notes) | `postgresql://<DB_USER>:<DB_PASSWORD>@<POSTGRES_INTERNAL_IP>:5432/pencil_db` | `/root/.hermes/vault` |
+| **Coin** | Crypto Trader AI | `hermes-trader` | `trader_db` (2 notes) | `postgresql://<DB_USER>:<DB_PASSWORD>@<POSTGRES_INTERNAL_IP>:5432/trader_db` | `/root/.hermes/vault` |
+| **PostgreSQL Database** | Storage Engine | `mo-graphify-obsidian-memory-postgres-1` | All 5 DBs | `<POSTGRES_INTERNAL_IP>:5432` | `/var/lib/postgresql/data` |
 
 ---
 
@@ -24,7 +24,7 @@
 ```
                      ┌────────────────────────────────────────────────────────┐
                      │     mo-graphify-obsidian-memory_default (Bridge)       │
-                     │                 Subnet: 172.16.8.0/24                  │
+                     │                 Subnet: <POSTGRES_SUBNET>                  │
                      └──────────────────────────┬─────────────────────────────┘
                                                 │
          ┌───────────────────┬──────────────────┼───────────────────┬──────────────────┐
@@ -32,7 +32,7 @@
 ┌──────────────────┐┌──────────────────┐┌──────────────────┐┌──────────────────┐┌──────────────────┐
 │   hermes-agent   ││ hermes-assistant ││ hermes-marketing ││  hermes-pentest  ││  hermes-trader   │
 │      (Toy)       ││      (Old)       ││     (Candy)      ││     (Pencil)     ││      (Coin)      │
-│   172.16.8.3     ││   172.16.8.4     ││   172.16.8.5     ││   172.16.8.6     ││   172.16.8.7     │
+│   <AGENT_IP>     ││   <AGENT_IP>     ││   <AGENT_IP>     ││   <AGENT_IP>     ││   <AGENT_IP>     │
 └────────┬─────────┘└────────┬─────────┘└────────┬─────────┘└────────┬─────────┘└────────┬─────────┘
          │                   │                  │                   │                  │
          └───────────────────┴──────────────────┼───────────────────┴──────────────────┘
@@ -40,7 +40,7 @@
                                                 ▼
                                ┌───────────────────────────────────┐
                                │   PostgreSQL + pgvector Container │
-                               │           (172.16.8.2:5432)       │
+                               │           (<POSTGRES_INTERNAL_IP>:5432)       │
                                │   Host mapped: 127.0.0.1:15432    │
                                └───────────────────────────────────┘
 ```
