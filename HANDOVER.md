@@ -1,6 +1,6 @@
 # 📁 Mnemosyne Handover & Quick Start
 
-Welcome to the **Mnemosyne** workspace (`/Users/mohamedfathy/.gemini/antigravity/scratch/mnemosyne`).
+Welcome to the **Mnemosyne** workspace.
 
 For complete infrastructure specifications, container names, and VPS access commands, read:
 👉 [**`AGENTS.md`**](AGENTS.md)
@@ -9,12 +9,17 @@ For complete infrastructure specifications, container names, and VPS access comm
 ### 🚀 Common One-Line Commands
 
 ```bash
-# Check VPS fleet status
+# Check fleet status (set VPS_HOST/VPS_USER first — see .env.example)
 ./scripts/vps.sh status
 
-# Run full test suite on VPS
+# Run a MCP health audit across the fleet
+./scripts/vps.sh audit
+
+# Run the full test suite on a target container
 ./scripts/vps.sh test
 
-# Sync local edits to VPS
+# Sync local edits to the VPS deploy dir
 ./scripts/vps.sh sync
 ```
+
+> All deployment values (host, credentials) come from environment variables — see `.env.example`. They are never hardcoded in this repo.

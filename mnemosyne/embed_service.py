@@ -1,5 +1,5 @@
 """
-Mnemosyne Centralized Embedding Microservice (v3.3.0).
+Mnemosyne Centralized Embedding Microservice (v3.4.0).
 FastAPI microservice hosting sentence-transformers in a single dedicated process (~75MB RAM).
 """
 
@@ -45,7 +45,7 @@ def create_app(model_name: str = "sentence-transformers/all-MiniLM-L6-v2") -> "F
     model = SentenceTransformer(model_name)
     logger.info(f"Embedding model {model_name} loaded successfully (dim={model.get_sentence_embedding_dimension()}).")
 
-    app = FastAPI(title="Mnemosyne Embedding Service", version="3.3.0")
+    app = FastAPI(title="Mnemosyne Embedding Service", version="3.4.0")
 
     @app.get("/health")
     def health():
@@ -54,7 +54,7 @@ def create_app(model_name: str = "sentence-transformers/all-MiniLM-L6-v2") -> "F
             "model": model_name,
             "dim": model.get_sentence_embedding_dimension(),
             "service": "mnemosyne-embed-service",
-            "version": "3.3.0",
+            "version": "3.4.0",
         }
 
     @app.post("/embed", response_model=EmbedResponse)
@@ -75,16 +75,25 @@ def create_app(model_name: str = "sentence-transformers/all-MiniLM-L6-v2") -> "F
     return app
 
 
-def main():
+def run_service(
+    host: str = "0.0.0.0",
+    port: int = 8000,
+    model_name: str = "sentence-transformers/all-MiniLM-L6-v2",
+) -> None:
+    """Run the embedding microservice with explicit host/port/model bindings."""
     import uvicorn
-
-    port = int(os.environ.get("EMBED_SERVICE_PORT", "8765"))
-    host = os.environ.get("EMBED_SERVICE_HOST", "0.0.0.0")
-    model_name = os.environ.get("EMBED_MODEL", "sentence-transformers/all-MiniLM-L6-v2")
 
     app = create_app(model_name=model_name)
     logger.info(f"Starting Mnemosyne Embedding Microservice on {host}:{port}...")
     uvicorn.run(app, host=host, port=port, log_level="info")
+
+
+def main():
+    """Entry point: honors EMBED_SERVICE_PORT / EMBED_SERVICE_HOST / EMBED_MODEL env vars."""
+    port = int(os.environ.get("EMBED_SERVICE_PORT", "8765"))
+    host = os.environ.get("EMBED_SERVICE_HOST", "0.0.0.0")
+    model_name = os.environ.get("EMBED_MODEL", "sentence-transformers/all-MiniLM-L6-v2")
+    run_service(host=host, port=port, model_name=model_name)
 
 
 if __name__ == "__main__":
