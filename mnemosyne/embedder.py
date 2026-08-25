@@ -75,8 +75,10 @@ class Embedder:
             self.dim = 384
             logger.info("Embedder: using local FastEmbed ONNX runtime (~30MB RAM)")
             return
-        except (ImportError, Exception):
-            pass
+        except ImportError:
+            logger.debug("FastEmbed not installed; trying sentence-transformers.")
+        except Exception as e:
+            logger.warning(f"FastEmbed init failed ({e}); trying sentence-transformers.")
 
         # 2. Local SentenceTransformers (PyTorch)
         try:
@@ -88,9 +90,13 @@ class Embedder:
             except AttributeError:
                 self.dim = self._local_model.get_sentence_embedding_dimension()
             logger.info(f"Embedder: using local sentence-transformers ({self.model_name})")
-        except ImportError:
+        except Exception as e:
+            # Catch ANY failure here (ImportError, OSError, HTTPError, model
+            # download/offline, tokenizer error) so a first-run/offline embedder
+            # degrades to the deterministic hash fallback instead of crashing the
+            # whole MCP server during UnifiedMemorySystem.__init__.
             self._provider = "hash-fallback"
-            logger.warning("Embedder: sentence-transformers not found; using deterministic hash fallback.")
+            logger.warning(f"Embedder: local model init failed ({e}); using deterministic hash fallback.")
 
     def _check_circuit(self):
         with self._lock:
