@@ -4,7 +4,7 @@
 [![PyPI version](https://img.shields.io/pypi/v/mnemosyne-memory.svg)](https://pypi.org/project/mnemosyne-memory/)
 [![Python 3.9+](https://img.shields.io/badge/python-3.9+-blue.svg)](https://www.python.org/downloads/)
 [![MCP](https://img.shields.io/badge/MCP-2024--11--05-green.svg)](https://modelcontextprotocol.io/)
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+[![License: Apache-2.0](https://img.shields.io/badge/License-Apache--2.0-blue.svg)](https://opensource.org/licenses/Apache-2.0)
 
 **Production-grade, local-first hierarchical memory engine for autonomous AI agents.**
 
@@ -469,6 +469,8 @@ python -m mnemosyne embed-service --host 0.0.0.0 --port 8000 --model all-MiniLM-
 | `GDRIVE_TOKEN_JSON` | *(none)* | Stringified JSON content of authorized Google OAuth2 user token |
 | `TOKENIZERS_PARALLELISM` | `false` | Disables HuggingFace tokenizer forks to preserve stdio JSON-RPC stream integrity |
 | `HF_HUB_DISABLE_PROGRESS_BARS` | `1` | Disables progress bars in stdio to keep MCP streams pristine |
+| `HF_HUB_OFFLINE` | `0` | Set `1` to run SentenceTransformers 100% offline using local cache |
+| `TRANSFORMERS_OFFLINE` | `0` | Set `1` to prevent transformers from making external HuggingFace network requests |
 
 ---
 
@@ -488,4 +490,4 @@ MEMORY_DB_DSN="postgresql://mnemosyne:mnemosyne@localhost:5432/test_db" pytest t
 
 ## 📄 License
 
-MIT License. Built for the open autonomous agent ecosystem.
+Apache-2.0 License. Built for the open autonomous agent ecosystem. See [LICENSE](LICENSE) for full details.
