@@ -552,3 +552,43 @@ class SQLiteStore(MemoryStore):
                 "wings": wings,
                 "backend": "sqlite",
             }
+
+    # --- Prospective-reminder support (SQLite-portable) ---
+    # The standalone ProspectiveMemory class uses PG-only syntax (%s, RETURNING,
+    # NOW() + INTERVAL). These store native methods let the core schedule reminders
+    # on the SQLite backend. Kept in the store so ProspectiveMemory can delegate
+    # to whatever backend is active.
+
+    def schedule_reminder(self, title: str, content: str, trigger_at: str,
+                          recurring: Optional[str] = None) -> str:
+        """Insert a pending reminder, returning its id string."""
+        rid = str(uuid.uuid4())
+        with self._conn() as conn:
+            conn.execute(
+                "INSERT INTO prospective (id, title, content, trigger_at, recurring, status) "
+                "VALUES (?, ?, ?, ?, ?, 'pending');",
+                (rid, title, content, trigger_at, recurring),
+            )
+        return rid
+
+    def get_due_reminders(self, window_hours: int = 24) -> List[Dict[str, Any]]:
+        with self._conn() as conn:
+            cur = conn.cursor()
+            # Due = pending AND trigger_at <= now + window.
+            # trigger_at is stored as ISO with a 'T' separator (e.g.
+            # '2026-08-25T09:00:00') while SQLite datetime('now', ...) emits a
+            # space separator. Normalize with replace() so the string compare is
+            # correct even for same-day triggers ('T' sorts AFTER ' ').
+            cur.execute(
+                "SELECT id, title, content, trigger_at, recurring FROM prospective "
+                "WHERE status = 'pending' "
+                "AND replace(trigger_at, 'T', ' ') <= datetime('now', ?) "
+                "ORDER BY trigger_at;",
+                (f"+{int(window_hours)} hours",),
+            )
+            cols = [d[0] for d in cur.description]
+            return [dict(zip(cols, row)) for row in cur.fetchall()]
+
+    def mark_reminder_done(self, reminder_id: str) -> None:
+        with self._conn() as conn:
+            conn.execute("UPDATE prospective SET status = 'done' WHERE id = ?;", (reminder_id,))

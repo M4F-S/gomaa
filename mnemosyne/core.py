@@ -11,6 +11,8 @@ from .security import AdmissionControl
 from .stores import create_store
 from .stores.base import MemoryStore
 from .vault import VaultManager
+from .consolidation import ConsolidationEngine
+from .prospective import ProspectiveMemory
 
 # Stdio stream protection
 os.environ["TOKENIZERS_PARALLELISM"] = "false"
@@ -73,6 +75,10 @@ class UnifiedMemorySystem:
         self.embedder = Embedder()
         self.security = AdmissionControl()
         self.db: MemoryStore = create_store(dsn)
+
+        # Reconcile orphaned maintenance modules back into the core system
+        self.consolidation_engine = ConsolidationEngine(self.db, self.vault, self.embedder)
+        self.prospective = ProspectiveMemory(self.db)
 
         # Optional shared cross-agent memory store
         self.shared_dsn = shared_dsn or os.environ.get("MEMORY_SHARED_DSN")
@@ -413,17 +419,70 @@ class UnifiedMemorySystem:
         return self.db.get_note_history(title=title, limit=limit)
 
     def remind_me(self, title: str, content: str, trigger_at: str, recurring: Optional[str] = None) -> Dict[str, Any]:
+        """Schedule a future reminder through the prospective-memory engine.
+
+        Returns success:False if the backend cannot actually schedule, so callers
+        (e.g. the MCP `memory_remind_me` tool) never report a reminder that was
+        silently dropped.
+        """
+        if getattr(self, "prospective", None) is None:
+            self.db.log_timeline(action="remind", note_title=title, summary=f"trigger_at={trigger_at} recurring={recurring}")
+            return {"success": False, "error": "prospective memory engine is not initialized", "title": title}
+
+        try:
+            reminder_id = self.prospective.schedule(title, content, trigger_at, recurring)
+        except Exception as e:
+            logger.warning(f"Prospective schedule failed ({e}); reminder NOT scheduled.")
+            self.db.log_timeline(action="remind", note_title=title, summary=f"FAILED trigger_at={trigger_at} recurring={recurring} err={e}")
+            return {
+                "success": False,
+                "error": f"Failed to schedule reminder: {e}",
+                "title": title,
+                "trigger_at": trigger_at,
+                "recurring": recurring,
+                "reminder_id": None,
+            }
+
         self.db.log_timeline(action="remind", note_title=title, summary=f"trigger_at={trigger_at} recurring={recurring}")
-        return {"success": True, "title": title, "trigger_at": trigger_at, "recurring": recurring}
+        return {
+            "success": True,
+            "title": title,
+            "trigger_at": trigger_at,
+            "recurring": recurring,
+            "reminder_id": reminder_id,
+        }
+
+    def check_reminders(self, window_hours: int = 24) -> List[Dict[str, Any]]:
+        """Return reminders due within the next N hours (if backend supports it)."""
+        if getattr(self, "prospective", None) is None:
+            return []
+        try:
+            return self.prospective.get_due(window_hours=window_hours)
+        except Exception as e:
+            logger.warning(f"check_reminders failed: {e}")
+            return []
 
     def consolidate(self, decay_rate: float = 0.95, archive_threshold: float = 0.05) -> Dict[str, Any]:
+        """Run temporal decay and link reconciliation, then engine-level consolidation.
+
+        Prefers the ConsolidationEngine when available; always applies the
+        store-level decay/reconcile so the behavior remains deterministic.
+        """
         reconciled = self.db.reconcile_links()
         decay_res = self.db.apply_decay(decay_rate=decay_rate, archive_threshold=archive_threshold)
         self.db.log_timeline(
             action="consolidate",
             summary=f"reconciled_links={reconciled} decayed={decay_res.get('decayed', 0)} archived={decay_res.get('archived', 0)}",
         )
-        return {"reconciled_links": reconciled, **decay_res}
+        engine_res: Dict[str, Any] = {}
+        if getattr(self, "consolidation_engine", None) is not None:
+            try:
+                engine_res = self.consolidation_engine.run(
+                    decay_factor=decay_rate, archive_threshold=archive_threshold
+                )
+            except Exception as e:
+                logger.warning(f"ConsolidationEngine run failed ({e}); store-level consolidation still applied.")
+        return {"reconciled_links": reconciled, **decay_res, "engine": engine_res}
 
     def stats(self) -> Dict[str, Any]:
         return self.db.get_stats()

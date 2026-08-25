@@ -23,6 +23,26 @@ from typing import Any, Dict, List, Optional, Tuple
 
 logger = logging.getLogger("mnemosyne-gdrive-sync")
 
+
+def safe_pull_dest_path(vault_root: Path, remote_name: str) -> Path:
+    """Decode a Drive remote_name (`___` = path separator) into a validated path
+    strictly inside vault_root.
+
+    Raises ValueError on traversal attempts (absolute paths, `..` components).
+    """
+    rel_path_str = remote_name.replace("___", "/")
+    candidate = Path(rel_path_str)
+    if candidate.is_absolute():
+        raise ValueError(f"Security Alert: path traversal attempt (absolute path): {remote_name}")
+    if ".." in candidate.parts:
+        raise ValueError(f"Security Alert: path traversal attempt (.. component): {remote_name}")
+
+    root_resolved = vault_root.resolve()
+    dest = (vault_root / candidate).resolve()
+    if not dest.is_relative_to(root_resolved):
+        raise ValueError(f"Security Alert: path traversal attempt detected ({dest})")
+    return dest
+
 # Optional Google Client imports
 try:
     from google.oauth2 import service_account
@@ -204,8 +224,8 @@ class GoogleDriveSyncManager:
     def pull_note(self, file_id: str, remote_name: str) -> bool:
         """Download a note from Google Drive to the local vault."""
         try:
-            rel_path_str = remote_name.replace("___", "/")
-            dest_path = self.vault_path / rel_path_str
+            # Validate the decoded path stays inside the vault (path-traversal guard).
+            dest_path = safe_pull_dest_path(self.vault_path, remote_name)
             dest_path.parent.mkdir(parents=True, exist_ok=True)
 
             request = self.service.files().get_media(fileId=file_id)

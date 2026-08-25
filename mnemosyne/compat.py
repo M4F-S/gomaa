@@ -15,13 +15,38 @@ def _get_memory() -> UnifiedMemorySystem:
     return _global_memory
 
 
-def create_note(title: str, content: str, tags: Optional[List[str]] = None, note_type: str = "concept", links: Optional[List[str]] = None):
-    """v1.0 compatible: Create a note."""
-    if links:
-        link_str = " ".join(f"[[{link}]]" for link in links if f"[[{link}]]" not in content)
-        if link_str:
-            content = f"{content}\n\nRelated: {link_str}"
-    return _get_memory().remember(title=title, content=content, tags=tags or [], note_type=note_type)
+def _embed_links(content: str, links: Optional[List[str]] = None) -> str:
+    """Render [[wikilinks]] as a trailing Links section without corrupting content."""
+    if not links:
+        return content
+    link_str = " ".join(
+        [f"[[{l}]]" if not l.startswith("[[") else l for l in links]
+    )
+    return f"{content}\n\nLinks: {link_str}"
+
+
+def create_note(
+    title: str,
+    content: str,
+    tags: Optional[List[str]] = None,
+    note_type: str = "concept",
+    links: Optional[List[str]] = None,
+    wing: str = "general",
+    room: str = "general",
+    **kwargs,
+):
+    """v1-v2 backward-compatible wrapper for UnifiedMemorySystem.remember."""
+    formatted_content = _embed_links(content, links)
+    return _get_memory().remember(
+        title=title,
+        content=formatted_content,
+        tags=tags or [],
+        note_type=note_type,
+        salience=kwargs.get("salience", 0.5),
+        wing=wing,
+        room=room,
+        pinned=kwargs.get("pinned", False),
+    )
 
 
 def read_note(title: str) -> Optional[str]:
@@ -53,12 +78,32 @@ def update_note(title: str, new_content=None, append_content=None, **kwargs):
         content=content,
         tags=fm.get("tags", []),
         note_type=fm.get("type", "concept"),
+        salience=kwargs.get("salience", 0.5),
+        wing=kwargs.get("wing", "general"),
+        room=kwargs.get("room", "general"),
+        pinned=kwargs.get("pinned", False),
     )
 
 
-def create_moc(title: str, description: str, related_notes: List[str]):
+def create_moc(
+    title: str,
+    description: str,
+    related_notes: List[str],
+    wing: str = "general",
+    room: str = "general",
+    **kwargs,
+):
     """v1.0 compatible: Create a Map of Content."""
     content = f"{description}\n\n## Overview\n\n"
     for note in related_notes:
         content += f"- [[{note}]]\n"
-    return _get_memory().remember(title=title, content=content, tags=["MOC", "index"], note_type="MOC")
+    return _get_memory().remember(
+        title=title,
+        content=content,
+        tags=["MOC", "index"],
+        note_type="MOC",
+        salience=kwargs.get("salience", 0.5),
+        wing=wing,
+        room=room,
+        pinned=kwargs.get("pinned", False),
+    )

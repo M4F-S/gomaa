@@ -434,7 +434,7 @@ services:
   mnemosyne:
     build: .
     environment:
-      MEMORY_DB_DSN: "postgresql://mnemosyne:mnemosyne@postgres:5432/mnemosyne"
+      MEMORY_DB_DSN: "postgresql://mnemosyne:***@postgres:5432/mnemosyne"
     volumes:
       - ./mnemosyne-data:/app/data
     depends_on:
@@ -599,7 +599,7 @@ jobs:
 
       - name: Run integration tests
         env:
-          MEMORY_DB_DSN: "postgresql://mnemosyne:mnemosyne@localhost:5432/mnemosyne"
+          MEMORY_DB_DSN: "postgresql://mnemosyne:***@localhost:5432/mnemosyne"
         run: pytest tests/ -v -m integration
 
       - name: Upload coverage
@@ -816,7 +816,7 @@ class TestIntegration:
             from mnemosyne import UnifiedMemorySystem
             mem = UnifiedMemorySystem(
                 vault_path=tmpdir,
-                dsn=os.environ.get("MEMORY_DB_DSN", "postgresql://mnemosyne:mnemosyne@localhost:5432/mnemosyne"),
+                dsn=os.environ.get("MEMORY_DB_DSN", "postgresql://mnemosyne:***@localhost:5432/mnemosyne"),
                 auto_sync=False
             )
             yield mem
@@ -845,7 +845,7 @@ import os
 def postgres_dsn():
     return os.environ.get(
         "MEMORY_DB_DSN",
-        "postgresql://mnemosyne:mnemosyne@localhost:5432/mnemosyne"
+        "postgresql://mnemosyne:***@localhost:5432/mnemosyne"
     )
 ```
 

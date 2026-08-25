@@ -544,3 +544,36 @@ class PgVectorStore(MemoryStore):
                     "wings": wings,
                     "backend": "postgresql",
                 }
+
+    # --- Prospective-reminder support (store-native, backend-consistent) ---
+    # Same interface as SQLiteStore.schedule_reminder / get_due_reminders /
+    # mark_reminder_done so ProspectiveMemory can delegate uniformly.
+
+    def schedule_reminder(self, title: str, content: str, trigger_at: str,
+                          recurring: Optional[str] = None) -> str:
+        with self._conn() as conn:
+            with conn.cursor() as cur:
+                cur.execute(
+                    "INSERT INTO prospective (title, content, trigger_at, recurring, status) "
+                    "VALUES (%s, %s, %s, %s, 'pending') RETURNING id;",
+                    (title, content, trigger_at, recurring),
+                )
+                rid = cur.fetchone()[0]
+        return str(rid)
+
+    def get_due_reminders(self, window_hours: int = 24) -> List[Dict[str, Any]]:
+        with self._conn() as conn:
+            with conn.cursor() as cur:
+                cur.execute(
+                    "SELECT id, title, content, trigger_at, recurring FROM prospective "
+                    "WHERE status = 'pending' AND trigger_at <= NOW() + make_interval(hours => %s) "
+                    "ORDER BY trigger_at;",
+                    (int(window_hours),),
+                )
+                cols = [d[0] for d in cur.description]
+                return [dict(zip(cols, row)) for row in cur.fetchall()]
+
+    def mark_reminder_done(self, reminder_id: str) -> None:
+        with self._conn() as conn:
+            with conn.cursor() as cur:
+                cur.execute("UPDATE prospective SET status = 'done' WHERE id = %s;", (reminder_id,))

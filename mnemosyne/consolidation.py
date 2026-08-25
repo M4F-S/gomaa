@@ -20,16 +20,20 @@ class ConsolidationEngine:
         self.vault = vault
         self.embedder = embedder
 
-    def run(self) -> Dict:
-        """Run full consolidation. Returns stats."""
+    def run(self, decay_factor: float = 0.95, archive_threshold: float = 0.10) -> Dict:
+        """Run full consolidation. Returns stats.
+
+        decay_factor and archive_threshold are accepted for interface parity
+        with store-level consolidation; archiving uses archive_threshold.
+        """
         stats = {"archived": 0, "relinked": 0}
-        stats["archived"] = self._archive_stale()
+        stats["archived"] = self._archive_stale(archive_threshold)
         stats["relinked"] = self._rebuild_links()
         logger.info(f"Consolidation complete: {stats}")
         return stats
 
-    def _archive_stale(self) -> int:
-        """Archive notes not updated in 90 days with salience < 0.2."""
+    def _archive_stale(self, archive_threshold: float = 0.10) -> int:
+        """Archive notes not updated in 90 days with salience below threshold."""
         with self.db._conn() as conn:
             with conn.cursor() as cur:
                 cur.execute(
@@ -38,9 +42,10 @@ class ConsolidationEngine:
                     SET status = 'archived'
                     WHERE status = 'active'
                       AND updated_at < NOW() - INTERVAL '90 days'
-                      AND salience < 0.2
+                      AND salience < %s
                     RETURNING id;
-                """
+                    """,
+                    (archive_threshold,),
                 )
                 archived = len(cur.fetchall())
                 conn.commit()
