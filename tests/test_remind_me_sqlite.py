@@ -45,3 +45,22 @@ def test_remind_me_no_false_success_when_schedule_fails(monkeypatch, sqlite_mem)
     )
     assert res.get("success") is False
     assert res.get("reminder_id") is None
+
+
+def test_get_due_returns_same_day_trigger(sqlite_mem):
+    """A trigger a few minutes in the past (same day, ISO 'T' separator) must be
+    due. Regression for the T-vs-space string-compare bug in get_due_reminders."""
+    from datetime import datetime, timedelta, timezone
+
+    past = (datetime.now(timezone.utc) - timedelta(minutes=5)).strftime("%Y-%m-%dT%H:%M:%S")
+    rid = sqlite_mem.prospective.schedule("task-now", "do it now", past)
+    due = sqlite_mem.prospective.get_due(window_hours=1)
+    assert any(d["id"] == rid for d in due), "past/now trigger not returned as due"
+
+
+def test_get_due_excludes_future(sqlite_mem):
+    """A future trigger must not be returned as due."""
+    future = "2099-01-01T00:00:00"
+    rid = sqlite_mem.prospective.schedule("future-task", "later", future)
+    due = sqlite_mem.prospective.get_due(window_hours=24)
+    assert not any(d["id"] == rid for d in due)

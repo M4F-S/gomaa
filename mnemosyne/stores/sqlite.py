@@ -574,12 +574,15 @@ class SQLiteStore(MemoryStore):
     def get_due_reminders(self, window_hours: int = 24) -> List[Dict[str, Any]]:
         with self._conn() as conn:
             cur = conn.cursor()
-            # Due = pending AND trigger_at <= now + window. SQLite's datetime('now')
-            # is in UTC; compare against an ISO timestamp computed in Python is
-            # fragile, so use mod(datetime('now', '+<n> hours')) text comparison.
+            # Due = pending AND trigger_at <= now + window.
+            # trigger_at is stored as ISO with a 'T' separator (e.g.
+            # '2026-08-25T09:00:00') while SQLite datetime('now', ...) emits a
+            # space separator. Normalize with replace() so the string compare is
+            # correct even for same-day triggers ('T' sorts AFTER ' ').
             cur.execute(
                 "SELECT id, title, content, trigger_at, recurring FROM prospective "
-                "WHERE status = 'pending' AND trigger_at <= datetime('now', ?) "
+                "WHERE status = 'pending' "
+                "AND replace(trigger_at, 'T', ' ') <= datetime('now', ?) "
                 "ORDER BY trigger_at;",
                 (f"+{int(window_hours)} hours",),
             )
