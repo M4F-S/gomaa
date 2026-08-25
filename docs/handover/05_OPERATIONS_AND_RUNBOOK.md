@@ -2,20 +2,31 @@
 
 ---
 
-## 1. Quick Verification Commands (VPS Host)
+## 1. Quick Operations CLI (`./scripts/vps.sh`)
+
+Any operational task can be performed directly via `./scripts/vps.sh`:
 
 ```bash
-# Check container status
-docker ps --format "table {{.Names}}\t{{.Status}}\t{{.Ports}}"
+# 1. Check VPS container health, databases, and agent tool registrations
+./scripts/vps.sh status
 
-# Inspect Toy's live gateway log
-docker exec hermes-agent tail -n 50 /opt/data/logs/gateway.log
+# 2. Run runtime MCP health audit across all 5 agent containers
+./scripts/vps.sh audit
 
-# Inspect Toy's MCP tool discovery log
-docker exec hermes-agent grep -i "obsidian_memory" /opt/data/logs/agent.log | tail -n 10
+# 3. Run full automated test suite inside hermes-agent container
+./scripts/vps.sh test
 
-# Run full unit + PostgreSQL integration test suite
-docker exec -e PYTHONPATH=/tmp hermes-agent /opt/data/mcp-servers/venv/bin/pytest -p no:postgresql /tmp/tests -v
+# 4. Sync local codebase changes to VPS and install into all container venvs
+./scripts/vps.sh sync
+
+# 5. Restart all 5 Hermes agent containers
+./scripts/vps.sh restart
+
+# 6. Tail live logs for an agent container (e.g. hermes-agent, hermes-assistant)
+./scripts/vps.sh logs hermes-agent
+
+# 7. Execute command inside an agent container
+./scripts/vps.sh shell hermes-agent "python -V"
 ```
 
 ---
@@ -23,8 +34,8 @@ docker exec -e PYTHONPATH=/tmp hermes-agent /opt/data/mcp-servers/venv/bin/pytes
 ## 2. Triggering Manual Ebbinghaus Consolidation
 
 ```bash
-# On VPS host: runs decay engine across all 5 agent databases
-python3 /root/.hermes/scripts/nightly_consolidation.py
+# On VPS host: runs decay engine across all databases
+docker exec hermes-agent /opt/data/mcp-servers/venv/bin/python -m mnemosyne consolidate --decay-rate 0.95 --archive-threshold 0.05
 ```
 
 ---
@@ -32,21 +43,30 @@ python3 /root/.hermes/scripts/nightly_consolidation.py
 ## 3. PostgreSQL Database Backup Procedure
 
 ```bash
-# Dump all 5 agent databases to compressed SQL
+# Dump all agent databases to compressed SQL
 docker exec mo-graphify-obsidian-memory-postgres-1 pg_dumpall -U mnemosyne > /root/backups/mnemosyne_all_$(date +%Y%m%d).sql
 ```
 
 ---
 
-## 4. Troubleshooting Common Issues
+## 4. Google Drive Synchronization Operations
 
-### Issue A: Telegram Polling CLOSE-WAIT / Flood Control Hang
-* **Symptom:** Agent stops responding on Telegram after sending a large message.
-* **Fix:**
-  ```bash
-  docker restart hermes-agent
-  ```
+```bash
+# One-off synchronization pass
+python3 -m mnemosyne sync-gdrive --folder "Hermes-Fleet-Vault" --credentials service-account.json
+
+# Run as a continuous background daemon
+python3 -m mnemosyne sync-gdrive --daemon --interval 300 --folder "Hermes-Fleet-Vault"
+```
+
+---
+
+## 5. Troubleshooting Common Issues
+
+### Issue A: Telegram Flood Control / Rate Limit
+* **Symptom:** Agent warns `Telegram flood control, waiting ...` in `errors.log`.
+* **Action:** Telegram enforces a 1-message-edit/second throttle. The gateway buffers and recovers automatically. If stalled, restart the container via `./scripts/vps.sh restart`.
 
 ### Issue B: MCP Server Connection Closed
 * **Symptom:** `Failed to connect to MCP server 'obsidian_memory'`.
-* **Verification:** Ensure `MEMORY_DB_DSN` inside the container points to `postgresql://<DB_USER>:<DB_PASSWORD>@<POSTGRES_INTERNAL_IP>:5432/<agent_db>`.
+* **Action:** Run `./scripts/vps.sh audit` to verify PostgreSQL container health (`mo-graphify-obsidian-memory-postgres-1`) and database connectivity.
