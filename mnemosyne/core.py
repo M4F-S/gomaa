@@ -421,15 +421,28 @@ class UnifiedMemorySystem:
     def remind_me(self, title: str, content: str, trigger_at: str, recurring: Optional[str] = None) -> Dict[str, Any]:
         """Schedule a future reminder through the prospective-memory engine.
 
-        Falls back to a timeline-only no-op if the backend does not support
-        the prospective table (e.g. SQLite without the table).
+        Returns success:False if the backend cannot actually schedule, so callers
+        (e.g. the MCP `memory_remind_me` tool) never report a reminder that was
+        silently dropped.
         """
-        reminder_id = None
-        if getattr(self, "prospective", None) is not None:
-            try:
-                reminder_id = self.prospective.schedule(title, content, trigger_at, recurring)
-            except Exception as e:
-                logger.warning(f"Prospective schedule failed ({e}); falling back to timeline-only reminder.")
+        if getattr(self, "prospective", None) is None:
+            self.db.log_timeline(action="remind", note_title=title, summary=f"trigger_at={trigger_at} recurring={recurring}")
+            return {"success": False, "error": "prospective memory engine is not initialized", "title": title}
+
+        try:
+            reminder_id = self.prospective.schedule(title, content, trigger_at, recurring)
+        except Exception as e:
+            logger.warning(f"Prospective schedule failed ({e}); reminder NOT scheduled.")
+            self.db.log_timeline(action="remind", note_title=title, summary=f"FAILED trigger_at={trigger_at} recurring={recurring} err={e}")
+            return {
+                "success": False,
+                "error": f"Failed to schedule reminder: {e}",
+                "title": title,
+                "trigger_at": trigger_at,
+                "recurring": recurring,
+                "reminder_id": None,
+            }
+
         self.db.log_timeline(action="remind", note_title=title, summary=f"trigger_at={trigger_at} recurring={recurring}")
         return {
             "success": True,
