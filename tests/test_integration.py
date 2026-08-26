@@ -11,11 +11,11 @@ class TestIntegration:
         with tempfile.TemporaryDirectory() as tmpdir:
             from mnemosyne import UnifiedMemorySystem
 
+            default_dsn = f"sqlite://{os.path.join(tmpdir, 'test.db')}"
+            dsn = os.environ.get("MEMORY_DB_DSN", default_dsn)
             mem = UnifiedMemorySystem(
                 vault_path=tmpdir,
-                dsn=os.environ.get(
-                    "MEMORY_DB_DSN", "postgresql://mnemosyne:***@localhost:5432/mnemosyne"
-                ),
+                dsn=dsn,
                 auto_sync=False,
             )
             yield mem
