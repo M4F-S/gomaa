@@ -52,8 +52,11 @@ Mnemosyne equips AI agents (Hermes, OpenClaw, OpenManus, Claude Desktop, Cursor,
 | **📖 Obsidian Zettelkasten** | Writes human-readable Markdown notes with YAML frontmatter & `[[Wiki Links]]` | Direct visual inspection, editing, and graph visualization in Obsidian |
 | **📜 Turn-Aware Ingestor** | 1,500-char sliding-window chunking with 200-char overlap along turn boundaries | Preserves entire conversation history without breaking code blocks |
 | **🛡️ Prompt Injection Armor** | Neutralizes control tokens (`<|im_start|>`, `[INST]`) in prose; escapes XML context tags | Prevents memory poisoning and context hijacking attacks |
-| **⚡ FastEmbed ONNX Support** | Ultra-lightweight ONNX runtime embedding engine (~30MB RAM) | 90% memory reduction vs heavy PyTorch `sentence-transformers` |
-| **🔄 Zero-Config SQLite Fallback** | Automatic fallback to local SQLite when PostgreSQL is offline | 100% feature parity for standalone developer workstations |
+| **🎨 Native Aurora Dashboard** | Zero-dependency embedded web knowledge graph (`mnemosyne dashboard`) | Real-time visual memory graph, 5-layer distribution charts & live query sandbox |
+| **🧠 5 Cognitive Memory Layers** | Scientific classification (Episodic, Semantic, Procedural, Social, Preferential) | Eliminates cross-domain noise and structures long-term agent understanding |
+| **📦 Token-Budgeted Assembler** | Packs top-salience memories into exact LLM prompt budgets with XML escaping | Direct drop-in context injection for LLM system prompts without overflow |
+| **🔌 Framework Adapters** | Native integrations for LangChain, LangGraph, and CrewAI | Drop-in multi-agent swarm memory with zero boilerplate |
+| **🔄 Zero-Config SQLite Light Mode** | Automatic fallback to local SQLite WAL when PostgreSQL is offline | 5-second setup with 100% feature parity for standalone developer workstations |
 
 ---
 
@@ -482,32 +485,35 @@ Mnemosyne includes a full-featured management CLI:
 # 1. Initialize local vault & generate ready-to-copy MCP configurations
 mnemosyne init --path ~/.mnemosyne/vault
 
-# 2. Store a memory note
+# 2. Launch interactive Aurora Web Knowledge Graph Dashboard
+mnemosyne dashboard --port 8765
+
+# 3. Store a memory note
 mnemosyne remember "API Architecture" "Uses Bearer JWT auth." --tags security auth --wing backend --room api --salience 0.8 --pinned
 
-# 3. Publish shared fleet memory
+# 4. Publish shared fleet memory
 mnemosyne publish-shared "Global Production Policy" "Always check SSL certs." --wing devops
 
-# 4. Search memories (hybrid / semantic / keyword / graph)
+# 5. Search memories (hybrid / semantic / keyword / graph)
 mnemosyne recall "JWT authentication" --mode hybrid --top-k 5 --wing backend
 
-# 5. Assemble token-budgeted prompt context block
+# 6. Assemble token-budgeted prompt context block
 mnemosyne assemble-context "production policy" --max-tokens 1500 --wing devops
 
-# 6. View activity timeline
+# 7. View activity timeline
 mnemosyne timeline --limit 20
 
-# 7. Trigger Ebbinghaus decay & link reconciliation
+# 8. Trigger Ebbinghaus decay & link reconciliation
 mnemosyne consolidate --decay-rate 0.95 --archive-threshold 0.05
 
-# 8. Check system statistics & health
+# 9. Check system statistics & health
 mnemosyne stats
 
-# 9. Synchronize with Google Drive (One-off pass or daemon mode)
+# 10. Synchronize with Google Drive (One-off pass or daemon mode)
 mnemosyne sync-gdrive --folder "My-Agent-Vault" --credentials service-account.json
 mnemosyne sync-gdrive --daemon --interval 60
 
-# 10. Run standalone Centralized Embedding Microservice
+# 11. Run standalone Centralized Embedding Microservice
 mnemosyne embed-service --host 0.0.0.0 --port 8000 --model all-MiniLM-L6-v2
 ```
 

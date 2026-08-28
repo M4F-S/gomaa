@@ -73,6 +73,12 @@ def main():
     p_init = subparsers.add_parser("init", help="Initialize local vault and generate agent MCP configuration")
     p_init.add_argument("--path", default="~/.mnemosyne/vault", help="Target Obsidian vault directory")
 
+    # dashboard
+    p_dash = subparsers.add_parser("dashboard", help="Launch interactive Aurora Web Knowledge Graph Dashboard")
+    p_dash.add_argument("--host", default="127.0.0.1", help="Dashboard host")
+    p_dash.add_argument("--port", type=int, default=8765, help="Dashboard port")
+    p_dash.add_argument("--no-browser", action="store_true", help="Do not open browser automatically")
+
     # assemble-context
     p_ctx = subparsers.add_parser("assemble-context", help="Retrieve and pack memory into a token-budgeted prompt block")
     p_ctx.add_argument("query", help="Search query")
@@ -85,6 +91,12 @@ def main():
     if not args.command or args.command == "server":
         server = MCPServer()
         server.run()
+        return
+
+    if args.command == "dashboard":
+        from mnemosyne.dashboard import run_dashboard
+        mem = UnifiedMemorySystem(vault_path=args.vault_path, dsn=args.dsn, shared_dsn=args.shared_dsn)
+        run_dashboard(host=args.host, port=args.port, memory=mem, open_browser=not args.no_browser)
         return
 
     if args.command == "init":

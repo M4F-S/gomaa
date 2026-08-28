@@ -1,0 +1,456 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <meta name="color-scheme" content="light dark" />
+  <title>Mnemosyne 🧠 — Autonomous Agent Memory OS</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --bg: #f8f7ff;
+      --surface: rgba(255,255,255,0.75);
+      --surface-solid: rgba(255,255,255,0.88);
+      --surface-nav: rgba(255,255,255,0.75);
+      --border: rgba(160,130,230,0.2);
+      --border-strong: rgba(160,130,230,0.3);
+      --border-nav: rgba(160,130,230,0.15);
+      --text-primary: #1a1035;
+      --text-secondary: #6b7280;
+      --text-muted: #9ca3af;
+      --pill-bg: rgba(255,255,255,0.8);
+      --pill-border: rgba(160,130,230,0.2);
+      --card-after: rgba(255,255,255,0.85);
+      --input-bg: rgba(255,255,255,0.92);
+      --footer-bg: rgba(255,255,255,0.6);
+      --aurora-base: linear-gradient(135deg, #f8f6ff 0%, #ede9fe 40%, #f0f9ff 100%);
+      --orb-opacity: 0.45;
+      --strand-opacity: 0.18;
+      --shadow: 0 8px 48px rgba(130,90,220,0.10);
+      --shadow-hover: 0 16px 48px rgba(124,58,237,0.14);
+      --toggle-bg: rgba(124,58,237,0.10);
+      --toggle-hover: rgba(124,58,237,0.18);
+      --toggle-border: rgba(124,58,237,0.25);
+      --toggle-color: #7c3aed;
+      --code-bg: #1e1b4b;
+      --code-text: #e0e7ff;
+    }
+    html.dark {
+      --bg: #0d0a1a;
+      --surface: rgba(255,255,255,0.05);
+      --surface-solid: rgba(255,255,255,0.08);
+      --surface-nav: rgba(13,10,26,0.82);
+      --border: rgba(160,130,230,0.15);
+      --border-strong: rgba(160,130,230,0.24);
+      --border-nav: rgba(160,130,230,0.10);
+      --text-primary: #f3efff;
+      --text-secondary: #b2a8cf;
+      --text-muted: #8b82ad;
+      --pill-bg: rgba(255,255,255,0.06);
+      --pill-border: rgba(160,130,230,0.15);
+      --card-after: rgba(13,10,26,0.78);
+      --input-bg: rgba(255,255,255,0.06);
+      --footer-bg: rgba(13,10,26,0.6);
+      --aurora-base: linear-gradient(135deg, #0d0a1a 0%, #140f2d 40%, #0a1020 100%);
+      --orb-opacity: 0.22;
+      --strand-opacity: 0.12;
+      --shadow: 0 8px 48px rgba(0,0,0,0.40);
+      --shadow-hover: 0 16px 48px rgba(124,58,237,0.24);
+      --toggle-bg: rgba(124,58,237,0.14);
+      --toggle-hover: rgba(124,58,237,0.24);
+      --toggle-border: rgba(124,58,237,0.30);
+      --toggle-color: #a78bfa;
+      --code-bg: #0b0817;
+      --code-text: #c7d2fe;
+    }
+    html { scroll-behavior: smooth; }
+    body {
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+      background: var(--bg);
+      color: var(--text-primary);
+      overflow-x: hidden;
+      min-height: 100vh;
+      transition: background 0.4s ease, color 0.4s ease;
+    }
+    .aurora-bg {
+      position: fixed; inset: 0; z-index: 0; overflow: hidden;
+      background: var(--aurora-base);
+    }
+    .aurora-orb {
+      position: absolute; border-radius: 50%;
+      filter: blur(80px); opacity: var(--orb-opacity);
+      animation: orbFloat 18s ease-in-out infinite;
+    }
+    .orb1 { width: 700px; height: 700px; background: radial-gradient(circle, #c4b5fd, transparent 70%); top: -200px; left: -150px; animation-duration: 20s; }
+    .orb2 { width: 500px; height: 500px; background: radial-gradient(circle, #bae6fd, transparent 70%); top: 10%; right: -100px; animation-duration: 25s; animation-delay: -5s; }
+    .orb3 { width: 600px; height: 600px; background: radial-gradient(circle, #f5d0fe, transparent 70%); bottom: -100px; left: 20%; animation-duration: 22s; animation-delay: -8s; }
+    .orb4 { width: 400px; height: 400px; background: radial-gradient(circle, #a5f3fc, transparent 70%); bottom: 15%; right: 10%; animation-duration: 28s; animation-delay: -12s; }
+    .orb5 { width: 350px; height: 350px; background: radial-gradient(circle, #ddd6fe, transparent 70%); top: 40%; left: 35%; animation-duration: 16s; animation-delay: -3s; }
+    @keyframes orbFloat {
+      0%, 100% { transform: translate(0,0) scale(1); }
+      25% { transform: translate(30px,-40px) scale(1.05); }
+      50% { transform: translate(-20px,30px) scale(0.97); }
+      75% { transform: translate(40px,20px) scale(1.03); }
+    }
+    .strands-canvas {
+      position: fixed; inset: 0; z-index: 1; pointer-events: none; opacity: var(--strand-opacity);
+    }
+    .strand-path { fill: none; stroke-width: 1.5; stroke-linecap: round; }
+    .s1 { stroke: url(#g1); animation: sf1 8s ease-in-out infinite; }
+    .s2 { stroke: url(#g2); animation: sf2 11s ease-in-out infinite; animation-delay: -2s; }
+    .s3 { stroke: url(#g3); animation: sf3 9s ease-in-out infinite; animation-delay: -4s; }
+    @keyframes sf1 {
+      0%,100% { d: path("M-50,200 Q300,80 600,300 Q900,520 1300,250 Q1600,100 1900,350"); }
+      50% { d: path("M-50,280 Q300,160 650,200 Q950,240 1250,400 Q1550,560 1900,280"); }
+    }
+    @keyframes sf2 {
+      0%,100% { d: path("M-50,500 Q250,350 550,550 Q850,750 1150,480 Q1450,210 1900,600"); }
+      50% { d: path("M-50,400 Q300,520 580,380 Q860,240 1200,520 Q1540,800 1900,450"); }
+    }
+    @keyframes sf3 {
+      0%,100% { d: path("M-50,750 Q400,600 700,800 Q1000,1000 1300,700 Q1600,400 1900,800"); }
+      50% { d: path("M-50,680 Q350,800 700,650 Q1050,500 1350,750 Q1650,1000 1900,700"); }
+    }
+    .page { position: relative; z-index: 2; }
+    nav {
+      position: fixed; top: 0; left: 0; right: 0; z-index: 100;
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 0 48px; height: 68px;
+      background: var(--surface-nav);
+      backdrop-filter: blur(20px);
+      border-bottom: 1px solid var(--border-nav);
+    }
+    .nav-logo {
+      display: flex; align-items: center; gap: 10px;
+      font-weight: 700; font-size: 1.15rem;
+      background: linear-gradient(135deg, #7c3aed, #2563eb, #06b6d4);
+      -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text;
+    }
+    .nav-logo-icon {
+      width: 32px; height: 32px; background: linear-gradient(135deg, #7c3aed, #60a5fa);
+      border-radius: 8px; display: flex; align-items: center; justify-content: center;
+      box-shadow: 0 4px 12px rgba(124,58,237,0.3);
+    }
+    .nav-links { display: flex; gap: 28px; list-style: none; }
+    .nav-links a { text-decoration: none; color: var(--text-secondary); font-size: 0.9rem; font-weight: 500; transition: color 0.2s; }
+    .nav-links a:hover { color: #7c3aed; }
+    .nav-actions { display: flex; align-items: center; gap: 12px; }
+    .theme-toggle {
+      width: 40px; height: 40px; border-radius: 10px; border: 1px solid var(--toggle-border);
+      background: var(--toggle-bg); color: var(--toggle-color); display: flex; align-items: center; justify-content: center;
+      cursor: pointer; font-size: 1.05rem; backdrop-filter: blur(8px); transition: all 0.2s;
+    }
+    .theme-toggle:hover { background: var(--toggle-hover); transform: translateY(-1px); }
+    .status-badge {
+      display: inline-flex; align-items: center; gap: 6px; background: rgba(209,250,229,0.8); color: #059669;
+      font-size: 0.75rem; font-weight: 700; padding: 4px 12px; border-radius: 100px; border: 1px solid rgba(5,150,105,0.2);
+    }
+    .dot-pulse { width: 6px; height: 6px; border-radius: 50%; background: #059669; animation: badgePulse 2s infinite; }
+    @keyframes badgePulse { 0%,100%{opacity:1;} 50%{opacity:0.3;} }
+    .gradient-text {
+      background: linear-gradient(135deg, #7c3aed 0%, #2563eb 40%, #06b6d4 70%, #7c3aed 100%);
+      background-size: 200% 200%; -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text;
+    }
+    .dashboard-hero {
+      padding: 100px 24px 40px; max-width: 1200px; margin: 0 auto;
+    }
+    .hero-grid {
+      display: grid; grid-template-columns: 1.2fr 0.8fr; gap: 24px; margin-top: 20px;
+    }
+    .glow-card {
+      position: relative; background: var(--surface); border-radius: 24px; padding: 28px; backdrop-filter: blur(16px);
+      border: 1px solid var(--border); box-shadow: var(--shadow); transition: transform 0.3s ease, box-shadow 0.3s ease;
+    }
+    .glow-card:hover { transform: translateY(-3px); box-shadow: var(--shadow-hover); }
+    .card-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 20px; }
+    .card-title { font-size: 1.1rem; font-weight: 700; color: var(--text-primary); }
+    
+    .stats-summary {
+      display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin-bottom: 24px;
+    }
+    .stat-box {
+      background: var(--surface-solid); border: 1px solid var(--border); border-radius: 14px; padding: 14px; text-align: center;
+    }
+    .stat-val { font-size: 1.6rem; font-weight: 800; color: #7c3aed; }
+    .stat-lbl { font-size: 0.75rem; color: var(--text-secondary); font-weight: 600; text-transform: uppercase; margin-top: 4px; }
+    
+    .mg-bar-section { margin-top: 16px; }
+    .mg-bar-row { display: flex; align-items: center; gap: 12px; margin-bottom: 12px; }
+    .mg-bar-label { font-size: 0.82rem; color: var(--text-secondary); width: 90px; text-align: right; font-weight: 600; }
+    .mg-bar-track { flex: 1; height: 10px; background: rgba(160,130,230,0.12); border-radius: 100px; overflow: hidden; }
+    .mg-bar-fill { height: 100%; border-radius: 100px; transition: width 1s ease; }
+    .mg-bar-count { font-size: 0.8rem; font-weight: 700; color: #7c3aed; width: 35px; }
+
+    .mg-nodes { display: flex; flex-wrap: wrap; gap: 8px; max-height: 240px; overflow-y: auto; padding-right: 4px; }
+    .mg-node {
+      display: flex; align-items: center; gap: 6px; background: var(--surface-solid); border: 1px solid var(--border);
+      border-radius: 10px; padding: 8px 12px; font-size: 0.82rem; font-weight: 500; color: var(--text-primary);
+    }
+    .mg-node strong { color: #7c3aed; }
+
+    .search-section {
+      max-width: 1200px; margin: 40px auto; padding: 0 24px;
+    }
+    .sandbox-grid {
+      display: grid; grid-template-columns: 1fr 1fr; gap: 24px;
+    }
+    .input-field, .select-field, .textarea-field {
+      width: 100%; padding: 12px 16px; border-radius: 12px; border: 1px solid var(--border-strong);
+      background: var(--input-bg); color: var(--text-primary); font-size: 0.92rem; outline: none; margin-bottom: 12px;
+    }
+    .input-field:focus, .textarea-field:focus { border-color: #7c3aed; }
+    .btn-action {
+      background: linear-gradient(135deg, #7c3aed, #2563eb); color: white; border: none; padding: 12px 24px;
+      border-radius: 12px; font-weight: 700; font-size: 0.92rem; cursor: pointer; transition: all 0.2s;
+    }
+    .btn-action:hover { transform: translateY(-2px); box-shadow: 0 8px 20px rgba(124,58,237,0.35); }
+    .code-output {
+      background: var(--code-bg); color: var(--code-text); padding: 16px; border-radius: 14px; font-family: monospace;
+      font-size: 0.82rem; line-height: 1.5; max-height: 320px; overflow-y: auto; white-space: pre-wrap;
+    }
+    .timeline-item {
+      padding: 10px 0; border-bottom: 1px solid var(--border); font-size: 0.85rem; display: flex; justify-content: space-between;
+    }
+    .timeline-item:last-child { border-bottom: none; }
+    footer {
+      padding: 32px 48px; border-top: 1px solid var(--border-nav); display: flex; align-items: center; justify-content: space-between;
+      background: var(--footer-bg); backdrop-filter: blur(12px); margin-top: 60px;
+    }
+  </style>
+</head>
+<body>
+<div class="aurora-bg">
+  <div class="aurora-orb orb1"></div>
+  <div class="aurora-orb orb2"></div>
+  <div class="aurora-orb orb3"></div>
+  <div class="aurora-orb orb4"></div>
+  <div class="aurora-orb orb5"></div>
+</div>
+<svg class="strands-canvas" viewBox="0 0 1900 1000" preserveAspectRatio="xMidYMid slice">
+  <defs>
+    <linearGradient id="g1" x1="0%" y1="0%" x2="100%" y2="0%"><stop offset="0%" stop-color="#c084fc" stop-opacity="0"/><stop offset="40%" stop-color="#c084fc"/><stop offset="100%" stop-color="#60a5fa" stop-opacity="0"/></linearGradient>
+    <linearGradient id="g2" x1="0%" y1="0%" x2="100%" y2="0%"><stop offset="0%" stop-color="#60a5fa" stop-opacity="0"/><stop offset="50%" stop-color="#f0abfc"/><stop offset="100%" stop-color="#60a5fa" stop-opacity="0"/></linearGradient>
+    <linearGradient id="g3" x1="0%" y1="0%" x2="100%" y2="0%"><stop offset="0%" stop-color="#6ee7b7" stop-opacity="0"/><stop offset="50%" stop-color="#818cf8"/><stop offset="100%" stop-color="#6ee7b7" stop-opacity="0"/></linearGradient>
+  </defs>
+  <path class="strand-path s1" d="M-50,200 Q300,80 600,300 Q900,520 1300,250 Q1600,100 1900,350"/>
+  <path class="strand-path s2" d="M-50,500 Q250,350 550,550 Q850,750 1150,480 Q1450,210 1900,600"/>
+  <path class="strand-path s3" d="M-50,750 Q400,600 700,800 Q1000,1000 1300,700 Q1600,400 1900,800"/>
+</svg>
+<div class="page">
+  <nav>
+    <div class="nav-logo">
+      <div class="nav-logo-icon">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.5"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg>
+      </div>
+      Mnemosyne Memory OS
+    </div>
+    <ul class="nav-links">
+      <li><a href="#overview">Overview</a></li>
+      <li><a href="#taxonomy">5 Layers</a></li>
+      <li><a href="#sandbox">Search Sandbox</a></li>
+      <li><a href="#timeline">Timeline</a></li>
+    </ul>
+    <div class="nav-actions">
+      <span class="status-badge" id="statusBadge"><span class="dot-pulse"></span> <span id="backendText">Connecting...</span></span>
+      <button class="theme-toggle" id="themeToggle" title="Toggle dark mode">🌙</button>
+    </div>
+  </nav>
+
+  <div class="dashboard-hero" id="overview">
+    <div class="stats-summary">
+      <div class="stat-box"><div class="stat-val" id="statTotalNotes">0</div><div class="stat-lbl">Active Notes</div></div>
+      <div class="stat-box"><div class="stat-val" id="statWings">0</div><div class="stat-lbl">Domain Wings</div></div>
+      <div class="stat-box"><div class="stat-val" id="statLinks">0</div><div class="stat-lbl">Graph Links</div></div>
+      <div class="stat-box"><div class="stat-val" id="statHealth">Healthy</div><div class="stat-lbl">System Health</div></div>
+    </div>
+
+    <div class="hero-grid">
+      <!-- 5 Cognitive Layers Breakdown -->
+      <div class="glow-card" id="taxonomy">
+        <div class="card-header">
+          <span class="card-title">🧠 5 Cognitive Memory Layers</span>
+          <span style="font-size:0.8rem;color:var(--text-muted)">Scientifically Partitioned</span>
+        </div>
+        <div class="mg-bar-section">
+          <div class="mg-bar-row"><span class="mg-bar-label">🕐 Episodic</span><div class="mg-bar-track"><div class="mg-bar-fill" id="barEpisodic" style="width:20%;background:linear-gradient(90deg,#7c3aed,#c084fc)"></div></div><span class="mg-bar-count" id="countEpisodic">0</span></div>
+          <div class="mg-bar-row"><span class="mg-bar-label">📚 Semantic</span><div class="mg-bar-track"><div class="mg-bar-fill" id="barSemantic" style="width:20%;background:linear-gradient(90deg,#2563eb,#60a5fa)"></div></div><span class="mg-bar-count" id="countSemantic">0</span></div>
+          <div class="mg-bar-row"><span class="mg-bar-label">⚙️ Procedural</span><div class="mg-bar-track"><div class="mg-bar-fill" id="barProcedural" style="width:20%;background:linear-gradient(90deg,#059669,#6ee7b7)"></div></div><span class="mg-bar-count" id="countProcedural">0</span></div>
+          <div class="mg-bar-row"><span class="mg-bar-label">👥 Social</span><div class="mg-bar-track"><div class="mg-bar-fill" id="barSocial" style="width:20%;background:linear-gradient(90deg,#ea580c,#fbbf24)"></div></div><span class="mg-bar-count" id="countSocial">0</span></div>
+          <div class="mg-bar-row"><span class="mg-bar-label">💛 Preferential</span><div class="mg-bar-track"><div class="mg-bar-fill" id="barPreferential" style="width:20%;background:linear-gradient(90deg,#ec4899,#f472b6)"></div></div><span class="mg-bar-count" id="countPreferential">0</span></div>
+        </div>
+      </div>
+
+      <!-- Active Memory Graph Nodes -->
+      <div class="glow-card">
+        <div class="card-header">
+          <span class="card-title">🌐 Active Graph Nodes</span>
+          <span style="font-size:0.8rem;color:var(--text-muted)">Live Vault Sync</span>
+        </div>
+        <div class="mg-nodes" id="nodesContainer">
+          <div style="color:var(--text-muted);font-size:0.85rem">Loading memory nodes...</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Interactive Sandbox Section -->
+  <div class="search-section" id="sandbox">
+    <div class="sandbox-grid">
+      <!-- Search & Context Assembler Tester -->
+      <div class="glow-card">
+        <div class="card-header"><span class="card-title">⚡ Interactive Retrieval & Context Assembler</span></div>
+        <input type="text" class="input-field" id="searchQuery" placeholder="Query (e.g. database configuration, security policy)" value="Kubernetes staging policy" />
+        <div style="display:flex;gap:10px">
+          <select class="select-field" id="searchMode" style="flex:1">
+            <option value="hybrid">Hybrid RRF (Dense + Keyword + Graph)</option>
+            <option value="semantic">Semantic (HNSW Vectors)</option>
+            <option value="keyword">Keyword (Full-Text Search)</option>
+            <option value="graph">Recursive Graph Traversal</option>
+          </select>
+          <input type="number" class="input-field" id="searchBudget" value="1500" placeholder="Max Tokens" style="width:120px" />
+        </div>
+        <div style="display:flex;gap:10px;margin-bottom:12px">
+          <button class="btn-action" onclick="executeSearch()">🔍 Test Recall</button>
+          <button class="btn-action" style="background:linear-gradient(135deg,#059669,#10b981)" onclick="executeAssembleContext()">📦 Assemble Prompt Context</button>
+        </div>
+        <pre class="code-output" id="searchResultsOutput">// Output will render here...</pre>
+      </div>
+
+      <!-- Quick Remember & Timeline -->
+      <div class="glow-card" id="timeline">
+        <div class="card-header"><span class="card-title">📝 Store Memory & Live Timeline</span></div>
+        <input type="text" class="input-field" id="newTitle" placeholder="Memory Title (e.g. SSL Verification Rule)" />
+        <textarea class="textarea-field" id="newContent" rows="3" placeholder="Markdown memory content..."></textarea>
+        <button class="btn-action" style="width:100%;margin-bottom:18px" onclick="storeNewMemory()">💾 Save Note to Memory</button>
+
+        <span style="font-weight:700;font-size:0.88rem;display:block;margin-bottom:8px">📜 Recent Activity Timeline:</span>
+        <div id="timelineContainer" style="max-height:160px;overflow-y:auto"></div>
+      </div>
+    </div>
+  </div>
+
+  <footer>
+    <span style="font-weight:700;background:linear-gradient(135deg,#7c3aed,#2563eb);-webkit-background-clip:text;-webkit-text-fill-color:transparent">🧠 Mnemosyne Platform Dashboard</span>
+    <span style="font-size:0.82rem;color:var(--text-muted)">Local-First · MCP Native · 5-Layer Cognitive Memory</span>
+  </footer>
+</div>
+
+<script>
+  const html = document.documentElement;
+  const toggleBtn = document.getElementById('themeToggle');
+
+  function initTheme() {
+    const stored = localStorage.getItem('mn-theme') || (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
+    html.classList.toggle('dark', stored === 'dark');
+    toggleBtn.textContent = stored === 'dark' ? '☀️' : '🌙';
+  }
+  toggleBtn.addEventListener('click', () => {
+    const isDark = html.classList.toggle('dark');
+    localStorage.setItem('mn-theme', isDark ? 'dark' : 'light');
+    toggleBtn.textContent = isDark ? '☀️' : '🌙';
+  });
+  initTheme();
+
+  async function loadDashboardData() {
+    try {
+      const statsRes = await fetch('/api/stats');
+      const stats = await statsRes.json();
+      
+      document.getElementById('backendText').textContent = stats.system.backend;
+      document.getElementById('statTotalNotes').textContent = stats.total_notes || stats.stats.total_notes || 0;
+      document.getElementById('statWings').textContent = stats.stats.wings_count || (stats.stats.active_wings ? stats.stats.active_wings.length : 1);
+      document.getElementById('statLinks').textContent = stats.stats.total_links || 0;
+
+      const layers = stats.layers || {};
+      const total = Math.max(1, (layers.episodic || 0) + (layers.semantic || 0) + (layers.procedural || 0) + (layers.social || 0) + (layers.preferential || 0));
+      
+      function updateBar(key, count) {
+        const c = count || 0;
+        document.getElementById(`count${key}`).textContent = c;
+        document.getElementById(`bar${key}`).style.width = Math.max(10, Math.round((c / total) * 100)) + '%';
+      }
+      updateBar('Episodic', layers.episodic);
+      updateBar('Semantic', layers.semantic);
+      updateBar('Procedural', layers.procedural);
+      updateBar('Social', layers.social);
+      updateBar('Preferential', layers.preferential);
+
+      // Load Notes
+      const notesRes = await fetch('/api/notes');
+      const notesData = await notesRes.json();
+      const container = document.getElementById('nodesContainer');
+      if (notesData.notes && notesData.notes.length) {
+        container.innerHTML = notesData.notes.map(n => `
+          <div class="mg-node">
+            <span>📄</span>
+            <span>${n.title}</span>
+            <strong>[${n.wing}/${n.room}]</strong>
+          </div>
+        `).join('');
+      } else {
+        container.innerHTML = '<div style="color:var(--text-muted);font-size:0.85rem">No notes found in active vault.</div>';
+      }
+
+      // Load Timeline
+      const timeRes = await fetch('/api/timeline');
+      const timeData = await timeRes.json();
+      const tContainer = document.getElementById('timelineContainer');
+      if (timeData.timeline && timeData.timeline.length) {
+        tContainer.innerHTML = timeData.timeline.map(t => `
+          <div class="timeline-item">
+            <span>⚡ <strong>${t.action}</strong>: ${t.note_title || t.query || t.summary || ''}</span>
+            <span style="color:var(--text-muted)">${new Date(t.timestamp).toLocaleTimeString()}</span>
+          </div>
+        `).join('');
+      }
+    } catch (e) {
+      console.error("Dashboard fetch failed", e);
+    }
+  }
+
+  async function executeSearch() {
+    const query = document.getElementById('searchQuery').value;
+    const mode = document.getElementById('searchMode').value;
+    const out = document.getElementById('searchResultsOutput');
+    out.textContent = "Querying memory...";
+    const res = await fetch('/api/search', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({query, mode, top_k: 5})
+    });
+    const data = await res.json();
+    out.textContent = JSON.stringify(data, null, 2);
+  }
+
+  async function executeAssembleContext() {
+    const query = document.getElementById('searchQuery').value;
+    const max_tokens = parseInt(document.getElementById('searchBudget').value) || 1500;
+    const out = document.getElementById('searchResultsOutput');
+    out.textContent = "Assembling context...";
+    const res = await fetch('/api/assemble-context', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({query, max_tokens})
+    });
+    const data = await res.json();
+    out.textContent = data.context_text || JSON.stringify(data, null, 2);
+  }
+
+  async function storeNewMemory() {
+    const title = document.getElementById('newTitle').value;
+    const content = document.getElementById('newContent').value;
+    if (!title || !content) return alert("Please enter title and content");
+    await fetch('/api/remember', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({title, content, salience: 0.8, tags: ["manual", "dashboard"]})
+    });
+    document.getElementById('newTitle').value = '';
+    document.getElementById('newContent').value = '';
+    loadDashboardData();
+  }
+
+  window.addEventListener('load', loadDashboardData);
+</script>
+</body>
+</html>
