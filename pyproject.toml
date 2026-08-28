@@ -42,25 +42,39 @@ classifiers = [
 ]
 
 dependencies = [
-    "psycopg2-binary>=2.9.9",
-    "pgvector>=0.2.4",
-    "sentence-transformers>=2.2.2",
     "pyyaml>=6.0.1",
     "httpx>=0.25.0",
+    "sentence-transformers>=2.2.2",
 ]
 
 [project.optional-dependencies]
-embed-service = [
-    "fastapi>=0.100.0",
-    "uvicorn>=0.22.0",
+postgres = [
+    "psycopg2-binary>=2.9.9",
+    "pgvector>=0.2.4",
 ]
 fastembed = [
     "fastembed>=0.2.0",
+]
+server = [
+    "fastapi>=0.100.0",
+    "uvicorn>=0.22.0",
+]
+embed-service = [
+    "fastapi>=0.100.0",
+    "uvicorn>=0.22.0",
 ]
 gdrive = [
     "google-api-python-client>=2.100.0",
     "google-auth>=2.23.0",
     "google-auth-oauthlib>=1.1.0",
+]
+all = [
+    "psycopg2-binary>=2.9.9",
+    "pgvector>=0.2.4",
+    "fastapi>=0.100.0",
+    "uvicorn>=0.22.0",
+    "fastembed>=0.2.0",
+    "sentence-transformers>=2.2.2",
 ]
 dev = [
     "pytest>=7.4.0",
@@ -69,6 +83,8 @@ dev = [
     "ruff>=0.0.280",
     "fastapi>=0.100.0",
     "uvicorn>=0.22.0",
+    "psycopg2-binary>=2.9.9",
+    "pgvector>=0.2.4",
 ]
 
 [project.scripts]

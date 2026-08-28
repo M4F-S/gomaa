@@ -227,6 +227,28 @@ class MCPServer:
                 },
             },
             {
+                "name": "memory_assemble_context",
+                "description": "Retrieve and format high-salience memories into a strict token-budgeted XML prompt block ready for direct agent context injection.",
+                "inputSchema": {
+                    "type": "object",
+                    "properties": {
+                        "query": {"type": "string", "description": "Search query to retrieve context for"},
+                        "max_tokens": {"type": "integer", "default": 2000, "description": "Maximum token budget for the assembled context"},
+                        "mode": {"type": "string", "enum": ["hybrid", "semantic", "keyword", "graph"], "default": "hybrid"},
+                        "scope": {
+                            "type": "object",
+                            "description": "Optional wing/room filter scope",
+                            "properties": {
+                                "wing": {"type": "string"},
+                                "room": {"type": "string"},
+                            },
+                        },
+                        "include_shared": {"type": "boolean", "default": True, "description": "Whether to include shared fleet knowledge"},
+                    },
+                    "required": ["query"],
+                },
+            },
+            {
                 "name": "memory_audit",
                 "description": "Get memory system statistics, health check, active wings, and version info",
                 "inputSchema": {
@@ -271,6 +293,16 @@ class MCPServer:
                 include_shared=args.get("include_shared", True),
             )
             return {"results": results}
+        elif name == "memory_assemble_context":
+            if "query" not in args:
+                raise ValueError("Missing required argument: 'query' is required for memory_assemble_context.")
+            return self.memory.assemble_context(
+                query=args["query"],
+                max_tokens=args.get("max_tokens", 2000),
+                scope=args.get("scope"),
+                mode=args.get("mode", "hybrid"),
+                include_shared=args.get("include_shared", True),
+            )
         elif name == "memory_ingest_session":
             if "transcript" not in args:
                 raise ValueError("Missing required argument: 'transcript' is required for memory_ingest_session.")

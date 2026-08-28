@@ -329,6 +329,85 @@ class UnifiedMemorySystem:
 
         return results
 
+    def assemble_context(
+        self,
+        query: str,
+        max_tokens: int = 2000,
+        top_k: int = 10,
+        scope: Optional[Dict] = None,
+        mode: str = "hybrid",
+        include_shared: bool = True,
+    ) -> Dict[str, Any]:
+        """
+        Retrieve, deduplicate, rank, and assemble top memories into a token-budgeted XML prompt block.
+        Token estimation: standard heuristic of ~4 characters per token.
+        """
+        candidates = self.recall(
+            query=query,
+            mode=mode,
+            top_k=top_k,
+            scope=scope,
+            include_shared=include_shared,
+        )
+
+        char_budget = max_tokens * 4
+        current_chars = 0
+        packed_notes = []
+        context_blocks = []
+
+        for note in candidates:
+            title = note.get("title", "")
+            content = note.get("content", "")
+            tags = note.get("tags", [])
+            wing = note.get("wing", "general")
+            room = note.get("room", "general")
+            salience = note.get("salience", 0.5)
+            source = note.get("source_store", "private")
+
+            tags_str = ", ".join(tags) if isinstance(tags, list) else str(tags)
+            safe_content = (
+                content.replace("</recalled_memory>", "<\\/recalled_memory>")
+                .replace("<recalled_memory", "<\\recalled_memory")
+            )
+
+            block = (
+                f'<recalled_memory title="{title}" wing="{wing}" room="{room}" salience="{salience:.2f}" source="{source}" tags="{tags_str}">\n'
+                f"{safe_content}\n"
+                f"</recalled_memory>"
+            )
+
+            block_chars = len(block) + 2
+            if current_chars + block_chars > char_budget and packed_notes:
+                break
+
+            packed_notes.append(note)
+            context_blocks.append(block)
+            current_chars += block_chars
+
+        if context_blocks:
+            context_text = "<memory_context>\n" + "\n".join(context_blocks) + "\n</memory_context>"
+        else:
+            context_text = "<memory_context>\n<!-- No matching memories found within budget -->\n</memory_context>"
+
+        estimated_tokens = max(1, len(context_text) // 4)
+
+        return {
+            "context_text": context_text,
+            "estimated_tokens": estimated_tokens,
+            "max_tokens": max_tokens,
+            "notes_included": len(packed_notes),
+            "notes": [
+                {
+                    "title": n.get("title"),
+                    "wing": n.get("wing"),
+                    "room": n.get("room"),
+                    "salience": n.get("salience"),
+                    "source": n.get("source_store"),
+                }
+                for n in packed_notes
+            ],
+        }
+
     def ingest_session(self, transcript: str, wing: str = "general", room: str = "sessions") -> Dict[str, Any]:
         """
         Ingest a full conversation transcript verbatim along turn boundaries,

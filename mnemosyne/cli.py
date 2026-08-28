@@ -69,18 +69,59 @@ def main():
     p_embed_srv.add_argument("--port", type=int, default=8000, help="Bind port")
     p_embed_srv.add_argument("--model", default="all-MiniLM-L6-v2", help="Model name")
 
-    # sync-gdrive
-    p_gdrive = subparsers.add_parser("sync-gdrive", help="Synchronize Obsidian vault with Google Drive")
-    p_gdrive.add_argument("--folder", default="Mnemosyne-Vault", help="Google Drive root folder name")
-    p_gdrive.add_argument("--credentials", default=None, help="Path to Google service account JSON file")
-    p_gdrive.add_argument("--daemon", action="store_true", help="Run continuously in the background")
-    p_gdrive.add_argument("--interval", type=int, default=60, help="Sync interval in seconds for daemon mode")
+    # init
+    p_init = subparsers.add_parser("init", help="Initialize local vault and generate agent MCP configuration")
+    p_init.add_argument("--path", default="~/.mnemosyne/vault", help="Target Obsidian vault directory")
+
+    # assemble-context
+    p_ctx = subparsers.add_parser("assemble-context", help="Retrieve and pack memory into a token-budgeted prompt block")
+    p_ctx.add_argument("query", help="Search query")
+    p_ctx.add_argument("--max-tokens", type=int, default=2000, help="Maximum token budget")
+    p_ctx.add_argument("--wing", default=None, help="Filter by wing")
+    p_ctx.add_argument("--room", default=None, help="Filter by room")
 
     args = parser.parse_args()
 
     if not args.command or args.command == "server":
         server = MCPServer()
         server.run()
+        return
+
+    if args.command == "init":
+        v_path = os.path.expanduser(args.path)
+        os.makedirs(v_path, exist_ok=True)
+        for w in ["general", "projects", "concepts", "archive", "sessions"]:
+            os.makedirs(os.path.join(v_path, w), exist_ok=True)
+
+        mem = UnifiedMemorySystem(vault_path=v_path)
+        mem.remember(
+            title="Welcome to Mnemosyne",
+            content="# Welcome to Mnemosyne\n\nYour local-first hierarchical knowledge graph memory engine is ready.",
+            tags=["welcome", "system"],
+            salience=1.0,
+            pinned=True,
+        )
+
+        mcp_config = {
+            "mcpServers": {
+                "mnemosyne": {
+                    "command": "mnemosyne",
+                    "args": ["server"],
+                    "env": {
+                        "MEMORY_VAULT_PATH": v_path,
+                    },
+                }
+            }
+        }
+
+        print("=" * 60)
+        print("🧠 Mnemosyne Initialized Successfully!")
+        print("=" * 60)
+        print(f"📁 Vault Path: {v_path}")
+        print(f"💾 Storage Mode: Light Mode (SQLite WAL)")
+        print("\n📋 Ready-to-copy MCP Configuration (Claude / Cursor / Hermes):")
+        print(json.dumps(mcp_config, indent=2))
+        print("=" * 60)
         return
 
     if args.command == "sync-gdrive":
@@ -137,6 +178,16 @@ def main():
             scope["room"] = args.room
         results = mem.recall(args.query, mode=args.mode, top_k=args.top_k, scope=scope or None)
         print(json.dumps(results, indent=2, default=str))
+
+    elif args.command == "assemble-context":
+        scope = {}
+        if args.wing:
+            scope["wing"] = args.wing
+        if args.room:
+            scope["room"] = args.room
+        res = mem.assemble_context(args.query, max_tokens=args.max_tokens, scope=scope or None)
+        print(res.get("context_text", ""))
+        print(f"\n<!-- Estimated tokens: {res.get('estimated_tokens')} | Notes included: {res.get('notes_included')} -->", file=sys.stderr)
 
     elif args.command == "timeline":
         res = mem.timeline(limit=args.limit)

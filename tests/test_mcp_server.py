@@ -35,11 +35,12 @@ class TestMemoryMCPServer:
         req = {"jsonrpc": "2.0", "method": "tools/list", "id": 2}
         resp = server._handle(req)
         tools = resp["result"]["tools"]
-        assert len(tools) == 8
+        assert len(tools) == 9
         tool_names = [t["name"] for t in tools]
         assert "memory_remember" in tool_names
         assert "memory_publish_shared" in tool_names
         assert "memory_recall" in tool_names
+        assert "memory_assemble_context" in tool_names
         assert "memory_audit" in tool_names
 
     def test_tools_call_remember(self, server):
