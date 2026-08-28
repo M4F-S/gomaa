@@ -1,6 +1,6 @@
 import pytest
 from unittest.mock import MagicMock, patch
-from mnemosyne.embedder import Embedder, CircuitBreakerOpen
+from gomaa.embedder import Embedder, CircuitBreakerOpen
 
 
 class TestEmbedderV32:

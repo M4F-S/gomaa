@@ -4,8 +4,8 @@ import time
 import urllib.request
 import pytest
 
-from mnemosyne.core import UnifiedMemorySystem
-from mnemosyne.dashboard.server import create_dashboard_server
+from gomaa.core import UnifiedMemorySystem
+from gomaa.dashboard.server import create_dashboard_server
 
 
 @pytest.fixture
@@ -39,7 +39,7 @@ class TestDashboardServer:
             assert response.status == 200
             content = response.read().decode("utf-8")
             assert "<!DOCTYPE html>" in content
-            assert "Mnemosyne" in content
+            assert "Gomaa" in content
             assert "5 Cognitive Memory Layers" in content
 
     def test_get_api_stats(self, dashboard_server):

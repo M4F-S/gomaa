@@ -1,5 +1,5 @@
 import pytest
-from mnemosyne.core import UnifiedMemorySystem, SecurityCheckError
+from gomaa.core import UnifiedMemorySystem, SecurityCheckError
 
 
 class TestSecurityExpanded:

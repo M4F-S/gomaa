@@ -6,7 +6,7 @@ import types
 
 import pytest
 
-from mnemosyne.embedder import Embedder
+from gomaa.embedder import Embedder
 
 
 @pytest.fixture

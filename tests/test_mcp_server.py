@@ -3,7 +3,7 @@ import pytest
 from unittest.mock import MagicMock, patch, call
 import signal
 import time
-from mnemosyne.mcp_server import MCPServer
+from gomaa.mcp_server import MCPServer
 
 
 class TestMemoryMCPServer:
@@ -27,7 +27,7 @@ class TestMemoryMCPServer:
     def test_initialize(self, server):
         req = {"jsonrpc": "2.0", "method": "initialize", "id": 1}
         resp = server._handle(req)
-        assert resp["result"]["serverInfo"]["name"] == "mnemosyne"
+        assert resp["result"]["serverInfo"]["name"] == "gomaa"
         assert resp["result"]["serverInfo"]["version"] == "3.4.0"
         assert resp["result"]["protocolVersion"] == "2024-11-05"
 

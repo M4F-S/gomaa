@@ -1,14 +1,14 @@
-# Mnemosyne 🧠
+# Gomaa 🧠
 
 [![CI](https://github.com/M4F-S/mnemosyne/actions/workflows/ci.yml/badge.svg)](https://github.com/M4F-S/mnemosyne/actions/workflows/ci.yml)
-[![PyPI version](https://img.shields.io/pypi/v/mnemosyne-memory.svg)](https://pypi.org/project/mnemosyne-memory/)
+[![PyPI version](https://img.shields.io/pypi/v/gomaa.svg)](https://pypi.org/project/gomaa/)
 [![Python 3.9+](https://img.shields.io/badge/python-3.9+-blue.svg)](https://www.python.org/downloads/)
 [![MCP](https://img.shields.io/badge/MCP-2024--11--05-green.svg)](https://modelcontextprotocol.io/)
 [![License: Apache-2.0](https://img.shields.io/badge/License-Apache--2.0-blue.svg)](https://opensource.org/licenses/Apache-2.0)
 
 **Production-grade, local-first hierarchical memory engine for autonomous AI agents.**
 
-Mnemosyne equips AI agents (Hermes, OpenClaw, OpenManus, Claude Desktop, Cursor, Windsurf, CrewAI, LangChain) with permanent, structured long-term memory. It bridges human-readable **Obsidian Markdown Vaults** with high-speed **PostgreSQL + pgvector (HNSW)** or zero-config **SQLite**, powering hybrid Reciprocal Rank Fusion (RRF) search, wikilink knowledge graphs, Ebbinghaus temporal decay, cross-agent fleet sharing, and asynchronous Google Drive cloud synchronization.
+Gomaa equips AI agents (Hermes, OpenClaw, OpenManus, Claude Desktop, Cursor, Windsurf, CrewAI, LangChain) with permanent, structured long-term memory. It bridges human-readable **Obsidian Markdown Vaults** with high-speed **PostgreSQL + pgvector (HNSW)** or zero-config **SQLite**, powering hybrid Reciprocal Rank Fusion (RRF) search, wikilink knowledge graphs, Ebbinghaus temporal decay, cross-agent fleet sharing, and asynchronous Google Drive cloud synchronization.
 
 ---
 
@@ -52,7 +52,7 @@ Mnemosyne equips AI agents (Hermes, OpenClaw, OpenManus, Claude Desktop, Cursor,
 | **📖 Obsidian Zettelkasten** | Writes human-readable Markdown notes with YAML frontmatter & `[[Wiki Links]]` | Direct visual inspection, editing, and graph visualization in Obsidian |
 | **📜 Turn-Aware Ingestor** | 1,500-char sliding-window chunking with 200-char overlap along turn boundaries | Preserves entire conversation history without breaking code blocks |
 | **🛡️ Prompt Injection Armor** | Neutralizes control tokens (`<|im_start|>`, `[INST]`) in prose; escapes XML context tags | Prevents memory poisoning and context hijacking attacks |
-| **🎨 Native Aurora Dashboard** | Zero-dependency embedded web knowledge graph (`mnemosyne dashboard`) | Real-time visual memory graph, 5-layer distribution charts & live query sandbox |
+| **🎨 Native Aurora Dashboard** | Zero-dependency embedded web knowledge graph (`gomaa dashboard`) | Real-time visual memory graph, 5-layer distribution charts & live query sandbox |
 | **🧠 5 Cognitive Memory Layers** | Scientific classification (Episodic, Semantic, Procedural, Social, Preferential) | Eliminates cross-domain noise and structures long-term agent understanding |
 | **📦 Token-Budgeted Assembler** | Packs top-salience memories into exact LLM prompt budgets with XML escaping | Direct drop-in context injection for LLM system prompts without overflow |
 | **🔌 Framework Adapters** | Native integrations for LangChain, LangGraph, and CrewAI | Drop-in multi-agent swarm memory with zero boilerplate |
@@ -70,7 +70,7 @@ Mnemosyne equips AI agents (Hermes, OpenClaw, OpenManus, Claude Desktop, Cursor,
                                                        │ JSON-RPC (stdio) / Python SDK
                                                        ▼
 ┌─────────────────────────────────────────────────────────────────────────────────────────────────────────────┐
-│                                           Mnemosyne Core (v3.4.0)                                           │
+│                                           Gomaa Core (v3.4.0)                                           │
 │                                                                                                             │
 │  ┌─────────────────────────┐  ┌─────────────────────────┐  ┌─────────────────────────────────────────────┐  │
 │  │ Admission & Security    │  │ Multi-Backend Embedder  │  │ Turn-Aware Session Ingestor                 │  │
@@ -108,14 +108,14 @@ Mnemosyne equips AI agents (Hermes, OpenClaw, OpenManus, Claude Desktop, Cursor,
 ## 🧠 Deep Dive into Key Capabilities
 
 ### 1. Hierarchical Wing & Room Taxonomy
-Memory cross-contamination is a major failure mode in multi-agent fleets. Mnemosyne structures memory as a 2-level physical palace:
+Memory cross-contamination is a major failure mode in multi-agent fleets. Gomaa structures memory as a 2-level physical palace:
 * **`wing` (Domain/Project):** Top-level domain boundary (e.g. `ecommerce`, `pentest`, `devops`, `shared`).
 * **`room` (Topic/Channel):** Granular topic partition (e.g. `database`, `firewall`, `stripe_api`).
 
 Queries can be scoped tightly to a specific wing or room, preventing marketing prompts from recalling penetration testing findings.
 
 ### 2. Hybrid Reciprocal Rank Fusion (RRF) Search
-Standard vector search fails on exact technical strings (e.g. `CVE-2024-38077`, `0x7fff5fbff8c0`), while keyword search fails on semantic concepts. Mnemosyne executes multi-candidate retrieval and merges results using weighted RRF:
+Standard vector search fails on exact technical strings (e.g. `CVE-2024-38077`, `0x7fff5fbff8c0`), while keyword search fails on semantic concepts. Gomaa executes multi-candidate retrieval and merges results using weighted RRF:
 
 $$\text{RRF Score}(d) = \sum_{m \in \text{modes}} w_m \cdot \frac{1}{k + \text{rank}_m(d)} + 0.2 \cdot \text{Salience}(d)$$
 
@@ -131,7 +131,7 @@ In autonomous multi-agent environments, agents maintain isolated private databas
 * **Fail-Soft Recall:** When an agent queries memory, `memory_recall` queries both the private store and `shared_db`. If the shared database is temporarily unreachable, it degrades gracefully without interrupting the agent.
 
 ### 4. Ebbinghaus Temporal Decay & Pinned Immunity
-Memories naturally lose relevance over time. Mnemosyne implements Herman Ebbinghaus's exponential forgetting curve:
+Memories naturally lose relevance over time. Gomaa implements Herman Ebbinghaus's exponential forgetting curve:
 
 $$\text{Salience}(t) = \text{Salience}_0 \times (0.95)^{\Delta t_{\text{days}}}$$
 
@@ -155,11 +155,11 @@ Conversational transcripts often contain crucial nuances lost in lossy summariza
 Keep your agent vaults securely backed up and synchronized across multiple machines or mobile devices:
 * **Local-First Speed:** Agent tool calls execute at local SSD speeds (<1ms) without blocking on Google Drive network latency.
 * **Background Daemon / Cron Sync:** Scans vault files, computes MD5 checksums, and synchronizes deltas bidirectionally with Google Drive.
-* **Conflict Resolution:** If a file is modified on both Google Drive and the local agent vault simultaneously, Mnemosyne saves the incoming version as `NoteName.conflict-YYYYMMDD-HHMMSS.md`, preventing data loss.
+* **Conflict Resolution:** If a file is modified on both Google Drive and the local agent vault simultaneously, Gomaa saves the incoming version as `NoteName.conflict-YYYYMMDD-HHMMSS.md`, preventing data loss.
 * **Authentication:** Supports Google Cloud Service Account JSON (`GOOGLE_APPLICATION_CREDENTIALS`, `GDRIVE_SERVICE_ACCOUNT_JSON`) and OAuth2 user tokens (`GDRIVE_TOKEN_JSON`).
 
 ### 8. Flexible Embedding Backends (FastEmbed / Microservice / Local)
-Mnemosyne adapts to any deployment resource budget:
+Gomaa adapts to any deployment resource budget:
 1. **FastEmbed ONNX Runtime (Recommended for Standalone Nodes):** Uses ONNX Runtime C++ execution (~30MB RAM). Zero PyTorch overhead.
 2. **Centralized Microservice (`mnemosyne.embed_service`):** Hosts sentence-transformers in a single dedicated container serving multiple agent containers over HTTP (`MEMORY_EMBED_URL`).
 3. **Local SentenceTransformers:** Standalone PyTorch execution (`all-MiniLM-L6-v2`, 384-dimensional).
@@ -280,7 +280,7 @@ Get real-time memory health metrics, store backend status, request counts, and a
 
 ## 🌐 Multi-Agent Fleet Production Architecture
 
-In multi-agent production setups (such as the 5-agent Hermes fleet), Mnemosyne isolates agent databases on an internal Docker network while providing shared intelligence:
+In multi-agent production setups (such as the 5-agent Hermes fleet), Gomaa isolates agent databases on an internal Docker network while providing shared intelligence:
 
 ```
                                   ┌─────────────────────────────────────────┐
@@ -314,16 +314,16 @@ In multi-agent production setups (such as the 5-agent Hermes fleet), Mnemosyne i
 
 ```bash
 # Standard installation
-pip install mnemosyne-memory
+pip install gomaa
 
 # With Google Drive Cloud Synchronization support
-pip install "mnemosyne-memory[gdrive]"
+pip install "gomaa[gdrive]"
 
 # With lightweight FastEmbed ONNX support (~30MB RAM)
-pip install "mnemosyne-memory[fastembed]"
+pip install "gomaa[fastembed]"
 
 # Full installation (All extras + Dev dependencies)
-pip install "mnemosyne-memory[dev,gdrive,fastembed,embed-service]"
+pip install "gomaa[dev,gdrive,fastembed,embed-service]"
 ```
 
 ### 2. Run with Docker Compose
@@ -337,10 +337,10 @@ docker compose up -d
 
 ```bash
 # Standalone with local SQLite (Zero configuration)
-python -m mnemosyne server
+python -m gomaa server
 
 # With PostgreSQL + pgvector
-MEMORY_DB_DSN="postgresql://mnemosyne:***@localhost:5432/my_agent_db" python -m mnemosyne server
+MEMORY_DB_DSN="postgresql://mnemosyne:***@localhost:5432/my_agent_db" python -m gomaa server
 ```
 
 ---
@@ -351,9 +351,9 @@ MEMORY_DB_DSN="postgresql://mnemosyne:***@localhost:5432/my_agent_db" python -m 
 ```json
 {
   "mcpServers": {
-    "mnemosyne": {
+    "gomaa": {
       "command": "python3",
-      "args": ["-m", "mnemosyne", "server"],
+      "args": ["-m", "gomaa", "server"],
       "env": {
         "MEMORY_VAULT_PATH": "/Users/username/Documents/Obsidian/AgentVault",
         "MEMORY_DEFAULT_WING": "claude"
@@ -367,9 +367,9 @@ MEMORY_DB_DSN="postgresql://mnemosyne:***@localhost:5432/my_agent_db" python -m 
 ```json
 {
   "mcpServers": {
-    "mnemosyne": {
+    "gomaa": {
       "command": "python3",
-      "args": ["-m", "mnemosyne", "server"],
+      "args": ["-m", "gomaa", "server"],
       "env": {
         "MEMORY_VAULT_PATH": "./.vault",
         "MEMORY_DEFAULT_WING": "codebase"
@@ -384,7 +384,7 @@ MEMORY_DB_DSN="postgresql://mnemosyne:***@localhost:5432/my_agent_db" python -m 
 mcp_servers:
   obsidian_memory:
     command: python3
-    args: ["-m", "mnemosyne", "server"]
+    args: ["-m", "gomaa", "server"]
     env:
       MEMORY_DB_DSN: "postgresql://mnemosyne:***@${DB_HOST}:5432/toy_db"
       MEMORY_SHARED_DSN: "postgresql://mnemosyne:***@${DB_HOST}:5432/shared_db"
@@ -397,20 +397,20 @@ plugins:
   mcp_servers:
     mnemosyne:
       command: "python3"
-      args: ["-m", "mnemosyne", "server"]
+      args: ["-m", "gomaa", "server"]
       env:
         MEMORY_VAULT_PATH: "~/.openclaw/vault"
         MEMORY_DEFAULT_WING: "openclaw"
 ```
 
 ### 5. LangChain & LangGraph
-Drop-in memory adapter using Mnemosyne's token-budgeted prompt context assembler:
+Drop-in memory adapter using Gomaa's token-budgeted prompt context assembler:
 ```python
-from mnemosyne.adapters.langchain import MnemosyneMemory
+from gomaa.adapters.langchain import GomaaMemory
 from langchain.chains import ConversationChain
 from langchain_openai import ChatOpenAI
 
-memory = MnemosyneMemory(
+memory = GomaaMemory(
     wing="support_agent",
     room="tickets",
     max_tokens=1500
@@ -427,10 +427,10 @@ conversation.predict(input="Our PostgreSQL server is at 10.0.0.5 on port 5432.")
 ### 6. CrewAI Multi-Agent Swarms
 Domain-isolated memory handler for CrewAI agents:
 ```python
-from mnemosyne.adapters.crewai import MnemosyneMemoryHandler
+from gomaa.adapters.crewai import GomaaMemoryHandler
 from crewai import Agent, Crew, Task
 
-mem_handler = MnemosyneMemoryHandler(crew_name="security_squad")
+mem_handler = GomaaMemoryHandler(crew_name="security_squad")
 
 agent = Agent(
     role="Penetration Tester",
@@ -448,7 +448,7 @@ mem_handler.save(
 
 ### 7. Python SDK & Autonomous Agent Scripts
 ```python
-from mnemosyne import UnifiedMemorySystem
+from gomaa import UnifiedMemorySystem
 
 mem = UnifiedMemorySystem(
     vault_path="~/.agent/vault",
@@ -479,42 +479,42 @@ print(ctx["context_text"])
 
 ## 💻 Complete CLI Command Reference
 
-Mnemosyne includes a full-featured management CLI:
+Gomaa includes a full-featured management CLI:
 
 ```bash
 # 1. Initialize local vault & generate ready-to-copy MCP configurations
-mnemosyne init --path ~/.mnemosyne/vault
+gomaa init --path ~/.mnemosyne/vault
 
 # 2. Launch interactive Aurora Web Knowledge Graph Dashboard
-mnemosyne dashboard --port 8765
+gomaa dashboard --port 8765
 
 # 3. Store a memory note
-mnemosyne remember "API Architecture" "Uses Bearer JWT auth." --tags security auth --wing backend --room api --salience 0.8 --pinned
+gomaa remember "API Architecture" "Uses Bearer JWT auth." --tags security auth --wing backend --room api --salience 0.8 --pinned
 
 # 4. Publish shared fleet memory
-mnemosyne publish-shared "Global Production Policy" "Always check SSL certs." --wing devops
+gomaa publish-shared "Global Production Policy" "Always check SSL certs." --wing devops
 
 # 5. Search memories (hybrid / semantic / keyword / graph)
-mnemosyne recall "JWT authentication" --mode hybrid --top-k 5 --wing backend
+gomaa recall "JWT authentication" --mode hybrid --top-k 5 --wing backend
 
 # 6. Assemble token-budgeted prompt context block
-mnemosyne assemble-context "production policy" --max-tokens 1500 --wing devops
+gomaa assemble-context "production policy" --max-tokens 1500 --wing devops
 
 # 7. View activity timeline
-mnemosyne timeline --limit 20
+gomaa timeline --limit 20
 
 # 8. Trigger Ebbinghaus decay & link reconciliation
-mnemosyne consolidate --decay-rate 0.95 --archive-threshold 0.05
+gomaa consolidate --decay-rate 0.95 --archive-threshold 0.05
 
 # 9. Check system statistics & health
-mnemosyne stats
+gomaa stats
 
 # 10. Synchronize with Google Drive (One-off pass or daemon mode)
-mnemosyne sync-gdrive --folder "My-Agent-Vault" --credentials service-account.json
-mnemosyne sync-gdrive --daemon --interval 60
+gomaa sync-gdrive --folder "My-Agent-Vault" --credentials service-account.json
+gomaa sync-gdrive --daemon --interval 60
 
 # 11. Run standalone Centralized Embedding Microservice
-mnemosyne embed-service --host 0.0.0.0 --port 8000 --model all-MiniLM-L6-v2
+gomaa embed-service --host 0.0.0.0 --port 8000 --model all-MiniLM-L6-v2
 ```
 
 ---
@@ -556,7 +556,7 @@ Benchmarked on Apple Silicon (M-series) / Ubuntu 24.04 LTS against a live knowle
 
 ### 🔬 Test Suite Coverage (87 / 87 Passed · 100%)
 
-Mnemosyne maintains a comprehensive automated test suite spanning 27 test modules:
+Gomaa maintains a comprehensive automated test suite spanning 27 test modules:
 
 ```
 collected 87 items

@@ -1,5 +1,5 @@
 import pytest
-from mnemosyne.security import AdmissionControl
+from gomaa.security import AdmissionControl
 
 
 class TestAdmissionControl:

@@ -3,8 +3,8 @@ requires = ["hatchling"]
 build-backend = "hatchling.build"
 
 [project]
-name = "mnemosyne-memory"
-version = "3.4.0"
+name = "gomaa"
+version = "3.5.0"
 description = "Production-grade local hierarchical memory platform for AI agents with Obsidian sync, hybrid RRF search, and Ebbinghaus temporal decay."
 readme = "README.md"
 requires-python = ">=3.9"
@@ -19,6 +19,7 @@ keywords = [
     "ai-agents",
     "obsidian",
     "pgvector",
+    "gomaa",
     "hermes",
     "openclaw",
     "claude",
@@ -88,7 +89,8 @@ dev = [
 ]
 
 [project.scripts]
-mnemosyne = "mnemosyne.cli:main"
+gomaa = "gomaa.cli:main"
+mnemosyne = "gomaa.cli:main"
 
 [tool.hatch.build.targets.wheel]
-packages = ["mnemosyne"]
+packages = ["gomaa", "mnemosyne"]

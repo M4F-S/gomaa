@@ -1,7 +1,7 @@
 import pytest
 import tempfile
 import os
-from mnemosyne.core import UnifiedMemorySystem
+from gomaa.core import UnifiedMemorySystem
 
 
 class TestChunking:

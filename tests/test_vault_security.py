@@ -1,7 +1,7 @@
 import pytest
 import tempfile
 from pathlib import Path
-from mnemosyne.vault import VaultManager, get_safe_note_path
+from gomaa.vault import VaultManager, get_safe_note_path
 
 
 class TestVaultSecurity:

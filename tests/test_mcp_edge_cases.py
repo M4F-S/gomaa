@@ -1,6 +1,6 @@
 import pytest
-from mnemosyne.mcp_server import MCPServer
-from mnemosyne.core import UnifiedMemorySystem
+from gomaa.mcp_server import MCPServer
+from gomaa.core import UnifiedMemorySystem
 
 
 class TestMCPEdgeCases:

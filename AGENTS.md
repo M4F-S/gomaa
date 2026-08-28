@@ -1,7 +1,7 @@
-# 🧠 Mnemosyne Autonomous Agent Ecosystem & VPS Operations Guide
+# 🧠 Gomaa Autonomous Agent Ecosystem & VPS Operations Guide
 
 > **Notice for all AI Coding Assistants (Antigravity, Cursor, Claude Code, Codex, Windsurf):**
-> This repository is the source code and orchestration center for **Mnemosyne v3.4.0** and the 5-agent Hermes fleet deployed on a production VPS.
+> This repository is the source code and orchestration center for **Gomaa v3.5.0** and the 5-agent Hermes fleet deployed on a production VPS.
 > Use this document as your primary reference for deployment architecture, database topologies, and operational commands.
 > **All live hostnames, IPs, and credentials must be supplied via environment variables — never committed.**
 
@@ -69,18 +69,19 @@ See `.env.example` for the variables you must set before running any VPS command
 
 ---
 
-## 🛠️ Mnemosyne MCP Tool Reference (8 Tools)
+## 🛠️ Gomaa MCP Tool Reference (9 Tools)
 
 All agents expose these MCP tools (under the `mcp__obsidian_memory__` prefix):
 
 1. `memory_remember(title, content, tags, wing, room, salience, pinned)` — store hierarchical notes in Obsidian vault + pgvector; `pinned=True` resists Ebbinghaus decay.
 2. `memory_publish_shared(title, content, tags, wing, room)` — publish sanitized findings to shared fleet memory (regex cred screening).
 3. `memory_recall(query, mode, top_k, scope, include_shared)` — hybrid RRF search over private + shared stores.
-4. `memory_ingest_session(transcript, wing, room)` — turn-based transcript ingestion with sliding-window chunking.
-5. `memory_timeline(limit)` — chronological audit trail.
-6. `memory_history(title, limit)` — note version history & diffs.
-7. `memory_remind_me(title, trigger_at, content, recurring)` — prospective reminder engine.
-8. `memory_audit()` — real-time system health & backend statistics.
+4. `memory_assemble_context(query, max_tokens, scope, mode)` — retrieve and assemble token-budgeted prompt context block.
+5. `memory_ingest_session(transcript, wing, room)` — turn-based transcript ingestion with sliding-window chunking.
+6. `memory_timeline(limit)` — chronological audit trail.
+7. `memory_history(title, limit)` — note version history & diffs.
+8. `memory_remind_me(title, trigger_at, content, recurring)` — prospective reminder engine.
+9. `memory_audit()` — real-time system health & backend statistics.
 
 ---
 

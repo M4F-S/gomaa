@@ -9,14 +9,14 @@ def test_cli_init_command(tmp_path):
     cmd = [
         sys.executable,
         "-m",
-        "mnemosyne.cli",
+        "gomaa.cli",
         "init",
         "--path",
         vault_dir,
     ]
     res = subprocess.run(cmd, capture_output=True, text=True)
     assert res.returncode == 0
-    assert "Mnemosyne Initialized Successfully" in res.stdout
+    assert "Gomaa Initialized Successfully" in res.stdout
     assert os.path.exists(vault_dir)
     assert os.path.exists(os.path.join(vault_dir, "general"))
     assert os.path.exists(os.path.join(vault_dir, "projects"))
@@ -25,13 +25,13 @@ def test_cli_init_command(tmp_path):
 def test_cli_assemble_context_command(tmp_path):
     vault_dir = str(tmp_path / "test_vault")
     # First init
-    subprocess.run([sys.executable, "-m", "mnemosyne.cli", "init", "--path", vault_dir], check=True)
+    subprocess.run([sys.executable, "-m", "gomaa.cli", "init", "--path", vault_dir], check=True)
 
     # Run assemble-context
     cmd = [
         sys.executable,
         "-m",
-        "mnemosyne.cli",
+        "gomaa.cli",
         "--vault-path",
         vault_dir,
         "assemble-context",
@@ -42,4 +42,4 @@ def test_cli_assemble_context_command(tmp_path):
     res = subprocess.run(cmd, capture_output=True, text=True)
     assert res.returncode == 0
     assert "<memory_context>" in res.stdout
-    assert "Welcome to Mnemosyne" in res.stdout
+    assert "Welcome to Gomaa" in res.stdout

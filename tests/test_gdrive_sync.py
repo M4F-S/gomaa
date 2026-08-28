@@ -1,7 +1,7 @@
 import pytest
 from pathlib import Path
 from unittest.mock import MagicMock, patch
-from mnemosyne.sync.gdrive import GoogleDriveSyncManager, calculate_md5
+from gomaa.sync.gdrive import GoogleDriveSyncManager, calculate_md5
 
 
 class TestGDriveSync:

@@ -1,6 +1,6 @@
 import pytest
 import os
-from mnemosyne.stores import create_store
+from gomaa.stores import create_store
 
 
 class TestFTSWebSearch:

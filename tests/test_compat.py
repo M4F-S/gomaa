@@ -2,13 +2,13 @@
 Test v1.0 backward compatibility module and embed_service exports.
 """
 
-from mnemosyne.compat import create_note, read_note, search_notes, update_note, create_moc
-from mnemosyne.embed_service import run_service, create_app
+from gomaa.compat import create_note, read_note, search_notes, update_note, create_moc
+from gomaa.embed_service import run_service, create_app
 
 
 def test_compat_create_and_read_note(tmp_path):
-    import mnemosyne.compat as comp
-    from mnemosyne.core import UnifiedMemorySystem
+    import gomaa.compat as comp
+    from gomaa.core import UnifiedMemorySystem
 
     # Override global memory for isolated test
     comp._global_memory = UnifiedMemorySystem(vault_path=str(tmp_path), auto_sync=False)
@@ -34,8 +34,8 @@ def test_compat_create_and_read_note(tmp_path):
 
 
 def test_compat_create_moc(tmp_path):
-    import mnemosyne.compat as comp
-    from mnemosyne.core import UnifiedMemorySystem
+    import gomaa.compat as comp
+    from gomaa.core import UnifiedMemorySystem
 
     comp._global_memory = UnifiedMemorySystem(vault_path=str(tmp_path), auto_sync=False)
 
@@ -49,3 +49,18 @@ def test_compat_create_moc(tmp_path):
 def test_embed_service_callable():
     assert callable(run_service)
     assert callable(create_app)
+
+
+def test_mnemosyne_legacy_import_compatibility(tmp_path):
+    import mnemosyne
+    from mnemosyne import UnifiedMemorySystem as LegacyUnifiedMemorySystem
+    from mnemosyne.adapters import MnemosyneMemory, MnemosyneMemoryHandler
+
+    mem = LegacyUnifiedMemorySystem(vault_path=str(tmp_path), auto_sync=False)
+    res = mem.remember("Legacy Note", "Saved via mnemosyne legacy import", tags=["legacy"])
+    assert res.get("success") is True
+
+    lc = MnemosyneMemory(memory=mem)
+    assert lc is not None
+    crew = MnemosyneMemoryHandler(memory=mem)
+    assert crew is not None

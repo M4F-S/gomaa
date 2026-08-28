@@ -1,6 +1,6 @@
 import pytest
-from mnemosyne.core import UnifiedMemorySystem
-from mnemosyne.mcp_server import MCPServer
+from gomaa.core import UnifiedMemorySystem
+from gomaa.mcp_server import MCPServer
 
 
 class TestAssembleContext:

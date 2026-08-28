@@ -1,7 +1,7 @@
 import pytest
-from mnemosyne.core import UnifiedMemorySystem
-from mnemosyne.adapters.langchain import MnemosyneMemory
-from mnemosyne.adapters.crewai import MnemosyneMemoryHandler
+from gomaa.core import UnifiedMemorySystem
+from gomaa.adapters.langchain import MnemosyneMemory
+from gomaa.adapters.crewai import MnemosyneMemoryHandler
 
 
 class TestAdapters:

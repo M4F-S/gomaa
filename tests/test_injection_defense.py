@@ -1,5 +1,5 @@
 import pytest
-from mnemosyne.core import _neutralize_control_tokens, UnifiedMemorySystem
+from gomaa.core import _neutralize_control_tokens, UnifiedMemorySystem
 import tempfile
 import os
 

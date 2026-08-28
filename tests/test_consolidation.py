@@ -1,11 +1,11 @@
 import os
 import tempfile
 import pytest
-from mnemosyne.consolidation import ConsolidationEngine
-from mnemosyne.core import UnifiedMemorySystem
-from mnemosyne.stores.sqlite import SQLiteStore
-from mnemosyne.vault import VaultManager
-from mnemosyne.embedder import Embedder
+from gomaa.consolidation import ConsolidationEngine
+from gomaa.core import UnifiedMemorySystem
+from gomaa.stores.sqlite import SQLiteStore
+from gomaa.vault import VaultManager
+from gomaa.embedder import Embedder
 
 
 class TestConsolidation:

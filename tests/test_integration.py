@@ -9,7 +9,7 @@ class TestIntegration:
     @pytest.fixture
     def memory(self):
         with tempfile.TemporaryDirectory() as tmpdir:
-            from mnemosyne import UnifiedMemorySystem
+            from gomaa import UnifiedMemorySystem
 
             default_dsn = f"sqlite://{os.path.join(tmpdir, 'test.db')}"
             dsn = os.environ.get("MEMORY_DB_DSN", default_dsn)

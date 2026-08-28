@@ -1,7 +1,7 @@
 import pytest
 import tempfile
 import os
-from mnemosyne.core import UnifiedMemorySystem, SecurityCheckError
+from gomaa.core import UnifiedMemorySystem, SecurityCheckError
 
 
 class TestSharedMemory:

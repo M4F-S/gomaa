@@ -9,7 +9,7 @@ import pathlib
 
 import pytest
 
-from mnemosyne.sync.gdrive import safe_pull_dest_path
+from gomaa.sync.gdrive import safe_pull_dest_path
 
 
 @pytest.fixture

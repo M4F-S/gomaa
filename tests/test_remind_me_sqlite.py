@@ -8,7 +8,7 @@ import sys
 
 import pytest
 
-from mnemosyne import UnifiedMemorySystem
+from gomaa import UnifiedMemorySystem
 
 
 @pytest.fixture

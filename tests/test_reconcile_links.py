@@ -1,7 +1,7 @@
 import pytest
 import tempfile
 import os
-from mnemosyne.stores.sqlite import SQLiteStore
+from gomaa.stores.sqlite import SQLiteStore
 
 
 class TestReconcileLinks:

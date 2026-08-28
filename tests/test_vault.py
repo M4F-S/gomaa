@@ -1,6 +1,6 @@
 import pytest
 import tempfile
-from mnemosyne.vault import VaultManager
+from gomaa.vault import VaultManager
 
 
 class TestVaultManager:
@@ -16,7 +16,7 @@ class TestVaultManager:
         assert note["content"] == "This is a test"
 
     def test_safe_filename_unicode(self):
-        from mnemosyne.vault import safe_filename
+        from gomaa.vault import safe_filename
 
         assert safe_filename("Hello World") == "Hello World.md"
         assert safe_filename("会议记录") == "会议记录.md"
