@@ -15,7 +15,10 @@ logger = logging.getLogger("mnemosyne-sqlite")
 
 class SQLiteStore(MemoryStore):
     def __init__(self, db_path: str = "mnemosyne.db"):
-        self.db_path = db_path
+        self.db_path = os.path.expanduser(db_path)
+        db_dir = os.path.dirname(os.path.abspath(self.db_path))
+        if db_dir:
+            os.makedirs(db_dir, exist_ok=True)
         self._ensure_schema()
 
     @contextmanager

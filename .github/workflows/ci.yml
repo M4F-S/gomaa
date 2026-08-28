@@ -67,7 +67,7 @@ jobs:
 
     - name: Run integration tests with live PostgreSQL
       env:
-        MEMORY_DB_DSN: "postgresql://mnemosyne:***@localhost:5432/mnemosyne"
+        MEMORY_DB_DSN: "postgresql://mnemosyne:mnemosyne@localhost:5432/mnemosyne"
         MEMORY_REQUIRE_POSTGRES: "true"
       run: |
         pytest tests/test_integration.py -v
