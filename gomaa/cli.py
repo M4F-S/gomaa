@@ -10,6 +10,16 @@ import sys
 from gomaa import UnifiedMemorySystem
 from gomaa.mcp_server import MCPServer
 
+GOMAA_BANNER = """\033[1;35m
+   ██████╗  ██████╗ ███╗   ███╗ █████╗  █████╗ 
+  ██╔════╝ ██╔═══██╗████╗ ████║██╔══██╗██╔══██╗
+  ██║  ███╗██║   ██║██╔████╔██║███████║███████║
+  ██║   ██║██║   ██║██║╚██╔╝██║██╔══██║██╔══██║
+  ╚██████╔╝╚██████╔╝██║ ╚═╝ ██║██║  ██║██║  ██║
+   ╚═════╝  ╚═════╝ ╚═╝     ╚═╝╚═╝  ╚═╝╚═╝  ╚═╝\033[0m
+\033[0;36m   🧠 Autonomous AI Agent Long-Term Memory OS (v3.5.0)\033[0m
+"""
+
 
 def main():
     parser = argparse.ArgumentParser(
@@ -94,12 +104,14 @@ def main():
         return
 
     if args.command == "dashboard":
+        print(GOMAA_BANNER)
         from gomaa.dashboard import run_dashboard
         mem = UnifiedMemorySystem(vault_path=args.vault_path, dsn=args.dsn, shared_dsn=args.shared_dsn)
         run_dashboard(host=args.host, port=args.port, memory=mem, open_browser=not args.no_browser)
         return
 
     if args.command == "init":
+        print(GOMAA_BANNER)
         v_path = os.path.expanduser(args.path)
         os.makedirs(v_path, exist_ok=True)
         for w in ["general", "projects", "concepts", "archive", "sessions"]:

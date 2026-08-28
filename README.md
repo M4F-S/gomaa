@@ -308,46 +308,42 @@ In multi-agent production setups (such as the 5-agent Hermes fleet), Gomaa isola
 
 ---
 
-## 🚀 Quick Start & Installation
+## 🚀 Quick Start (Up & Running in 30 Seconds)
 
-### 1. Installation
+### ⚡ Option A: 1-Line Online Installer (Recommended)
 
-```bash
-# Standard installation
-pip install gomaa
-
-# With Google Drive Cloud Synchronization support
-pip install "gomaa[gdrive]"
-
-# With lightweight FastEmbed ONNX support (~30MB RAM)
-pip install "gomaa[fastembed]"
-
-# Full installation (All extras + Dev dependencies)
-pip install "gomaa[dev,gdrive,fastembed,embed-service]"
-```
-
-### 2. Run with Docker Compose
-
-Start the PostgreSQL + `pgvector` container:
-```bash
-docker compose up -d
-```
-
-### 3. Launch MCP Server
+Run this single command in your terminal to install Gomaa, initialize your local Obsidian vault, and generate ready-to-copy MCP configurations:
 
 ```bash
-# Standalone with local SQLite (Zero configuration)
-python -m gomaa server
-
-# With PostgreSQL + pgvector
-MEMORY_DB_DSN="postgresql://mnemosyne:***@localhost:5432/my_agent_db" python -m gomaa server
+curl -fsSL https://raw.githubusercontent.com/M4F-S/gomaa/main/install.sh | bash
 ```
 
 ---
 
-## 🤖 Agent Framework Integration Recipes
+### 📦 Option B: Python Package Installation (Lite Mode)
 
-### 1. Claude Desktop (`claude_desktop_config.json`)
+No database setup required. Gomaa runs out-of-the-box using local SQLite WAL mode and FastEmbed ONNX:
+
+```bash
+# 1. Install Gomaa
+pip install gomaa
+
+# 2. Initialize your local memory vault in 1 second
+gomaa init
+
+# 3. Launch the visual Web Knowledge Graph Dashboard
+gomaa dashboard
+```
+
+> **Want PostgreSQL + pgvector for multi-agent fleets?** Install with `pip install "gomaa[postgres]"` and set `MEMORY_DB_DSN="postgresql://user:pass@host:5432/dbname"`.
+
+---
+
+### 🔌 Option C: Connect to Claude, Cursor, Hermes or OpenClaw
+
+Add this simple MCP block to your agent's configuration file:
+
+#### 1. Claude Desktop (`claude_desktop_config.json`)
 ```json
 {
   "mcpServers": {
@@ -355,15 +351,15 @@ MEMORY_DB_DSN="postgresql://mnemosyne:***@localhost:5432/my_agent_db" python -m 
       "command": "python3",
       "args": ["-m", "gomaa", "server"],
       "env": {
-        "MEMORY_VAULT_PATH": "/Users/username/Documents/Obsidian/AgentVault",
-        "MEMORY_DEFAULT_WING": "claude"
+        "MEMORY_VAULT_PATH": "~/.gomaa/vault",
+        "MEMORY_DEFAULT_WING": "general"
       }
     }
   }
 }
 ```
 
-### 2. Cursor IDE (`.cursor/mcp.json`)
+#### 2. Cursor IDE (`.cursor/mcp.json`)
 ```json
 {
   "mcpServers": {
@@ -371,7 +367,7 @@ MEMORY_DB_DSN="postgresql://mnemosyne:***@localhost:5432/my_agent_db" python -m 
       "command": "python3",
       "args": ["-m", "gomaa", "server"],
       "env": {
-        "MEMORY_VAULT_PATH": "./.vault",
+        "MEMORY_VAULT_PATH": "~/.gomaa/vault",
         "MEMORY_DEFAULT_WING": "codebase"
       }
     }
@@ -379,30 +375,29 @@ MEMORY_DB_DSN="postgresql://mnemosyne:***@localhost:5432/my_agent_db" python -m 
 }
 ```
 
-### 3. Hermes Agent (`~/.hermes/config.yaml`)
+#### 3. Hermes Agent Fleet (`~/.hermes/config.yaml`)
 ```yaml
 mcp_servers:
   obsidian_memory:
     command: python3
     args: ["-m", "gomaa", "server"]
     env:
-      MEMORY_DB_DSN: "postgresql://mnemosyne:***@${DB_HOST}:5432/toy_db"
-      MEMORY_SHARED_DSN: "postgresql://mnemosyne:***@${DB_HOST}:5432/shared_db"
+      MEMORY_DB_DSN: "postgresql://${DB_USER}:${DB_PASSWORD}@${DB_HOST}:5432/toy_db"
+      MEMORY_SHARED_DSN: "postgresql://${DB_USER}:${DB_PASSWORD}@${DB_HOST}:5432/shared_db"
       MEMORY_VAULT_PATH: "/opt/data/vault"
 ```
 
-### 4. OpenClaw (`openclaw-config.yaml`)
+#### 4. OpenClaw (`openclaw-config.yaml`)
 ```yaml
 plugins:
   mcp_servers:
-    mnemosyne:
+    gomaa:
       command: "python3"
       args: ["-m", "gomaa", "server"]
       env:
         MEMORY_VAULT_PATH: "~/.openclaw/vault"
         MEMORY_DEFAULT_WING: "openclaw"
 ```
-
 ### 5. LangChain & LangGraph
 Drop-in memory adapter using Gomaa's token-budgeted prompt context assembler:
 ```python
