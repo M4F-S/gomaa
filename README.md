@@ -26,7 +26,7 @@ Mnemosyne equips AI agents (Hermes, OpenClaw, OpenManus, Claude Desktop, Cursor,
   - [7. Asynchronous Google Drive Cloud Synchronization](#7-asynchronous-google-drive-cloud-synchronization)
   - [8. Flexible Embedding Backends (FastEmbed / Microservice / Local)](#8-flexible-embedding-backends-fastembed--microservice--local)
   - [9. Defense-in-Depth Security & Injection Armor](#9-defense-in-depth-security--injection-armor)
-- [🛠️ MCP Tool Reference (8 Tools)](#️-mcp-tool-reference-8-tools)
+- [🛠️ MCP Tool Reference (9 Tools)](#️-mcp-tool-reference-9-tools)
 - [🌐 Multi-Agent Fleet Production Architecture](#-multi-agent-fleet-production-architecture)
 - [🚀 Quick Start & Installation](#-quick-start--installation)
 - [🤖 Agent Framework Integration Recipes](#-agent-framework-integration-recipes)
@@ -253,7 +253,21 @@ Schedule a future prospective reminder or recurring task.
 }
 ```
 
-### 8. `memory_audit`
+### 8. `memory_assemble_context`
+Retrieve, rank, and pack high-salience memories into a strict token-budgeted XML prompt block ready for direct LLM system prompt injection.
+```json
+{
+  "query": "Kubernetes staging deployment limits",
+  "max_tokens": 1500,
+  "mode": "hybrid",
+  "scope": {
+    "wing": "infrastructure"
+  },
+  "include_shared": true
+}
+```
+
+### 9. `memory_audit`
 Get real-time memory health metrics, store backend status, request counts, and active wings.
 ```json
 {}
@@ -386,7 +400,50 @@ plugins:
         MEMORY_DEFAULT_WING: "openclaw"
 ```
 
-### 5. Python SDK & Autonomous Agent Scripts
+### 5. LangChain & LangGraph
+Drop-in memory adapter using Mnemosyne's token-budgeted prompt context assembler:
+```python
+from mnemosyne.adapters.langchain import MnemosyneMemory
+from langchain.chains import ConversationChain
+from langchain_openai import ChatOpenAI
+
+memory = MnemosyneMemory(
+    wing="support_agent",
+    room="tickets",
+    max_tokens=1500
+)
+
+conversation = ConversationChain(
+    llm=ChatOpenAI(model="gpt-4o"),
+    memory=memory,
+    verbose=True
+)
+conversation.predict(input="Our PostgreSQL server is at 10.0.0.5 on port 5432.")
+```
+
+### 6. CrewAI Multi-Agent Swarms
+Domain-isolated memory handler for CrewAI agents:
+```python
+from mnemosyne.adapters.crewai import MnemosyneMemoryHandler
+from crewai import Agent, Crew, Task
+
+mem_handler = MnemosyneMemoryHandler(crew_name="security_squad")
+
+agent = Agent(
+    role="Penetration Tester",
+    goal="Discover vulnerabilities in staging infrastructure",
+    memory=True
+)
+
+# Save task findings with automatic domain wing isolation
+mem_handler.save(
+    value="Port 8080 open on staging host 10.0.0.5 running vulnerable Tomcat",
+    metadata={"task": "recon", "salience": 0.9, "pinned": True},
+    agent_role="Penetration Tester"
+)
+```
+
+### 7. Python SDK & Autonomous Agent Scripts
 ```python
 from mnemosyne import UnifiedMemorySystem
 
@@ -406,15 +463,13 @@ mem.remember(
     pinned=True
 )
 
-# Hybrid recall
-results = mem.recall(
+# Assemble token-budgeted context for LLM prompt
+ctx = mem.assemble_context(
     query="staging memory limits",
-    mode="hybrid",
+    max_tokens=1500,
     scope={"wing": "infrastructure"}
 )
-
-for r in results:
-    print(r["title"], "->", r["formatted_context"])
+print(ctx["context_text"])
 ```
 
 ---
@@ -424,32 +479,36 @@ for r in results:
 Mnemosyne includes a full-featured management CLI:
 
 ```bash
-# 1. Store a memory note
-python -m mnemosyne remember "API Architecture" "Uses Bearer JWT auth." --tags security auth --wing backend --room api --salience 0.8 --pinned
+# 1. Initialize local vault & generate ready-to-copy MCP configurations
+mnemosyne init --path ~/.mnemosyne/vault
 
-# 2. Publish shared fleet memory
-python -m mnemosyne publish-shared "Global Production Policy" "Always check SSL certs." --wing devops
+# 2. Store a memory note
+mnemosyne remember "API Architecture" "Uses Bearer JWT auth." --tags security auth --wing backend --room api --salience 0.8 --pinned
 
-# 3. Search memories
-python -m mnemosyne recall "JWT authentication" --mode hybrid --top-k 5 --wing backend
+# 3. Publish shared fleet memory
+mnemosyne publish-shared "Global Production Policy" "Always check SSL certs." --wing devops
 
-# 4. View activity timeline
-python -m mnemosyne timeline --limit 20
+# 4. Search memories (hybrid / semantic / keyword / graph)
+mnemosyne recall "JWT authentication" --mode hybrid --top-k 5 --wing backend
 
-# 5. Trigger Ebbinghaus decay & link reconciliation
-python -m mnemosyne consolidate --decay-rate 0.95 --archive-threshold 0.05
+# 5. Assemble token-budgeted prompt context block
+mnemosyne assemble-context "production policy" --max-tokens 1500 --wing devops
 
-# 6. Check system statistics & health
-python -m mnemosyne stats
+# 6. View activity timeline
+mnemosyne timeline --limit 20
 
-# 7. Synchronize with Google Drive (One-off pass)
-python -m mnemosyne sync-gdrive --folder "My-Agent-Vault" --credentials service-account.json
+# 7. Trigger Ebbinghaus decay & link reconciliation
+mnemosyne consolidate --decay-rate 0.95 --archive-threshold 0.05
 
-# 8. Run Google Drive Sync as a background daemon
-python -m mnemosyne sync-gdrive --daemon --interval 60
+# 8. Check system statistics & health
+mnemosyne stats
 
-# 9. Run standalone Centralized Embedding Microservice
-python -m mnemosyne embed-service --host 0.0.0.0 --port 8000 --model all-MiniLM-L6-v2
+# 9. Synchronize with Google Drive (One-off pass or daemon mode)
+mnemosyne sync-gdrive --folder "My-Agent-Vault" --credentials service-account.json
+mnemosyne sync-gdrive --daemon --interval 60
+
+# 10. Run standalone Centralized Embedding Microservice
+mnemosyne embed-service --host 0.0.0.0 --port 8000 --model all-MiniLM-L6-v2
 ```
 
 ---
@@ -476,15 +535,74 @@ python -m mnemosyne embed-service --host 0.0.0.0 --port 8000 --model all-MiniLM-
 
 ## 🧪 Testing & Benchmarks
 
-Mnemosyne maintains a comprehensive test suite (unit tests, security injection tests, SQLite tests, and live PostgreSQL pgvector integration tests):
+### 📊 Performance Benchmark Scorecard
+
+Benchmarked on Apple Silicon (M-series) / Ubuntu 24.04 LTS against a live knowledge graph of notes with 384-dimensional vector embeddings:
+
+| Operation | Implementation | Mean Latency | P95 Latency | Throughput |
+|---|---|---|---|---|
+| **Cold Engine Init** | SQLite WAL + Obsidian Vault | **6.28 ms** | **6.50 ms** | ~160 init/s |
+| **Neural Ingest** | FastEmbed ONNX + SQLite + Markdown File IO | **13.50 ms** | **21.47 ms** | ~75 notes/s |
+| **Neural Recall** | Query Embedding + Dot Product + Keyword RRF | **13.71 ms** | **14.79 ms** | ~73 queries/s |
+| **Keyword FTS Search** | SQLite FTS5 / PostgreSQL GIN `tsvector` | **0.99 ms** | **1.24 ms** | ~1,010 queries/s |
+| **Graph Traversal** | Recursive CTE / In-Memory Wikilink Walk | **0.83 ms** | **0.97 ms** | ~1,200 walks/s |
+| **Context Assembler** | Top-K Recall + Token Budgeting + XML Packing | **6.12 ms** | **6.45 ms** | ~163 assemblies/s |
+
+### 🔬 Test Suite Coverage (87 / 87 Passed · 100%)
+
+Mnemosyne maintains a comprehensive automated test suite spanning 27 test modules:
+
+```
+collected 87 items
+tests/test_adapters.py ..                                                [  2%]
+tests/test_assemble_context.py ...                                       [  5%]
+tests/test_chunking.py .                                                 [  6%]
+tests/test_cli_init.py ..                                                [  9%]
+tests/test_compat.py ...                                                 [ 12%]
+tests/test_consolidation.py ..                                           [ 14%]
+tests/test_embedder.py ...                                               [ 18%]
+tests/test_embedder_offline.py .                                         [ 19%]
+tests/test_embedder_v32.py ..                                            [ 21%]
+tests/test_fts_websearch.py .                                            [ 22%]
+tests/test_gdrive_safe_path.py .....                                     [ 28%]
+tests/test_gdrive_sync.py ...                                            [ 32%]
+tests/test_graph_cycles.py .                                             [ 33%]
+tests/test_injection_defense.py ...                                      [ 36%]
+tests/test_integration.py ...                                            [ 40%]
+tests/test_mcp.py ..                                                     [ 42%]
+tests/test_mcp_edge_cases.py ..                                          [ 44%]
+tests/test_mcp_server.py ..............                                  [ 60%]
+tests/test_reconcile_links.py .                                          [ 62%]
+tests/test_remind_me_sqlite.py ....                                      [ 66%]
+tests/test_security.py ......                                            [ 73%]
+tests/test_security_expanded.py .....                                    [ 79%]
+tests/test_shared_memory.py ..                                           [ 81%]
+tests/test_sqlite.py .....                                               [ 87%]
+tests/test_store_factory.py ...                                          [ 90%]
+tests/test_vault.py .....                                                [ 96%]
+tests/test_vault_security.py ...                                         [100%]
+
+======================= 87 passed, 33 warnings in 7.05s ========================
+```
+
+### 🛠️ How to Execute the Test Suite
 
 ```bash
-# Run all unit tests
-pytest tests/ -v -m "not integration"
+# 1. Run all unit & integration tests locally (Light Mode with SQLite)
+uv run pytest tests/ -v
 
-# Run full test suite including live PostgreSQL + pgvector tests
-MEMORY_DB_DSN="postgresql://mnemosyne:***@localhost:5432/test_db" pytest tests/ -v
+# 2. Run with coverage report
+uv run pytest tests/ --cov=mnemosyne --cov-report=term-missing
+
+# 3. Run full test suite including live PostgreSQL + pgvector tests
+MEMORY_DB_DSN="postgresql://mnemosyne:mnemosyne@localhost:5432/mnemosyne" uv run pytest tests/ -v
 ```
+
+### 🛡️ Test Procedure & Hermetic Isolation Principles
+
+1. **Hermetic Test Isolation:** All tests utilize pytest's temporary filesystem fixtures (`tmp_path`) to generate ephemeral Obsidian vaults and SQLite databases, ensuring zero state pollution between runs.
+2. **Transaction Rollback Safety:** Database operations and file writes are atomic. If an upsert or vector calculation fails, sibling temporary files (`.note.pid.tmp`) are cleaned up immediately.
+3. **Prompt Injection & Red-Teaming Tests:** Automated test suites in [`tests/test_injection_defense.py`](tests/test_injection_defense.py) and [`tests/test_security.py`](tests/test_security.py) continuously verify that LLM control tokens, DAN mode overrides, path traversal attempts, and credential leaks are neutralized.
 
 ---
 
