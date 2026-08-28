@@ -1,6 +1,6 @@
 # Gomaa 🧠
 
-[![CI](https://github.com/M4F-S/mnemosyne/actions/workflows/ci.yml/badge.svg)](https://github.com/M4F-S/mnemosyne/actions/workflows/ci.yml)
+[![CI](https://github.com/M4F-S/gomaa/actions/workflows/ci.yml/badge.svg)](https://github.com/M4F-S/gomaa/actions/workflows/ci.yml)
 [![PyPI version](https://img.shields.io/pypi/v/gomaa.svg)](https://pypi.org/project/gomaa/)
 [![Python 3.9+](https://img.shields.io/badge/python-3.9+-blue.svg)](https://www.python.org/downloads/)
 [![MCP](https://img.shields.io/badge/MCP-2024--11--05-green.svg)](https://modelcontextprotocol.io/)
