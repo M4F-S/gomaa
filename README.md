@@ -161,7 +161,7 @@ Keep your agent vaults securely backed up and synchronized across multiple machi
 ### 8. Flexible Embedding Backends (FastEmbed / Microservice / Local)
 Gomaa adapts to any deployment resource budget:
 1. **FastEmbed ONNX Runtime (Recommended for Standalone Nodes):** Uses ONNX Runtime C++ execution (~30MB RAM). Zero PyTorch overhead.
-2. **Centralized Microservice (`mnemosyne.embed_service`):** Hosts sentence-transformers in a single dedicated container serving multiple agent containers over HTTP (`MEMORY_EMBED_URL`).
+2. **Centralized Microservice (`gomaa.embed_service`):** Hosts sentence-transformers in a single dedicated container serving multiple agent containers over HTTP (`MEMORY_EMBED_URL`).
 3. **Local SentenceTransformers:** Standalone PyTorch execution (`all-MiniLM-L6-v2`, 384-dimensional).
 4. **Deterministic Hash Fallback:** Zero-RAM mathematical vector hash for ultra-constrained environments.
 
@@ -483,7 +483,7 @@ Gomaa includes a full-featured management CLI:
 
 ```bash
 # 1. Initialize local vault & generate ready-to-copy MCP configurations
-gomaa init --path ~/.mnemosyne/vault
+gomaa init --path ~/.gomaa/vault
 
 # 2. Launch interactive Aurora Web Knowledge Graph Dashboard
 gomaa dashboard --port 8765
@@ -523,7 +523,7 @@ gomaa embed-service --host 0.0.0.0 --port 8000 --model all-MiniLM-L6-v2
 
 | Variable | Default | Description |
 |---|---|---|
-| `MEMORY_VAULT_PATH` | `~/.mnemosyne/vault` | Filesystem path to the local Obsidian Markdown vault directory |
+| `MEMORY_VAULT_PATH` | `~/.gomaa/vault` | Filesystem path to the local Obsidian Markdown vault directory |
 | `MEMORY_DB_DSN` | *(none)* | PostgreSQL DSN (e.g. `postgresql://user:pass@host:5432/db`). If unset, uses SQLite |
 | `MEMORY_SHARED_DSN` | *(none)* | PostgreSQL DSN for the optional cross-agent shared fleet database |
 | `MEMORY_AGENT_NAME` | `local-agent` | Identifier for the origin agent in multi-agent fleet deployments |
@@ -554,41 +554,42 @@ Benchmarked on Apple Silicon (M-series) / Ubuntu 24.04 LTS against a live knowle
 | **Graph Traversal** | Recursive CTE / In-Memory Wikilink Walk | **0.83 ms** | **0.97 ms** | ~1,200 walks/s |
 | **Context Assembler** | Top-K Recall + Token Budgeting + XML Packing | **6.12 ms** | **6.45 ms** | ~163 assemblies/s |
 
-### 🔬 Test Suite Coverage (87 / 87 Passed · 100%)
+### 🔬 Test Suite Coverage (94 / 94 Passed · 100%)
 
-Gomaa maintains a comprehensive automated test suite spanning 27 test modules:
+Gomaa maintains a comprehensive automated test suite spanning 28 test modules:
 
 ```
-collected 87 items
+collected 94 items
 tests/test_adapters.py ..                                                [  2%]
 tests/test_assemble_context.py ...                                       [  5%]
 tests/test_chunking.py .                                                 [  6%]
-tests/test_cli_init.py ..                                                [  9%]
-tests/test_compat.py ...                                                 [ 12%]
+tests/test_cli_init.py ..                                                [  8%]
+tests/test_compat.py ....                                                [ 12%]
 tests/test_consolidation.py ..                                           [ 14%]
-tests/test_embedder.py ...                                               [ 18%]
-tests/test_embedder_offline.py .                                         [ 19%]
-tests/test_embedder_v32.py ..                                            [ 21%]
-tests/test_fts_websearch.py .                                            [ 22%]
-tests/test_gdrive_safe_path.py .....                                     [ 28%]
-tests/test_gdrive_sync.py ...                                            [ 32%]
-tests/test_graph_cycles.py .                                             [ 33%]
-tests/test_injection_defense.py ...                                      [ 36%]
-tests/test_integration.py ...                                            [ 40%]
-tests/test_mcp.py ..                                                     [ 42%]
-tests/test_mcp_edge_cases.py ..                                          [ 44%]
-tests/test_mcp_server.py ..............                                  [ 60%]
-tests/test_reconcile_links.py .                                          [ 62%]
-tests/test_remind_me_sqlite.py ....                                      [ 66%]
-tests/test_security.py ......                                            [ 73%]
-tests/test_security_expanded.py .....                                    [ 79%]
-tests/test_shared_memory.py ..                                           [ 81%]
-tests/test_sqlite.py .....                                               [ 87%]
-tests/test_store_factory.py ...                                          [ 90%]
+tests/test_dashboard.py ......                                           [ 21%]
+tests/test_embedder.py ...                                               [ 24%]
+tests/test_embedder_offline.py .                                         [ 25%]
+tests/test_embedder_v32.py ..                                            [ 27%]
+tests/test_fts_websearch.py .                                            [ 28%]
+tests/test_gdrive_safe_path.py .....                                     [ 34%]
+tests/test_gdrive_sync.py ...                                            [ 37%]
+tests/test_graph_cycles.py .                                             [ 38%]
+tests/test_injection_defense.py ...                                      [ 41%]
+tests/test_integration.py ...                                            [ 44%]
+tests/test_mcp.py ..                                                     [ 46%]
+tests/test_mcp_edge_cases.py ..                                          [ 48%]
+tests/test_mcp_server.py ..............                                  [ 63%]
+tests/test_reconcile_links.py .                                          [ 64%]
+tests/test_remind_me_sqlite.py ....                                      [ 69%]
+tests/test_security.py ......                                            [ 75%]
+tests/test_security_expanded.py .....                                    [ 80%]
+tests/test_shared_memory.py ..                                           [ 82%]
+tests/test_sqlite.py .....                                               [ 88%]
+tests/test_store_factory.py ...                                          [ 91%]
 tests/test_vault.py .....                                                [ 96%]
 tests/test_vault_security.py ...                                         [100%]
 
-======================= 87 passed, 33 warnings in 7.05s ========================
+======================= 94 passed, 41 warnings in 13.38s =======================
 ```
 
 ### 🛠️ How to Execute the Test Suite
@@ -598,10 +599,10 @@ tests/test_vault_security.py ...                                         [100%]
 uv run pytest tests/ -v
 
 # 2. Run with coverage report
-uv run pytest tests/ --cov=mnemosyne --cov-report=term-missing
+uv run pytest tests/ --cov=gomaa --cov-report=term-missing
 
 # 3. Run full test suite including live PostgreSQL + pgvector tests
-MEMORY_DB_DSN="postgresql://mnemosyne:mnemosyne@localhost:5432/mnemosyne" uv run pytest tests/ -v
+MEMORY_DB_DSN="postgresql://${DB_USER}:${DB_PASSWORD}@${DB_HOST}:${DB_PORT}/${DB_NAME}" uv run pytest tests/ -v
 ```
 
 ### 🛡️ Test Procedure & Hermetic Isolation Principles
