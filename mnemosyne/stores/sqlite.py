@@ -443,7 +443,7 @@ class SQLiteStore(MemoryStore):
         add_results(keyword, "keyword", 0.8)
 
         for nid in scores:
-            scores[nid]["rrf_score"] += scores[nid].get("salience", 0.5) * 0.2
+            scores[nid]["rrf_score"] += scores[nid].get("salience", 0.5) * 0.005
 
         sorted_results = sorted(scores.values(), key=lambda x: x["rrf_score"], reverse=True)
         return sorted_results[:top_k]
@@ -484,6 +484,31 @@ class SQLiteStore(MemoryStore):
                         decayed_count += 1
 
             return {"decayed": decayed_count, "archived": archived_count}
+
+    def archive_stale(self, archive_threshold: float = 0.10, days: int = 90) -> int:
+        """Archive notes not updated in N days with salience below threshold."""
+        archived_count = 0
+        now = datetime.now(timezone.utc)
+        with self._conn() as conn:
+            cur = conn.cursor()
+            cur.execute("SELECT id, salience, tags, updated_at FROM notes WHERE status = 'active';")
+            rows = cur.fetchall()
+            for row in rows:
+                tags = json.loads(row["tags"]) if row["tags"] else []
+                if any(t in tags for t in ["pinned", "permanent", "core"]) or row["salience"] >= 1.0:
+                    continue
+                upd_str = row["updated_at"]
+                try:
+                    upd_dt = datetime.fromisoformat(upd_str.replace("Z", "+00:00"))
+                    if upd_dt.tzinfo is None:
+                        upd_dt = upd_dt.replace(tzinfo=timezone.utc)
+                except Exception:
+                    upd_dt = now
+                days_elapsed = (now - upd_dt).total_seconds() / 86400.0
+                if days_elapsed >= days and row["salience"] < archive_threshold:
+                    cur.execute("UPDATE notes SET status = 'archived' WHERE id = ?;", (row["id"],))
+                    archived_count += 1
+            return archived_count
 
     def update_links(self, note_id: str, wiki_links: List[str]) -> None:
         with self._conn() as conn:

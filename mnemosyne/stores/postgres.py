@@ -452,7 +452,7 @@ class PgVectorStore(MemoryStore):
         add_results(keyword, "keyword", 0.8)
 
         for nid in scores:
-            scores[nid]["rrf_score"] += scores[nid].get("salience", 0.5) * 0.2
+            scores[nid]["rrf_score"] += scores[nid].get("salience", 0.5) * 0.005
 
         sorted_results = sorted(scores.values(), key=lambda x: x["rrf_score"], reverse=True)
         return sorted_results[:top_k]
@@ -488,6 +488,24 @@ class PgVectorStore(MemoryStore):
                 archived = cur.rowcount
 
                 return {"decayed": decayed, "archived": archived}
+
+    def archive_stale(self, archive_threshold: float = 0.10, days: int = 90) -> int:
+        """Archive notes not updated in N days with salience below threshold."""
+        with self._conn() as conn:
+            with conn.cursor() as cur:
+                cur.execute(
+                    """
+                    UPDATE notes
+                    SET status = 'archived'
+                    WHERE status = 'active'
+                      AND updated_at < NOW() - make_interval(days => %s)
+                      AND salience < %s
+                      AND NOT ('pinned' = ANY(tags) OR 'permanent' = ANY(tags) OR 'core' = ANY(tags))
+                      AND salience < 1.0;
+                """,
+                    (int(days), archive_threshold),
+                )
+                return cur.rowcount
 
     def update_links(self, note_id: int, wiki_links: List[str]) -> None:
         with self._conn() as conn:

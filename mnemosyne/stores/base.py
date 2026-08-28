@@ -53,6 +53,10 @@ class MemoryStore(ABC):
         pass
 
     @abstractmethod
+    def archive_stale(self, archive_threshold: float = 0.10, days: int = 90) -> int:
+        pass
+
+    @abstractmethod
     def update_links(self, note_id: Any, wiki_links: List[str]) -> None:
         pass
 

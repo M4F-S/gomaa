@@ -30,17 +30,21 @@ class AdmissionControl:
         if len(content) > 50000:
             checks.append((False, "Content too long (> 50000 chars)"))
 
-        # Injection pattern detection
+        # Injection pattern detection (evaluated on prose only, preserving code blocks)
+        prose_only = re.sub(r"```[\s\S]*?```", "", content)
+        prose_only = re.sub(r"`[^`]*?`", "", prose_only)
+        prose_lower = prose_only.lower()
+
         injection_patterns = [
-            r"ignore previous instructions",
-            r"disregard (all|your) (instructions|training)",
-            r"system prompt",
-            r"you are now",
-            r"DAN mode",
+            r"ignore\s+(all\s+)?(previous\s+|prior\s+|your\s+)?(instructions|commands|directives|rules|system\s+prompt)",
+            r"disregard\s+(all\s+)?(previous\s+|prior\s+|your\s+)?(instructions|training|system\s+prompt|rules|commands|directives)",
+            r"you\s+must\s+ignore\s+(the\s+)?system\s+prompt",
+            r"you\s+are\s+now\s+(in\s+)?(unrestricted|dan|jailbreak)\s+mode",
+            r"\bdan\s+mode\b",
+            r"\bjailbreak\s+mode\b",
         ]
-        content_lower = content.lower()
         for pattern in injection_patterns:
-            if re.search(pattern, content_lower):
+            if re.search(pattern, prose_lower):
                 checks.append((False, f"Potential injection pattern detected: {pattern}"))
 
         # Near-duplicate detection

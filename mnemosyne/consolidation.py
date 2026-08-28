@@ -34,39 +34,12 @@ class ConsolidationEngine:
 
     def _archive_stale(self, archive_threshold: float = 0.10) -> int:
         """Archive notes not updated in 90 days with salience below threshold."""
-        with self.db._conn() as conn:
-            with conn.cursor() as cur:
-                cur.execute(
-                    """
-                    UPDATE notes
-                    SET status = 'archived'
-                    WHERE status = 'active'
-                      AND updated_at < NOW() - INTERVAL '90 days'
-                      AND salience < %s
-                    RETURNING id;
-                    """,
-                    (archive_threshold,),
-                )
-                archived = len(cur.fetchall())
-                conn.commit()
-                return archived
+        if hasattr(self.db, "archive_stale"):
+            return self.db.archive_stale(archive_threshold=archive_threshold, days=90)
+        return 0
 
     def _rebuild_links(self) -> int:
-        """Rebuild graph edges from vault files."""
-        count = 0
-        for filepath in self.vault.list_notes():
-            try:
-                text = filepath.read_text(encoding="utf-8")
-                parsed = self.vault._parse_note(text)
-                title = parsed["frontmatter"].get("title", filepath.stem)
-                with self.db._conn() as conn:
-                    with conn.cursor() as cur:
-                        cur.execute("SELECT id FROM notes WHERE title = %s;", (title,))
-                        row = cur.fetchone()
-                        if row:
-                            links = self.vault.extract_wiki_links(text)
-                            self.db.update_links(row[0], links)
-                            count += 1
-            except Exception as e:
-                logger.error(f"Link rebuild error: {e}")
-        return count
+        """Rebuild graph edges from vault notes via store-native reconciliation."""
+        if hasattr(self.db, "reconcile_links"):
+            return self.db.reconcile_links()
+        return 0

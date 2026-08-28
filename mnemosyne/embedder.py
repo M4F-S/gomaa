@@ -70,7 +70,7 @@ class Embedder:
         # 1. Optional fastembed ONNX runtime (ultra-low RAM ~30MB, no PyTorch)
         try:
             from fastembed import TextEmbedding
-            self._fastembed_model = TextEmbedding(model_name="BAAI/bge-small-en-v1.5")
+            self._fastembed_model = TextEmbedding(model_name="sentence-transformers/all-MiniLM-L6-v2")
             self._provider = "fastembed-onnx"
             self.dim = 384
             logger.info("Embedder: using local FastEmbed ONNX runtime (~30MB RAM)")

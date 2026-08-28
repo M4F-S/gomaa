@@ -89,9 +89,9 @@ def run_service(
 
 
 def main():
-    """Entry point: honors EMBED_SERVICE_PORT / EMBED_SERVICE_HOST / EMBED_MODEL env vars."""
-    port = int(os.environ.get("EMBED_SERVICE_PORT", "8765"))
-    host = os.environ.get("EMBED_SERVICE_HOST", "0.0.0.0")
+    """Entry point: honors EMBED_SERVICE_PORT / PORT / EMBED_SERVICE_HOST / HOST / EMBED_MODEL env vars."""
+    port = int(os.environ.get("EMBED_SERVICE_PORT", os.environ.get("PORT", "8000")))
+    host = os.environ.get("EMBED_SERVICE_HOST", os.environ.get("HOST", "0.0.0.0"))
     model_name = os.environ.get("EMBED_MODEL", "sentence-transformers/all-MiniLM-L6-v2")
     run_service(host=host, port=port, model_name=model_name)
 

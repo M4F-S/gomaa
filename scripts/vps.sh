@@ -9,6 +9,14 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_ROOT="$(cd "${SCRIPT_DIR}/.." && pwd)"
 
+# Load .env if present
+if [ -f "${PROJECT_ROOT}/.env" ]; then
+    set -a
+    # shellcheck disable=SC1091
+    source "${PROJECT_ROOT}/.env"
+    set +a
+fi
+
 # --- Required connection settings (from env / .env, no defaults that touch prod) ---
 VPS_HOST="${VPS_HOST:-127.0.0.1}"
 VPS_USER="${VPS_USER:-root}"
@@ -16,11 +24,15 @@ VPS_PORT="${VPS_PORT:-22}"
 DEPLOY_DIR="${DEPLOY_DIR:-/opt/mnemosyne}"
 DB_USER="${DB_USER:-mnemosyne}"
 DB_PASSWORD="${DB_PASSWORD:-}"          # never default to a real secret
-DB_HOST="${DB_HOST:-localhost}"
+DB_HOST="${DB_HOST:-${POSTGRES_HOST:-localhost}}"
 DB_PORT="${DB_PORT:-5432}"
 DB_NAME_PREFIX="${DB_NAME_PREFIX:-mnemosyne}"
 
-SSH_HOST="${VPS_USER}@${VPS_HOST}"
+if [[ "${VPS_HOST}" == *"@"* ]] || [[ "${VPS_HOST}" == "ai-club-vps" ]] || [[ "${VPS_HOST}" == "my-vps" ]]; then
+    SSH_HOST="${VPS_HOST}"
+else
+    SSH_HOST="${VPS_USER}@${VPS_HOST}"
+fi
 SSH_CMD="ssh -p ${VPS_PORT} -o ConnectTimeout=10 -o BatchMode=yes ${SSH_HOST}"
 
 CONTAINERS=("hermes-agent" "hermes-assistant" "hermes-marketing" "hermes-pentest" "hermes-trader")
@@ -31,9 +43,17 @@ if [ "${VPS_HOST}" = "127.0.0.1" ] && [ "${ALLOW_UNCONFIGURED:-0}" != "1" ]; the
     exit 1
 fi
 
-# Per-agent database name helper: $1 = agent short name
+# Per-agent database name helper: $1 = agent name / container name
 agent_db() {
-    echo "${DB_NAME_PREFIX}_$1"
+    case "$1" in
+        hermes-agent|toy|toy_db) echo "toy_db" ;;
+        hermes-assistant|old|old_db) echo "old_db" ;;
+        hermes-marketing|candy|candy_db) echo "candy_db" ;;
+        hermes-pentest|pencil|pencil_db) echo "pencil_db" ;;
+        hermes-trader|coin|trader|trader_db) echo "trader_db" ;;
+        shared|shared_db) echo "shared_db" ;;
+        *) echo "${DB_NAME_PREFIX}_$1" ;;
+    esac
 }
 
 usage() {
@@ -51,7 +71,7 @@ usage() {
 }
 
 dns_for() {
-    # $1 = agent short name -> DSN for that agent's private memory DB
+    # $1 = agent name -> DSN for that agent's private memory DB
     local dbname
     dbname="$(agent_db "$1")"
     echo "postgresql://${DB_USER}:${DB_PASSWORD}@${DB_HOST}:${DB_PORT}/${dbname}"
@@ -126,7 +146,7 @@ print('  Tools count:', len(server._get_tools()))
         AGENT="${2:-hermes-agent}"
         shift 2 || true
         CMD="${*:-bash}"
-        $SSH_CMD "docker exec -it ${AGENT} ${CMD}"
+        $SSH_CMD "docker exec \$([ -t 0 ] && echo '-it' || echo '-i') ${AGENT} ${CMD}"
         ;;
 
     *)
