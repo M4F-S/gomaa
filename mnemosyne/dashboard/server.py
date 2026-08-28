@@ -11,7 +11,7 @@ import threading
 import time
 import urllib.parse
 import webbrowser
-from http.server import HTTPServer, SimpleHTTPRequestHandler
+from http.server import HTTPServer, BaseHTTPRequestHandler
 from typing import Optional
 
 from mnemosyne.core import UnifiedMemorySystem
@@ -19,7 +19,7 @@ from mnemosyne.core import UnifiedMemorySystem
 logger = logging.getLogger("mnemosyne-dashboard")
 
 
-class DashboardRequestHandler(SimpleHTTPRequestHandler):
+class DashboardRequestHandler(BaseHTTPRequestHandler):
     memory: Optional[UnifiedMemorySystem] = None
     static_dir: str = os.path.join(os.path.dirname(__file__), "static")
 
@@ -40,6 +40,9 @@ class DashboardRequestHandler(SimpleHTTPRequestHandler):
         self.send_header("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
         self.send_header("Access-Control-Allow-Headers", "Content-Type")
         self.end_headers()
+
+    def do_HEAD(self):
+        self.do_GET()
 
     def do_GET(self):
         parsed = urllib.parse.urlparse(self.path)
