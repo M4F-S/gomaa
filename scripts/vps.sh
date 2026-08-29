@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # ==============================================================================
-# Mnemosyne Fleet VPS Management & Diagnostic CLI
+# Gomaa Fleet VPS Management & Diagnostic CLI
 # All connection details are read from environment variables / .env — never hardcoded.
 # ==============================================================================
 
@@ -21,12 +21,12 @@ fi
 VPS_HOST="${VPS_HOST:-127.0.0.1}"
 VPS_USER="${VPS_USER:-root}"
 VPS_PORT="${VPS_PORT:-22}"
-DEPLOY_DIR="${DEPLOY_DIR:-/opt/mnemosyne}"
-DB_USER="${DB_USER:-mnemosyne}"
+DEPLOY_DIR="${DEPLOY_DIR:-/opt/gomaa}"
+DB_USER="${DB_USER:-gomaa}"
 DB_PASSWORD="${DB_PASSWORD:-}"          # never default to a real secret
 DB_HOST="${DB_HOST:-${POSTGRES_HOST:-localhost}}"
 DB_PORT="${DB_PORT:-5432}"
-DB_NAME_PREFIX="${DB_NAME_PREFIX:-mnemosyne}"
+DB_NAME_PREFIX="${DB_NAME_PREFIX:-gomaa}"
 
 if [[ "${VPS_HOST}" == *"@"* ]] || [[ "${VPS_HOST}" == "ai-club-vps" ]] || [[ "${VPS_HOST}" == "my-vps" ]]; then
     SSH_HOST="${VPS_HOST}"

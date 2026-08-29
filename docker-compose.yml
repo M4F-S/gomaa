@@ -2,32 +2,32 @@ services:
   postgres:
     image: ankane/pgvector:latest
     environment:
-      POSTGRES_USER: mnemosyne
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
-      POSTGRES_DB: mnemosyne
+      POSTGRES_USER: gomaa
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-gomaa_secure_password}
+      POSTGRES_DB: gomaa
     ports:
       - "127.0.0.1:15432:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U mnemosyne"]
+      test: ["CMD-SHELL", "pg_isready -U gomaa"]
       interval: 5s
       timeout: 5s
       retries: 5
 
-  mnemosyne:
+  gomaa:
     build: .
     environment:
-      MEMORY_DB_DSN: "postgresql://mnemosyne:***@postgres:5432/mnemosyne"
+      MEMORY_DB_DSN: "postgresql://gomaa:${POSTGRES_PASSWORD:-gomaa_secure_password}@postgres:5432/gomaa"
       MEMORY_VAULT_PATH: "/app/data/vault"
       MEMORY_REQUIRE_POSTGRES: "true"
     volumes:
-      - ./mnemosyne-data:/app/data
+      - ./gomaa-data:/app/data
     depends_on:
       postgres:
         condition: service_healthy
     stdin_open: true
-    command: ["python", "-m", "mnemosyne.mcp_server"]
+    command: ["python", "-m", "gomaa.mcp_server"]
 
 volumes:
   postgres_data:

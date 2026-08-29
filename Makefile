@@ -13,11 +13,11 @@ test-integration: ## Run integration tests (requires PostgreSQL)
 	pytest tests/ -v -m integration
 
 lint:           ## Run linting
-	flake8 mnemosyne/ tests/
-	mypy mnemosyne/
+	flake8 gomaa/ tests/
+	mypy gomaa/
 
 format:         ## Format code
-	black mnemosyne/ tests/
+	black gomaa/ tests/
 
 check:          ## Run all checks (test + lint)
 	make test
