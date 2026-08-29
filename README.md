@@ -173,9 +173,9 @@ Gomaa adapts to any deployment resource budget:
 
 ---
 
-## 🛠️ MCP Tool Reference (8 Tools)
+## 🛠️ MCP Tool Reference (9 Tools)
 
-All 8 tools are natively exposed to agents over standard MCP JSON-RPC stdio:
+All 9 tools are natively exposed to agents over standard MCP JSON-RPC stdio:
 
 ### 1. `memory_remember`
 Store a private memory note in the vault with semantic embedding, tags, and hierarchical scoping.
