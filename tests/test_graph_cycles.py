@@ -1,4 +1,3 @@
-import pytest
 import tempfile
 import os
 from gomaa.stores.sqlite import SQLiteStore

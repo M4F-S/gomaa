@@ -1,7 +1,2 @@
-"""
-Mnemosyne Embedded Web Dashboard.
-"""
-
-from .server import run_dashboard, create_dashboard_server
-
-__all__ = ["run_dashboard", "create_dashboard_server"]
+"""Mnemosyne compatibility shim for gomaa.dashboard."""
+from gomaa.dashboard import *  # noqa: F401, F403

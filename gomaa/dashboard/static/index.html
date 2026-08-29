@@ -351,6 +351,16 @@
   });
   initTheme();
 
+  function escapeHtml(str) {
+    if (str === null || str === undefined) return '';
+    return String(str)
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#039;');
+  }
+
   async function loadDashboardData() {
     try {
       const statsRes = await fetch('/api/stats');
@@ -383,8 +393,8 @@
         container.innerHTML = notesData.notes.map(n => `
           <div class="mg-node">
             <span>📄</span>
-            <span>${n.title}</span>
-            <strong>[${n.wing}/${n.room}]</strong>
+            <span>${escapeHtml(n.title)}</span>
+            <strong>[${escapeHtml(n.wing)}/${escapeHtml(n.room)}]</strong>
           </div>
         `).join('');
       } else {
@@ -396,12 +406,15 @@
       const timeData = await timeRes.json();
       const tContainer = document.getElementById('timelineContainer');
       if (timeData.timeline && timeData.timeline.length) {
-        tContainer.innerHTML = timeData.timeline.map(t => `
+        tContainer.innerHTML = timeData.timeline.map(t => {
+          const detail = t.note_title || t.query || t.summary || '';
+          return `
           <div class="timeline-item">
-            <span>⚡ <strong>${t.action}</strong>: ${t.note_title || t.query || t.summary || ''}</span>
+            <span>⚡ <strong>${escapeHtml(t.action)}</strong>: ${escapeHtml(detail)}</span>
             <span style="color:var(--text-muted)">${new Date(t.timestamp).toLocaleTimeString()}</span>
           </div>
-        `).join('');
+        `;
+        }).join('');
       }
     } catch (e) {
       console.error("Dashboard fetch failed", e);

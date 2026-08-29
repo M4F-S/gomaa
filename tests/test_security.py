@@ -1,4 +1,3 @@
-import pytest
 from gomaa.security import AdmissionControl
 
 

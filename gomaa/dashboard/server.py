@@ -6,9 +6,7 @@ Zero external dependencies - uses Python standard library http.server.
 import json
 import logging
 import os
-import sys
 import threading
-import time
 import urllib.parse
 import webbrowser
 from http.server import HTTPServer, BaseHTTPRequestHandler
@@ -65,9 +63,7 @@ class DashboardRequestHandler(BaseHTTPRequestHandler):
 
         if path == "/api/stats":
             stats = self.memory.stats() if self.memory else {}
-            # Categorize notes by the 5 cognitive layers based on tags/wings
-            timeline = self.memory.timeline(limit=100) if self.memory else []
-            
+
             # Layer heuristics
             raw_notes = self.memory.db.search_keyword("", top_k=200) if self.memory else []
             layer_counts = {
@@ -77,13 +73,13 @@ class DashboardRequestHandler(BaseHTTPRequestHandler):
                 "social": 0,
                 "preferential": 0,
             }
-            
+
             for n in raw_notes:
                 w = (n.get("wing") or "").lower()
                 r = (n.get("room") or "").lower()
                 tags = [t.lower() for t in (n.get("tags") or [])]
                 all_tokens = set([w, r] + tags)
-                
+
                 if any(k in all_tokens for k in ["session", "sessions", "episodic", "dialog", "turn", "history"]):
                     layer_counts["episodic"] += 1
                 elif any(k in all_tokens for k in ["rule", "rules", "policy", "procedural", "guide", "sop", "pinned"]):
@@ -149,7 +145,7 @@ class DashboardRequestHandler(BaseHTTPRequestHandler):
             mode = payload.get("mode", "hybrid")
             top_k = int(payload.get("top_k", 5))
             scope = payload.get("scope")
-            
+
             results = self.memory.recall(
                 query=query,
                 mode=mode,
@@ -163,7 +159,7 @@ class DashboardRequestHandler(BaseHTTPRequestHandler):
             query = payload.get("query", "")
             max_tokens = int(payload.get("max_tokens", 1500))
             scope = payload.get("scope")
-            
+
             res = self.memory.assemble_context(
                 query=query,
                 max_tokens=max_tokens,

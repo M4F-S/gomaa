@@ -5,7 +5,6 @@ subdirectories. Before it is joined to the vault root it MUST be validated so a
 malicious/accidental name like `..___..___evil.md` cannot traverse outside the
 vault (PATH TRAVERSAL).
 """
-import pathlib
 
 import pytest
 

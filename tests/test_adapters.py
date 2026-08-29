@@ -1,4 +1,3 @@
-import pytest
 from gomaa.core import UnifiedMemorySystem
 from gomaa.adapters.langchain import MnemosyneMemory
 from gomaa.adapters.crewai import MnemosyneMemoryHandler

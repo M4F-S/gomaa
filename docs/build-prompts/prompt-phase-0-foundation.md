@@ -418,9 +418,9 @@ services:
   postgres:
     image: ankane/pgvector:latest
     environment:
-      POSTGRES_USER: mnemosyne
-      POSTGRES_PASSWORD: mnemosyne
-      POSTGRES_DB: mnemosyne
+      POSTGRES_USER: ${POSTGRES_USER:-gomaa}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-gomaa_secure_password}
+      POSTGRES_DB: ${POSTGRES_DB:-gomaa}
     ports:
       - "15432:5432"
     volumes:
@@ -565,9 +565,9 @@ jobs:
       postgres:
         image: ankane/pgvector:latest
         env:
-          POSTGRES_USER: mnemosyne
-          POSTGRES_PASSWORD: mnemosyne
-          POSTGRES_DB: mnemosyne
+          POSTGRES_USER: gomaa
+          POSTGRES_PASSWORD: ci_ephemeral_test_password
+          POSTGRES_DB: gomaa
         options: >-
           --health-cmd pg_isready
           --health-interval 10s

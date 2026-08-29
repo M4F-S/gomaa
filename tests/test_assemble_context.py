@@ -1,4 +1,3 @@
-import pytest
 from gomaa.core import UnifiedMemorySystem
 from gomaa.mcp_server import MCPServer
 

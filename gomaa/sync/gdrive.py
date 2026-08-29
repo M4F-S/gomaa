@@ -15,11 +15,10 @@ import io
 import json
 import logging
 import os
-import sys
 import time
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, Optional
 
 logger = logging.getLogger("gomaa-gdrive-sync")
 

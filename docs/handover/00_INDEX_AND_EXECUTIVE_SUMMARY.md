@@ -1,27 +1,29 @@
-# Mnemosyne Handover Dossier 🧠
+# Gomaa Handover Dossier 🧠
 
-**Generated:** 2026-08-25  
-**Repository:** [https://github.com/M4F-S/mnemosyne](https://github.com/M4F-S/mnemosyne)  
-**Package:** `mnemosyne-memory` (v3.4.0)  
+**Generated:** 2026-08-29  
+**Repository:** [https://github.com/M4F-S/gomaa](https://github.com/M4F-S/gomaa)  
+**Package:** `gomaa` (v3.5.0)  
 **License:** Apache-2.0  
-**Live Production Host:** VPS `<YOUR_VPS_IP>`  
+**Live Production Host:** VPS `${VPS_HOST}`  
 
 ---
 
 ## 📌 Executive Summary
 
-**Mnemosyne** is an MCP-native, local-first hierarchical long-term memory engine for autonomous AI agents. It unites **human-readable Obsidian Markdown Vaults** with high-performance **PostgreSQL + pgvector (HNSW)** and zero-dependency **SQLite**, providing agents with persistent knowledge, hybrid Reciprocal Rank Fusion (RRF) search, wikilink knowledge graphs, Ebbinghaus temporal decay, cross-agent fleet sharing, and asynchronous Google Drive cloud synchronization.
+**Gomaa** is an MCP-native, local-first hierarchical long-term memory engine for autonomous AI agents. It unites **human-readable Obsidian Markdown Vaults** with high-performance **PostgreSQL + pgvector (HNSW)** and zero-dependency **SQLite**, providing agents with persistent knowledge, hybrid Reciprocal Rank Fusion (RRF) search, wikilink knowledge graphs, Ebbinghaus temporal decay, cross-agent fleet sharing, and asynchronous Google Drive cloud synchronization.
 
-### Core Differentiators (v3.4.0)
-1. **Model Context Protocol (MCP v2024-11-05) Native:** Full 8-tool stdio JSON-RPC server with zero stdout pollution, plug-and-play with Claude Desktop, Cursor, OpenClaw, Hermes, and OpenHands.
+### Core Differentiators (v3.5.0)
+1. **Model Context Protocol (MCP v2024-11-05) Native:** Full 9-tool stdio JSON-RPC server with zero stdout pollution, plug-and-play with Claude Desktop, Cursor, OpenClaw, Hermes, and OpenManus.
 2. **High-Recall HNSW Vector Search:** Indexed with `pgvector HNSW (vector_cosine_ops, m=16, ef_construction=64)` for sub-millisecond similarity recall.
 3. **Hybrid RRF Search with Cross-Store Ranking:** Fuses dense semantic vector embeddings, PostgreSQL full-text search (`tsvector`), recursive wikilink graph traversal, and salience scoring into a unified Reciprocal Rank Fusion metric across both private and shared fleet databases.
-4. **Cross-Agent Shared Knowledge (`shared_db`):** Multi-agent fleet intelligence layer with automated regex credential screening (Anthropic, Gemini, OpenAI, HuggingFace, AWS, GitHub).
-5. **Asynchronous Google Drive Cloud Sync:** Local-first speed (<1ms) with background daemon/cron sync, MD5 hash verification, and sibling `.conflict-TIMESTAMP.md` conflict resolution.
-6. **Hierarchical Scoping (`wing` & `room`):** Isolates project, client, or domain knowledge to prevent context pollution across fleets of agents.
-7. **Ebbinghaus Temporal Decay with Pinned Immunity:** Slowly decays idle memories over time while permanently preserving mission-critical notes marked `pinned=True` or tagged `#pinned`.
-8. **Turn-Aware Conversational Ingestor:** 1,500-character linear sliding-window chunking with 200-character overlap along turn boundaries, chained via `[[Wiki Links]]`.
-9. **Zero-Setup SQLite Parity:** Standalone 100% feature-complete fallback when PostgreSQL is unavailable.
+4. **Token-Budgeted Prompt Context Assembler (`memory_assemble_context`):** Packs top-salience memories into exact LLM token budgets wrapped in escaped XML context tags ready for system prompt injection.
+5. **Cross-Agent Shared Knowledge (`shared_db`):** Multi-agent fleet intelligence layer with automated regex credential screening (Anthropic, Gemini, OpenAI, HuggingFace, AWS, GitHub).
+6. **Embedded Web Knowledge Graph Dashboard (`gomaa dashboard`):** Zero-dependency standard library HTTP dashboard visualizing real-time memory graphs and 5 cognitive layers (Episodic, Semantic, Procedural, Social, Preferential).
+7. **Asynchronous Google Drive Cloud Sync:** Local-first speed (<1ms) with background daemon/cron sync, MD5 hash verification, and sibling `.conflict-TIMESTAMP.md` conflict resolution.
+8. **Hierarchical Scoping (`wing` & `room`):** Isolates project, client, or domain knowledge to prevent context pollution across fleets of agents.
+9. **Ebbinghaus Temporal Decay with Pinned Immunity:** Exponential decay with permanent preservation for notes marked `pinned=True` or tagged `#pinned`.
+10. **Turn-Aware Conversational Ingestor:** 1,500-character linear sliding-window chunking with 200-character overlap along turn boundaries, chained via `[[Wiki Links]]`.
+11. **Zero-Setup SQLite Parity:** Standalone 100% feature-complete fallback when PostgreSQL is unavailable.
 
 ---
 

@@ -1,4 +1,3 @@
-import pytest
 from gomaa.mcp_server import MCPServer as MemoryMCPServer
 
 

@@ -1,9 +1,9 @@
 services:
-  mnemosyne-embedder:
+  gomaa-embedder:
     build:
       context: .
       dockerfile: Dockerfile.embedder
-    container_name: mnemosyne-embedder
+    container_name: gomaa-embedder
     restart: unless-stopped
     ports:
       - "127.0.0.1:8000:8000"
@@ -11,10 +11,4 @@ services:
       - PORT=8000
       - TOKENIZERS_PARALLELISM=false
       - HF_HUB_DISABLE_PROGRESS_BARS=1
-    networks:
-      - mo-graphify-obsidian-memory_default
-      - default
 
-networks:
-  mo-graphify-obsidian-memory_default:
-    external: true

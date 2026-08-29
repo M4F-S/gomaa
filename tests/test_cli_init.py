@@ -1,7 +1,6 @@
 import os
 import subprocess
 import sys
-import pytest
 
 
 def test_cli_init_command(tmp_path):

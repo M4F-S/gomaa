@@ -101,3 +101,21 @@ mnemosyne = "gomaa.cli:main"
 
 [tool.hatch.build.targets.wheel]
 packages = ["gomaa", "mnemosyne"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+markers = [
+    "integration: PostgreSQL and live service integration tests",
+]
+filterwarnings = [
+    "ignore:The 'mnemosyne' package has been renamed:DeprecationWarning",
+]
+
+[tool.ruff]
+line-length = 120
+target-version = "py39"
+
+[tool.ruff.lint]
+select = ["E", "F", "W"]
+ignore = ["E501"]
+

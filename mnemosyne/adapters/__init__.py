@@ -1,8 +1,2 @@
-"""
-Mnemosyne Framework Adapters (LangChain, LangGraph, CrewAI).
-"""
-
-from .langchain import MnemosyneMemory
-from .crewai import MnemosyneMemoryHandler
-
-__all__ = ["MnemosyneMemory", "MnemosyneMemoryHandler"]
+"""Mnemosyne compatibility shim for gomaa.adapters."""
+from gomaa.adapters import *  # noqa: F401, F403

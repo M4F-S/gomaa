@@ -1,6 +1,3 @@
-import os
-import tempfile
-import pytest
 from gomaa.consolidation import ConsolidationEngine
 from gomaa.core import UnifiedMemorySystem
 from gomaa.stores.sqlite import SQLiteStore

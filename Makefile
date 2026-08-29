@@ -13,11 +13,11 @@ test-integration: ## Run integration tests (requires PostgreSQL)
 	pytest tests/ -v -m integration
 
 lint:           ## Run linting
-	flake8 gomaa/ tests/
-	mypy gomaa/
+	ruff check gomaa/ tests/
 
 format:         ## Format code
-	black gomaa/ tests/
+	ruff format gomaa/ tests/
+
 
 check:          ## Run all checks (test + lint)
 	make test

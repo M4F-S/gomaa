@@ -4,7 +4,6 @@ Production runs PG (full-featured). Default/no-DSN path uses SQLite. Prior behav
 swallowed backend SQL errors in core.remind_me and returned success:True anyway,
 which would mislead an agent into believing a reminder was scheduled.
 """
-import sys
 
 import pytest
 

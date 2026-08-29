@@ -8,12 +8,18 @@ RUN pip install --no-cache-dir \
     sentence-transformers \
     httpx
 
+COPY gomaa /app/gomaa
 COPY mnemosyne /app/mnemosyne
+COPY pyproject.toml README.md /app/
 
-ENV PORT=8000
-ENV TOKENIZERS_PARALLELISM=false
-ENV HF_HUB_DISABLE_PROGRESS_BARS=1
+RUN pip install --no-cache-dir -e .
+
+ENV PORT=8000 \
+    TOKENIZERS_PARALLELISM=false \
+    HF_HUB_DISABLE_PROGRESS_BARS=1 \
+    PYTHONUNBUFFERED=1
 
 EXPOSE 8000
 
-CMD ["python", "-m", "mnemosyne.embed_service"]
+CMD ["python", "-m", "gomaa.embed_service"]
+

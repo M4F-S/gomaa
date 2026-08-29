@@ -11,7 +11,7 @@ from gomaa import UnifiedMemorySystem
 from gomaa.mcp_server import MCPServer
 
 GOMAA_BANNER = """\033[1;35m
-   ██████╗  ██████╗ ███╗   ███╗ █████╗  █████╗ 
+   ██████╗  ██████╗ ███╗   ███╗ █████╗  █████╗
   ██╔════╝ ██╔═══██╗████╗ ████║██╔══██╗██╔══██╗
   ██║  ███╗██║   ██║██╔████╔██║███████║███████║
   ██║   ██║██║   ██║██║╚██╔╝██║██╔══██║██╔══██║
@@ -22,18 +22,21 @@ GOMAA_BANNER = """\033[1;35m
 
 
 def main():
+    common_parser = argparse.ArgumentParser(add_help=False)
+    common_parser.add_argument("--vault-path", default=None, help="Path to Obsidian vault")
+    common_parser.add_argument("--dsn", default=None, help="PostgreSQL connection string")
+    common_parser.add_argument("--shared-dsn", default=None, help="Shared PostgreSQL fleet connection string")
+
     parser = argparse.ArgumentParser(
         prog="gomaa",
         description="Gomaa: Local Hierarchical Memory Engine for AI Agents",
+        parents=[common_parser],
     )
-    parser.add_argument("--vault-path", default=None, help="Path to Obsidian vault")
-    parser.add_argument("--dsn", default=None, help="PostgreSQL connection string")
-    parser.add_argument("--shared-dsn", default=None, help="Shared PostgreSQL fleet connection string")
 
     subparsers = parser.add_subparsers(dest="command", help="Available commands")
 
     # remember
-    p_remember = subparsers.add_parser("remember", help="Store a memory note")
+    p_remember = subparsers.add_parser("remember", help="Store a memory note", parents=[common_parser])
     p_remember.add_argument("title", help="Note title")
     p_remember.add_argument("content", help="Note markdown content")
     p_remember.add_argument("--tags", nargs="*", default=[], help="Tags list")
@@ -43,7 +46,7 @@ def main():
     p_remember.add_argument("--pinned", action="store_true", help="Make note permanent and immune to decay")
 
     # publish-shared
-    p_pub = subparsers.add_parser("publish-shared", help="Publish a curated note to shared fleet memory")
+    p_pub = subparsers.add_parser("publish-shared", help="Publish a curated note to shared fleet memory", parents=[common_parser])
     p_pub.add_argument("title", help="Note title")
     p_pub.add_argument("content", help="Note markdown content")
     p_pub.add_argument("--tags", nargs="*", default=[], help="Tags list")
@@ -51,7 +54,7 @@ def main():
     p_pub.add_argument("--room", default="general", help="Topic room")
 
     # recall
-    p_recall = subparsers.add_parser("recall", help="Search memory")
+    p_recall = subparsers.add_parser("recall", help="Search memory", parents=[common_parser])
     p_recall.add_argument("query", help="Search query")
     p_recall.add_argument("--mode", choices=["hybrid", "semantic", "keyword", "graph"], default="hybrid")
     p_recall.add_argument("--top-k", type=int, default=5, help="Number of results")
@@ -59,19 +62,19 @@ def main():
     p_recall.add_argument("--room", default=None, help="Filter by room")
 
     # timeline
-    p_timeline = subparsers.add_parser("timeline", help="View memory activity timeline")
+    p_timeline = subparsers.add_parser("timeline", help="View memory activity timeline", parents=[common_parser])
     p_timeline.add_argument("--limit", type=int, default=20, help="Number of events")
 
     # stats
-    subparsers.add_parser("stats", help="Get memory store statistics")
+    subparsers.add_parser("stats", help="Get memory store statistics", parents=[common_parser])
 
     # consolidate
-    p_consolidate = subparsers.add_parser("consolidate", help="Apply link reconciliation and temporal decay")
+    p_consolidate = subparsers.add_parser("consolidate", help="Apply link reconciliation and temporal decay", parents=[common_parser])
     p_consolidate.add_argument("--decay-rate", type=float, default=0.95, help="Daily retention factor")
     p_consolidate.add_argument("--archive-threshold", type=float, default=0.05, help="Salience threshold for archiving")
 
     # server
-    subparsers.add_parser("server", help="Run MCP stdio server")
+    subparsers.add_parser("server", help="Run MCP stdio server", parents=[common_parser])
 
     # embed-service
     p_embed_srv = subparsers.add_parser("embed-service", help="Run standalone embedding microservice")
@@ -80,17 +83,17 @@ def main():
     p_embed_srv.add_argument("--model", default="all-MiniLM-L6-v2", help="Model name")
 
     # init
-    p_init = subparsers.add_parser("init", help="Initialize local vault and generate agent MCP configuration")
+    p_init = subparsers.add_parser("init", help="Initialize local vault and generate agent MCP configuration", parents=[common_parser])
     p_init.add_argument("--path", default="~/.gomaa/vault", help="Target Obsidian vault directory")
 
     # dashboard
-    p_dash = subparsers.add_parser("dashboard", help="Launch interactive Aurora Web Knowledge Graph Dashboard")
+    p_dash = subparsers.add_parser("dashboard", help="Launch interactive Aurora Web Knowledge Graph Dashboard", parents=[common_parser])
     p_dash.add_argument("--host", default="127.0.0.1", help="Dashboard host")
     p_dash.add_argument("--port", type=int, default=8765, help="Dashboard port")
     p_dash.add_argument("--no-browser", action="store_true", help="Do not open browser automatically")
 
     # assemble-context
-    p_ctx = subparsers.add_parser("assemble-context", help="Retrieve and pack memory into a token-budgeted prompt block")
+    p_ctx = subparsers.add_parser("assemble-context", help="Retrieve and pack memory into a token-budgeted prompt block", parents=[common_parser])
     p_ctx.add_argument("query", help="Search query")
     p_ctx.add_argument("--max-tokens", type=int, default=2000, help="Maximum token budget")
     p_ctx.add_argument("--wing", default=None, help="Filter by wing")
@@ -142,7 +145,7 @@ def main():
         print("🧠 Gomaa Initialized Successfully!")
         print("=" * 60)
         print(f"📁 Vault Path: {v_path}")
-        print(f"💾 Storage Mode: Light Mode (SQLite WAL)")
+        print("💾 Storage Mode: Light Mode (SQLite WAL)")
         print("\n📋 Ready-to-copy MCP Configuration (Claude / Cursor / Hermes):")
         print(json.dumps(mcp_config, indent=2))
         print("=" * 60)

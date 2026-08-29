@@ -1,4 +1,3 @@
-import pytest
 from gomaa.embedder import Embedder
 
 

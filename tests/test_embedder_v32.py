@@ -1,6 +1,5 @@
-import pytest
 from unittest.mock import MagicMock, patch
-from gomaa.embedder import Embedder, CircuitBreakerOpen
+from gomaa.embedder import Embedder
 
 
 class TestEmbedderV32:

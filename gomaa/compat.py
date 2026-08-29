@@ -20,7 +20,7 @@ def _embed_links(content: str, links: Optional[List[str]] = None) -> str:
     if not links:
         return content
     link_str = " ".join(
-        [f"[[{l}]]" if not l.startswith("[[") else l for l in links]
+        [f"[[{link_item}]]" if not link_item.startswith("[[") else link_item for link_item in links]
     )
     return f"{content}\n\nLinks: {link_str}"
 

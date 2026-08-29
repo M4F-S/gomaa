@@ -4,16 +4,132 @@
 [![PyPI version](https://img.shields.io/pypi/v/gomaa.svg)](https://pypi.org/project/gomaa/)
 [![Python 3.9+](https://img.shields.io/badge/python-3.9+-blue.svg)](https://www.python.org/downloads/)
 [![MCP](https://img.shields.io/badge/MCP-2024--11--05-green.svg)](https://modelcontextprotocol.io/)
+[![Code style: ruff](https://img.shields.io/badge/code%20style-ruff-000000.svg)](https://github.com/astral-sh/ruff)
 [![License: Apache-2.0](https://img.shields.io/badge/License-Apache--2.0-blue.svg)](https://opensource.org/licenses/Apache-2.0)
 
 **Production-grade, local-first hierarchical memory engine for autonomous AI agents.**
 
-Gomaa equips AI agents (Hermes, OpenClaw, OpenManus, Claude Desktop, Cursor, Windsurf, CrewAI, LangChain) with permanent, structured long-term memory. It bridges human-readable **Obsidian Markdown Vaults** with high-speed **PostgreSQL + pgvector (HNSW)** or zero-config **SQLite**, powering hybrid Reciprocal Rank Fusion (RRF) search, wikilink knowledge graphs, Ebbinghaus temporal decay, cross-agent fleet sharing, and asynchronous Google Drive cloud synchronization.
+Gomaa equips AI agents (Hermes, OpenClaw, Claude Desktop, Cursor, Windsurf, CrewAI, LangChain) with permanent, structured long-term memory. It bridges human-readable **Obsidian Markdown Vaults** with high-speed **PostgreSQL + pgvector (HNSW)** or zero-config **SQLite WAL**, powering hybrid Reciprocal Rank Fusion (RRF) search, wikilink knowledge graphs, Ebbinghaus temporal decay, cross-agent fleet sharing, and asynchronous Google Drive cloud synchronization.
+
+---
+
+## 💡 Why Gomaa?
+
+Most AI memory systems suffer from three fundamental flaws:
+1. **Black-Box Vector Blobs:** Memories disappear into opaque vector databases. Humans cannot audit, correct, or curate what the agent learned.
+2. **Context Pollution:** Without forgetting mechanisms, old noise accumulates and pollutes the agent's prompt window.
+3. **Domain Cross-Contamination:** Research notes, credentials, and task scratchpads collide, causing hallucinations.
+
+**Gomaa solves this:**
+* 📖 **Human-in-the-Loop Auditability:** Every memory is a human-readable Markdown note in your Obsidian vault with `[[Wiki Links]]` and YAML frontmatter.
+* ⏳ **Ebbinghaus Temporal Decay:** Inactive memories fade exponentially ($Salience \times 0.95^{\Delta t}$) while `#pinned` memories stay permanent.
+* 🏛️ **Physical Wing & Room Scoping:** A 2-level taxonomy (`wing` = domain/project, `room` = channel/topic) isolates context strictly.
+* 🌐 **Cross-Agent Fleet Memory:** Multi-agent swarms share sanitized global policies through `shared_db` while keeping private databases isolated.
+
+---
+
+## 🚀 Quick Start & Installation
+
+Choose between two straightforward deployment modes depending on your setup:
+
+### ⚡ Option 1: Lightweight Standalone Mode (Zero-Config SQLite WAL)
+
+**Best for:** Standalone agents, individual developer workstations (Claude Desktop, Cursor IDE, Windsurf, CLI tools). Zero external database installation required (<1MB package size).
+
+#### A. 1-Line Online Installer
+
+Run this single command in your terminal to install Gomaa, initialize your local Obsidian vault, and generate ready-to-copy MCP configurations:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/M4F-S/gomaa/main/install.sh | bash
+```
+
+#### B. Manual Pip Install
+
+```bash
+# 1. Install lightweight core
+pip install gomaa
+
+# 2. Initialize local memory vault (~/.gomaa/vault)
+gomaa init
+
+# 3. Launch interactive web knowledge graph dashboard
+gomaa dashboard
+```
+
+#### C. Connect to Claude Desktop or Cursor IDE
+
+Add this MCP block to your agent configuration file:
+
+##### 1. Claude Desktop (`claude_desktop_config.json`)
+```json
+{
+  "mcpServers": {
+    "gomaa": {
+      "command": "python3",
+      "args": ["-m", "gomaa", "server"],
+      "env": {
+        "MEMORY_VAULT_PATH": "~/.gomaa/vault",
+        "MEMORY_DEFAULT_WING": "general"
+      }
+    }
+  }
+}
+```
+
+##### 2. Cursor IDE (`.cursor/mcp.json`)
+```json
+{
+  "mcpServers": {
+    "gomaa": {
+      "command": "python3",
+      "args": ["-m", "gomaa", "server"],
+      "env": {
+        "MEMORY_VAULT_PATH": "~/.gomaa/vault",
+        "MEMORY_DEFAULT_WING": "codebase"
+      }
+    }
+  }
+}
+```
+
+---
+
+### 🌟 Option 2: Full Production Fleet Deployment (PostgreSQL + pgvector)
+
+**Best for:** Multi-agent swarms (Hermes, OpenClaw, CrewAI fleets), production servers, and large-scale vector search requiring HNSW indexing, cross-agent `shared_db`, and centralized embedding services.
+
+#### A. Docker Compose (1-Command Full Stack)
+
+Spin up PostgreSQL 16 with `pgvector`, pre-configured memory databases, and the Gomaa MCP server in 5 seconds:
+
+```bash
+git clone https://github.com/M4F-S/gomaa.git
+cd gomaa
+docker compose up -d
+```
+
+#### B. Python Package Installation (Full Features)
+
+```bash
+# 1. Install Gomaa with all production extras (pgvector, fastembed, server, gdrive)
+pip install "gomaa[all]"
+
+# 2. Configure your PostgreSQL connection strings
+export MEMORY_DB_DSN="postgresql://gomaa:gomaa_secure_password@localhost:15432/gomaa"
+export MEMORY_SHARED_DSN="postgresql://gomaa:gomaa_secure_password@localhost:15432/shared_db"
+export MEMORY_VAULT_PATH="~/.gomaa/vault"
+
+# 3. Launch the visual Web Knowledge Graph Dashboard
+gomaa dashboard --port 8765
+```
 
 ---
 
 ## 📑 Table of Contents
 
+- [💡 Why Gomaa?](#-why-gomaa)
+- [🚀 Quick Start & Installation](#-quick-start--installation)
 - [⚡ Complete Feature Matrix](#-complete-feature-matrix)
 - [🏗️ System Architecture](#️-system-architecture)
 - [🧠 Deep Dive into Key Capabilities](#-deep-dive-into-key-capabilities)
@@ -28,7 +144,6 @@ Gomaa equips AI agents (Hermes, OpenClaw, OpenManus, Claude Desktop, Cursor, Win
   - [9. Defense-in-Depth Security & Injection Armor](#9-defense-in-depth-security--injection-armor)
 - [🛠️ MCP Tool Reference (9 Tools)](#️-mcp-tool-reference-9-tools)
 - [🌐 Multi-Agent Fleet Production Architecture](#-multi-agent-fleet-production-architecture)
-- [🚀 Quick Start & Installation](#-quick-start--installation)
 - [🤖 Agent Framework Integration Recipes](#-agent-framework-integration-recipes)
 - [💻 Complete CLI Command Reference](#-complete-cli-command-reference)
 - [⚙️ Environment Variables Reference](#️-environment-variables-reference)
@@ -62,46 +177,45 @@ Gomaa equips AI agents (Hermes, OpenClaw, OpenManus, Claude Desktop, Cursor, Win
 
 ## 🏗️ System Architecture
 
+```mermaid
+flowchart TD
+    subgraph Clients["🤖 AI Agents & LLM Clients"]
+        Claude["Claude Desktop / Cursor"]
+        Hermes["Hermes 5-Agent Fleet"]
+        Swarm["CrewAI / LangGraph Swarms"]
+    end
+
+    subgraph Core["🧠 Gomaa Core Engine (v3.5.0)"]
+        direction TB
+        MCP["MCP JSON-RPC Server\n(9 Tools · Stdio)"]
+        Security["Admission & Security Guard\n(Credential Regex · Control Token Sanitizer)"]
+        RRF["Hybrid RRF Ranker\nDense(1.0) + FTS(0.8) + Graph(0.6) + Salience(0.2)"]
+        Decay["Ebbinghaus Temporal Decay Engine\n(Exponential Decay · Pinned Immunity)"]
+        Assembler["Token-Budgeted Context Assembler\n(Structured XML Prompt Enclosure)"]
+    end
+
+    subgraph Storage["💾 Dual Storage Topology"]
+        Postgres[("🐘 PostgreSQL 16 + pgvector\nHNSW Indexing · GIN FTS\nPrivate DBs + shared_db")]
+        SQLite[("⚡ SQLite WAL\nZero-Config Local Mode")]
+        Vault["📖 Obsidian Markdown Vault\nYAML Frontmatter · [[Wikilinks]] Graph"]
+    end
+
+    subgraph Cloud["☁️ Remote Sync (Optional)"]
+        GDrive["Google Drive Cloud Sync\n(MD5 Diffing · Conflict Branching)"]
+    end
+
+    Clients -->|MCP stdio / Python SDK| MCP
+    MCP --> Security
+    Security --> RRF
+    RRF <--> Postgres
+    RRF <--> SQLite
+    RRF <--> Vault
+    Decay --> Postgres
+    Decay --> SQLite
+    Assembler --> Clients
+    Vault <-->|Async Daemon / Cron| GDrive
 ```
-                                ┌──────────────────────────────────────────────┐
-                                │          AI Agents & LLM Frameworks          │
-                                │  Hermes • OpenClaw • Claude • Cursor • Manus │
-                                └──────────────────────┬───────────────────────┘
-                                                       │ JSON-RPC (stdio) / Python SDK
-                                                       ▼
-┌─────────────────────────────────────────────────────────────────────────────────────────────────────────────┐
-│                                           Gomaa Core (v3.5.0)                                           │
-│                                                                                                             │
-│  ┌─────────────────────────┐  ┌─────────────────────────┐  ┌─────────────────────────────────────────────┐  │
-│  │ Admission & Security    │  │ Multi-Backend Embedder  │  │ Turn-Aware Session Ingestor                 │  │
-│  │ - Secret Regex Guard    │  │ - FastEmbed (ONNX 30MB) │  │ - Turn boundary splitting                   │  │
-│  │ - Injection Neutralizer │  │ - Remote Microservice   │  │ - 1500-char linear sliding window           │  │
-│  │ - Path Traversal Guard  │  │ - SentenceTransformers  │  │ - Sequential [[Wiki Link]] chaining         │  │
-│  └─────────────────────────┘  └─────────────────────────┘  └─────────────────────────────────────────────┘  │
-│                                                                                                             │
-│  ┌───────────────────────────────────────────────────────────────────────────────────────────────────────┐  │
-│  │                                 Hybrid RRF Retrieval & Graph Ranker                                   │  │
-│  │            RRF Score = 1.0 * Dense(HNSW) + 0.8 * Keyword(FTS) + 0.6 * Graph + 0.2 * Salience          │  │
-│  └───────────────────────────────────────────────────────────────────────────────────────────────────────┘  │
-└───────────────────────────────────────┬───────────────────────────────────────┬─────────────────────────────┘
-                                        │                                       │
-                ┌───────────────────────┴───────────────────────┐               │
-                ▼                                               ▼               ▼
- ┌─────────────────────────────┐                 ┌─────────────────────────────────────────────┐
- │    PostgreSQL + pgvector    │                 │       Obsidian Markdown Vault (Local)       │
- │ - HNSW vector_cosine_ops    │                 │ - Human-Readable Markdown + YAML Frontmatter │
- │ - GIN tsvector English FTS  │                 │ - [[Wikilink]] Knowledge Graph Visualizer   │
- │ - Self-Healing DB Pool      │                 │ - Atomic Writes with EXDEV Fallback         │
- │ - Private DB + shared_db    │                 └──────────────────────┬──────────────────────┘
- └─────────────────────────────┘                                        │ Async Background Sync
-                                                                        ▼
-                                                 ┌─────────────────────────────────────────────┐
-                                                 │              Google Drive Cloud             │
-                                                 │ - Service Account / OAuth2 Authentication    │
-                                                 │ - MD5 Checksum Verification                 │
-                                                 │ - Sibling .conflict-TIMESTAMP.md Resolution │
-                                                 └─────────────────────────────────────────────┘
-```
+
 
 ---
 
@@ -308,74 +422,9 @@ In multi-agent production setups (such as the 5-agent Hermes fleet), Gomaa isola
 
 ---
 
-## 🚀 Quick Start (Up & Running in 30 Seconds)
+## 🤖 Agent Framework Integration Recipes
 
-### ⚡ Option A: 1-Line Online Installer (Recommended)
-
-Run this single command in your terminal to install Gomaa, initialize your local Obsidian vault, and generate ready-to-copy MCP configurations:
-
-```bash
-curl -fsSL https://raw.githubusercontent.com/M4F-S/gomaa/main/install.sh | bash
-```
-
----
-
-### 📦 Option B: Python Package Installation (Lite Mode)
-
-No database setup required. Gomaa runs out-of-the-box using local SQLite WAL mode and FastEmbed ONNX:
-
-```bash
-# 1. Install Gomaa
-pip install gomaa
-
-# 2. Initialize your local memory vault in 1 second
-gomaa init
-
-# 3. Launch the visual Web Knowledge Graph Dashboard
-gomaa dashboard
-```
-
-> **Want PostgreSQL + pgvector for multi-agent fleets?** Install with `pip install "gomaa[postgres]"` and set `MEMORY_DB_DSN="postgresql://user:pass@host:5432/dbname"`.
-
----
-
-### 🔌 Option C: Connect to Claude, Cursor, Hermes or OpenClaw
-
-Add this simple MCP block to your agent's configuration file:
-
-#### 1. Claude Desktop (`claude_desktop_config.json`)
-```json
-{
-  "mcpServers": {
-    "gomaa": {
-      "command": "python3",
-      "args": ["-m", "gomaa", "server"],
-      "env": {
-        "MEMORY_VAULT_PATH": "~/.gomaa/vault",
-        "MEMORY_DEFAULT_WING": "general"
-      }
-    }
-  }
-}
-```
-
-#### 2. Cursor IDE (`.cursor/mcp.json`)
-```json
-{
-  "mcpServers": {
-    "gomaa": {
-      "command": "python3",
-      "args": ["-m", "gomaa", "server"],
-      "env": {
-        "MEMORY_VAULT_PATH": "~/.gomaa/vault",
-        "MEMORY_DEFAULT_WING": "codebase"
-      }
-    }
-  }
-}
-```
-
-#### 3. Hermes Agent Fleet (`~/.hermes/config.yaml`)
+### 1. Hermes Agent Fleet (`~/.hermes/config.yaml`)
 ```yaml
 mcp_servers:
   obsidian_memory:
@@ -387,7 +436,7 @@ mcp_servers:
       MEMORY_VAULT_PATH: "/opt/data/vault"
 ```
 
-#### 4. OpenClaw (`openclaw-config.yaml`)
+### 2. OpenClaw (`openclaw-config.yaml`)
 ```yaml
 plugins:
   mcp_servers:
@@ -398,7 +447,8 @@ plugins:
         MEMORY_VAULT_PATH: "~/.openclaw/vault"
         MEMORY_DEFAULT_WING: "openclaw"
 ```
-### 5. LangChain & LangGraph
+
+### 3. LangChain & LangGraph
 Drop-in memory adapter using Gomaa's token-budgeted prompt context assembler:
 ```python
 from gomaa.adapters.langchain import GomaaMemory
@@ -419,7 +469,7 @@ conversation = ConversationChain(
 conversation.predict(input="Our PostgreSQL server is at 10.0.0.5 on port 5432.")
 ```
 
-### 6. CrewAI Multi-Agent Swarms
+### 4. CrewAI Multi-Agent Swarms
 Domain-isolated memory handler for CrewAI agents:
 ```python
 from gomaa.adapters.crewai import GomaaMemoryHandler
@@ -441,14 +491,14 @@ mem_handler.save(
 )
 ```
 
-### 7. Python SDK & Autonomous Agent Scripts
+### 5. Python SDK & Autonomous Agent Scripts
 ```python
 from gomaa import UnifiedMemorySystem
 
 mem = UnifiedMemorySystem(
     vault_path="~/.agent/vault",
-    dsn="postgresql://mnemosyne:***@localhost:5432/agent_db",
-    shared_dsn="postgresql://mnemosyne:***@localhost:5432/shared_db"
+    dsn="postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@localhost:5432/agent_db",
+    shared_dsn="postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@localhost:5432/shared_db"
 )
 
 # Remember fact

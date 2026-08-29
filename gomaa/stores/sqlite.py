@@ -23,8 +23,11 @@ class SQLiteStore(MemoryStore):
 
     @contextmanager
     def _conn(self):
-        conn = sqlite3.connect(self.db_path)
+        conn = sqlite3.connect(self.db_path, timeout=30.0)
         conn.row_factory = sqlite3.Row
+        conn.execute("PRAGMA journal_mode=WAL;")
+        conn.execute("PRAGMA busy_timeout=5000;")
+        conn.execute("PRAGMA synchronous=NORMAL;")
         try:
             yield conn
             conn.commit()
@@ -33,6 +36,7 @@ class SQLiteStore(MemoryStore):
             raise
         finally:
             conn.close()
+
 
     def _ensure_schema(self) -> None:
         """Create tables if they don't exist and run incremental column additions."""
@@ -462,6 +466,9 @@ class SQLiteStore(MemoryStore):
             cur.execute("SELECT id, salience, tags, last_accessed_at FROM notes WHERE status = 'active';")
             rows = cur.fetchall()
 
+            to_archive = []
+            to_decay = []
+
             for row in rows:
                 tags = json.loads(row["tags"]) if row["tags"] else []
                 # Pinned immunity
@@ -480,22 +487,27 @@ class SQLiteStore(MemoryStore):
                 if days_elapsed >= 1.0:
                     new_salience = row["salience"] * (decay_rate ** days_elapsed)
                     if new_salience < archive_threshold:
-                        cur.execute("UPDATE notes SET status = 'archived', salience = ? WHERE id = ?;", (new_salience, row["id"]))
-                        archived_count += 1
+                        to_archive.append((new_salience, row["id"]))
                     else:
-                        cur.execute("UPDATE notes SET salience = ? WHERE id = ?;", (new_salience, row["id"]))
-                        decayed_count += 1
+                        to_decay.append((new_salience, row["id"]))
+
+            if to_archive:
+                cur.executemany("UPDATE notes SET status = 'archived', salience = ? WHERE id = ?;", to_archive)
+                archived_count = len(to_archive)
+            if to_decay:
+                cur.executemany("UPDATE notes SET salience = ? WHERE id = ?;", to_decay)
+                decayed_count = len(to_decay)
 
             return {"decayed": decayed_count, "archived": archived_count}
 
     def archive_stale(self, archive_threshold: float = 0.10, days: int = 90) -> int:
         """Archive notes not updated in N days with salience below threshold."""
-        archived_count = 0
         now = datetime.now(timezone.utc)
         with self._conn() as conn:
             cur = conn.cursor()
             cur.execute("SELECT id, salience, tags, updated_at FROM notes WHERE status = 'active';")
             rows = cur.fetchall()
+            to_archive_ids = []
             for row in rows:
                 tags = json.loads(row["tags"]) if row["tags"] else []
                 if any(t in tags for t in ["pinned", "permanent", "core"]) or row["salience"] >= 1.0:
@@ -509,26 +521,29 @@ class SQLiteStore(MemoryStore):
                     upd_dt = now
                 days_elapsed = (now - upd_dt).total_seconds() / 86400.0
                 if days_elapsed >= days and row["salience"] < archive_threshold:
-                    cur.execute("UPDATE notes SET status = 'archived' WHERE id = ?;", (row["id"],))
-                    archived_count += 1
-            return archived_count
+                    to_archive_ids.append((row["id"],))
+
+            if to_archive_ids:
+                cur.executemany("UPDATE notes SET status = 'archived' WHERE id = ?;", to_archive_ids)
+            return len(to_archive_ids)
 
     def update_links(self, note_id: str, wiki_links: List[str]) -> None:
         with self._conn() as conn:
             cur = conn.cursor()
             cur.execute("DELETE FROM links WHERE source_note_id = ?;", (note_id,))
-            for target_title in wiki_links:
-                cur.execute("SELECT id FROM notes WHERE title = ? AND status = 'active';", (target_title.strip(),))
-                target = cur.fetchone()
-                if target:
-                    link_id = str(uuid.uuid4())
-                    cur.execute(
-                        """
-                        INSERT OR IGNORE INTO links (id, source_note_id, target_note_id, link_type)
-                        VALUES (?, ?, ?, 'wiki');
-                    """,
-                        (link_id, note_id, target["id"]),
+            if wiki_links:
+                link_rows = []
+                for target_title in wiki_links:
+                    cur.execute("SELECT id FROM notes WHERE title = ? AND status = 'active';", (target_title.strip(),))
+                    target = cur.fetchone()
+                    if target:
+                        link_rows.append((str(uuid.uuid4()), note_id, target["id"]))
+                if link_rows:
+                    cur.executemany(
+                        "INSERT OR IGNORE INTO links (id, source_note_id, target_note_id, link_type) VALUES (?, ?, ?, 'wiki');",
+                        link_rows,
                     )
+
 
     def reconcile_links(self) -> int:
         """Parse all active notes and rebuild missing links in SQLite."""

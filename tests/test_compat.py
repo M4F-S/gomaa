@@ -52,7 +52,6 @@ def test_embed_service_callable():
 
 
 def test_mnemosyne_legacy_import_compatibility(tmp_path):
-    import mnemosyne
     from mnemosyne import UnifiedMemorySystem as LegacyUnifiedMemorySystem
     from mnemosyne.adapters import MnemosyneMemory, MnemosyneMemoryHandler
 

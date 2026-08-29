@@ -35,7 +35,7 @@ Any operational task can be performed directly via `./scripts/vps.sh`:
 
 ```bash
 # On VPS host: runs decay engine across all databases
-docker exec hermes-agent /opt/data/mcp-servers/venv/bin/python -m mnemosyne consolidate --decay-rate 0.95 --archive-threshold 0.05
+docker exec hermes-agent /opt/data/mcp-servers/venv/bin/python -m gomaa consolidate --decay-rate 0.95 --archive-threshold 0.05
 ```
 
 ---
@@ -44,7 +44,7 @@ docker exec hermes-agent /opt/data/mcp-servers/venv/bin/python -m mnemosyne cons
 
 ```bash
 # Dump all agent databases to compressed SQL
-docker exec mo-graphify-obsidian-memory-postgres-1 pg_dumpall -U mnemosyne > /root/backups/mnemosyne_all_$(date +%Y%m%d).sql
+docker exec mo-graphify-obsidian-memory-postgres-1 pg_dumpall -U mnemosyne > /root/backups/gomaa_all_$(date +%Y%m%d).sql
 ```
 
 ---
@@ -53,10 +53,10 @@ docker exec mo-graphify-obsidian-memory-postgres-1 pg_dumpall -U mnemosyne > /ro
 
 ```bash
 # One-off synchronization pass
-python3 -m mnemosyne sync-gdrive --folder "Hermes-Fleet-Vault" --credentials service-account.json
+gomaa sync-gdrive --folder "Hermes-Fleet-Vault" --credentials service-account.json
 
 # Run as a continuous background daemon
-python3 -m mnemosyne sync-gdrive --daemon --interval 300 --folder "Hermes-Fleet-Vault"
+gomaa sync-gdrive --daemon --interval 300 --folder "Hermes-Fleet-Vault"
 ```
 
 ---

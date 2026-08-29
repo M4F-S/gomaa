@@ -1,25 +1,28 @@
-# 📁 Mnemosyne Handover & Quick Start
+# 📁 Gomaa (v3.5.0) Handover & Quick Start
 
-Welcome to the **Mnemosyne** workspace.
+Welcome to the **Gomaa** long-term memory engine and Hermes agent fleet workspace.
 
 For complete infrastructure specifications, container names, and VPS access commands, read:
 👉 [**`AGENTS.md`**](AGENTS.md)
 👉 [**`docs/handover/00_INDEX_AND_EXECUTIVE_SUMMARY.md`**](docs/handover/00_INDEX_AND_EXECUTIVE_SUMMARY.md)
 
-### 🚀 Common One-Line Commands
+### 🚀 Common One-Line Operations Commands
 
 ```bash
-# Check fleet status (set VPS_HOST/VPS_USER first — see .env.example)
+# Check fleet status, containers, and databases
 ./scripts/vps.sh status
 
-# Run a MCP health audit across the fleet
+# Run runtime MCP health audit across all 5 agents
 ./scripts/vps.sh audit
 
-# Run the full test suite on a target container
-./scripts/vps.sh test
+# Run the 94-item automated test suite locally
+uv run pytest -v
 
-# Sync local edits to the VPS deploy dir
+# Sync local codebase changes to VPS deployment directory
 ./scripts/vps.sh sync
+
+# Restart agent containers on VPS
+./scripts/vps.sh restart
 ```
 
-> All deployment values (host, credentials) come from environment variables — see `.env.example`. They are never hardcoded in this repo.
+> All deployment values (hostnames, credentials) come from environment variables — see `.env.example`. They are never hardcoded in this repo.

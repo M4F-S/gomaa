@@ -1,5 +1,2 @@
-"""Mnemosyne Cloud Synchronization Module."""
-
-from .gdrive import GoogleDriveSyncManager
-
-__all__ = ["GoogleDriveSyncManager"]
+"""Mnemosyne compatibility shim for gomaa.sync."""
+from gomaa.sync import *  # noqa: F401, F403

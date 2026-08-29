@@ -5,6 +5,22 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [3.5.0] - 2026-08-29
+
+### Added
+- **Gomaa Autonomous Memory Platform (v3.5.0)**: Renamed and consolidated engine to `gomaa` with zero-duplication backward compatibility shims in `mnemosyne/` issuing deprecation warnings.
+- **Embedded Web Knowledge Graph Dashboard (`gomaa dashboard`)**: Zero-dependency standard library HTTP dashboard visualizing real-time knowledge graphs, 5-layer cognitive memory distributions, and live search testing sandbox.
+- **Token-Budgeted Prompt Context Assembler (`memory_assemble_context`)**: Retrieves, ranks, and packs high-salience memories into exact LLM token limits wrapped in escaped XML context blocks (`<recalled_memory_context>`).
+- **5 Cognitive Memory Layers**: Scientific memory taxonomy (Episodic, Semantic, Procedural, Social, Preferential).
+- **Simplified 2-Mode Installation**: Cleanly separated into Option 1 (Full Production Fleet with PostgreSQL + pgvector) and Option 2 (Lightweight Standalone with SQLite WAL & Markdown Vault).
+- **CLI Connection Flexibility**: `--vault-path`, `--dsn`, and `--shared-dsn` flags now supported both before and after subcommands.
+
+### Fixed & Hardened
+- **Dashboard Stored XSS Hardening**: Added `escapeHtml()` sanitization across note titles, wings, rooms, and timeline events in `index.html`.
+- **Dockerfile & Compose Defaults**: Standardized package copying (`gomaa/`) and defaulted DSN interpolation to `${POSTGRES_PASSWORD:-gomaa_secure_password}` for out-of-the-box local execution.
+- **Scrubbed Password Literals in Documentation**: Sanitized all documentation examples to use generic environment variable templates.
+- **Automated Test Coverage**: Expanded automated test suite to 94 tests across 28 test modules with 100% pass rate.
+
 ## [3.4.0] - 2026-08-24
 
 ### Added

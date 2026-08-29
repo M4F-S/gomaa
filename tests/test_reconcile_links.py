@@ -21,4 +21,5 @@ class TestReconcileLinks:
         # 3. Verify incoming link to Note B was created automatically in real-time ($O(1)$)
         links = store.search_graph("Note A", depth=1)
         assert len(links) >= 1
-        assert any(l["title"] == "Note B" for l in links)
+        assert any(link["title"] == "Note B" for link in links)
+

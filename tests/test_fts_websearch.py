@@ -1,5 +1,3 @@
-import pytest
-import os
 from gomaa.stores import create_store
 
 
