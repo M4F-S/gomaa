@@ -1,5 +1,5 @@
 """
-Gomaa CLI Interface (v3.2)
+Gomaa CLI Interface (v3.5.0)
 """
 
 import argparse
@@ -98,6 +98,13 @@ def main():
     p_ctx.add_argument("--max-tokens", type=int, default=2000, help="Maximum token budget")
     p_ctx.add_argument("--wing", default=None, help="Filter by wing")
     p_ctx.add_argument("--room", default=None, help="Filter by room")
+
+    # sync-gdrive
+    p_gdrive = subparsers.add_parser("sync-gdrive", help="Synchronize vault with Google Drive")
+    p_gdrive.add_argument("--folder", default="Gomaa-Vault", help="Google Drive folder name")
+    p_gdrive.add_argument("--credentials", default=None, help="Path to service account JSON")
+    p_gdrive.add_argument("--daemon", action="store_true", help="Run continuous sync daemon")
+    p_gdrive.add_argument("--interval", type=int, default=60, help="Sync interval in seconds (daemon mode)")
 
     args = parser.parse_args()
 

@@ -1,6 +1,7 @@
 import json
+import gomaa
 import pytest
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock, patch, call
 import signal
 import time
 from gomaa.mcp_server import MCPServer
@@ -28,7 +29,7 @@ class TestMemoryMCPServer:
         req = {"jsonrpc": "2.0", "method": "initialize", "id": 1}
         resp = server._handle(req)
         assert resp["result"]["serverInfo"]["name"] == "gomaa"
-        assert resp["result"]["serverInfo"]["version"] == "3.5.0"
+        assert resp["result"]["serverInfo"]["version"] == gomaa.__version__
         assert resp["result"]["protocolVersion"] == "2024-11-05"
 
     def test_tools_list(self, server):
@@ -141,7 +142,7 @@ class TestMemoryMCPServer:
     def test_health_content(self, server):
         health = server._health()
         assert health["server"]["status"] == "healthy"
-        assert health["server"]["version"] == "3.5.0"
+        assert health["server"]["version"] == gomaa.__version__
         assert "store" in health
         assert "embedder" in health
 

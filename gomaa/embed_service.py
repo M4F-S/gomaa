@@ -1,5 +1,5 @@
 """
-Gomaa Centralized Embedding Microservice (v3.4.0).
+Gomaa Centralized Embedding Microservice (v3.5.0).
 FastAPI microservice hosting sentence-transformers in a single dedicated process (~75MB RAM).
 """
 
@@ -7,7 +7,11 @@ import logging
 import os
 import sys
 from typing import List
-from pydantic import BaseModel
+
+try:
+    from pydantic import BaseModel
+except ImportError:
+    BaseModel = type("BaseModel", (), {})
 
 logging.basicConfig(
     stream=sys.stderr,

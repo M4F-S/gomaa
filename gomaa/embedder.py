@@ -1,5 +1,5 @@
 """
-Embedder Module for Gomaa (v3.2)
+Embedder Module for Gomaa (v3.5.0)
 Supports:
 1. High-efficiency Remote Microservice (MEMORY_EMBED_URL) with connection reuse & circuit breaker.
 2. Zero-RAM Fallback Mode (Graceful degradation for multi-agent fleets).
