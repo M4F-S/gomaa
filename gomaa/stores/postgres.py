@@ -4,9 +4,14 @@ import re
 import sys
 from contextlib import contextmanager
 from typing import Any, Dict, List, Optional, Tuple
-import psycopg2
-from psycopg2.extras import RealDictCursor
-from psycopg2.pool import ThreadedConnectionPool
+try:
+    import psycopg2
+    from psycopg2.extras import RealDictCursor
+    from psycopg2.pool import ThreadedConnectionPool
+except ImportError:
+    psycopg2 = None
+    RealDictCursor = None
+    ThreadedConnectionPool = None
 
 from .base import MemoryStore
 
@@ -15,6 +20,10 @@ logger = logging.getLogger("gomaa-postgres")
 
 class PgVectorStore(MemoryStore):
     def __init__(self, dsn: str, minconn: int = 1, maxconn: int = 10):
+        if psycopg2 is None:
+            raise ImportError(
+                "psycopg2 is required for PostgreSQL store. Install with: pip install 'gomaa[postgres]'"
+            )
         self.dsn = dsn
         self._minconn = minconn
         self._maxconn = maxconn

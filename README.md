@@ -70,7 +70,7 @@ Gomaa equips AI agents (Hermes, OpenClaw, OpenManus, Claude Desktop, Cursor, Win
                                                        │ JSON-RPC (stdio) / Python SDK
                                                        ▼
 ┌─────────────────────────────────────────────────────────────────────────────────────────────────────────────┐
-│                                           Gomaa Core (v3.4.0)                                           │
+│                                           Gomaa Core (v3.5.0)                                           │
 │                                                                                                             │
 │  ┌─────────────────────────┐  ┌─────────────────────────┐  ┌─────────────────────────────────────────────┐  │
 │  │ Admission & Security    │  │ Multi-Backend Embedder  │  │ Turn-Aware Session Ingestor                 │  │
