@@ -93,6 +93,10 @@ dev = [
     "psycopg2-binary>=2.9.9",
     "pgvector>=0.2.4",
     "fastembed>=0.2.0",
+    "google-api-python-client>=2.100.0",
+    "google-auth>=2.23.0",
+    "google-auth-oauthlib>=1.1.0",
+    "sentence-transformers>=2.2.2",
 ]
 
 [project.scripts]

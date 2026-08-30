@@ -29,7 +29,14 @@ def create_store(dsn: Optional[str] = None) -> MemoryStore:
         # Check if explicitly an SQLite path
         if dsn.startswith("sqlite://"):
             return SQLiteStore(db_path=dsn.replace("sqlite://", ""))
-        if dsn.endswith(".db") or dsn.endswith(".sqlite") or "/" in dsn and not (dsn.startswith("postgresql://") or dsn.startswith("postgres://") or "dbname=" in dsn or "host=" in dsn):
+        if (
+            dsn.endswith(".db")
+            or dsn.endswith(".sqlite")
+            or "/" in dsn
+            and not (
+                dsn.startswith("postgresql://") or dsn.startswith("postgres://") or "dbname=" in dsn or "host=" in dsn
+            )
+        ):
             return SQLiteStore(db_path=dsn)
 
         try:
@@ -46,9 +53,6 @@ def create_store(dsn: Optional[str] = None) -> MemoryStore:
                 f"Using local SQLite instead. Set MEMORY_REQUIRE_POSTGRES=true to prevent this."
             )
 
-    sqlite_path = os.environ.get(
-        "MEMORY_SQLITE_PATH",
-        os.path.expanduser("~/.gomaa/gomaa.db")
-    )
+    sqlite_path = os.environ.get("MEMORY_SQLITE_PATH", os.path.expanduser("~/.gomaa/gomaa.db"))
     logger.info(f"Using SQLite store: {sqlite_path}")
     return SQLiteStore(sqlite_path)

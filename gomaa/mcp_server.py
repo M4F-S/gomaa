@@ -49,6 +49,24 @@ def _safe_bool(val: Any, default: bool) -> bool:
     return bool(val)
 
 
+def _safe_tags(val: Any) -> List[str]:
+    if val is None:
+        return []
+    if isinstance(val, list):
+        return [str(item) for item in val]
+    if isinstance(val, str):
+        val = val.strip()
+        if val.startswith("[") and val.endswith("]"):
+            try:
+                parsed = json.loads(val)
+                if isinstance(parsed, list):
+                    return [str(item) for item in parsed]
+            except Exception:
+                pass
+        return [t.strip() for t in val.split(",") if t.strip()]
+    return [str(val)]
+
+
 class MCPServer:
     def __init__(self, memory: Optional[UnifiedMemorySystem] = None):
         self.memory = memory or UnifiedMemorySystem()
@@ -126,9 +144,7 @@ class MCPServer:
                 result = self._call_tool(tool_name, tool_args)
                 return {
                     "jsonrpc": "2.0",
-                    "result": {
-                        "content": [{"type": "text", "text": json.dumps(result, indent=2, default=str)}]
-                    },
+                    "result": {"content": [{"type": "text", "text": json.dumps(result, indent=2, default=str)}]},
                     "id": req_id,
                 }
             except Exception as e:
@@ -161,9 +177,21 @@ class MCPServer:
                         "content": {"type": "string", "description": "The memory content in markdown"},
                         "tags": {"type": "array", "items": {"type": "string"}, "description": "Categorical tags"},
                         "salience": {"type": "number", "description": "Importance score 0.0-1.0 (default 0.5)"},
-                        "wing": {"type": "string", "description": "Project/domain grouping (e.g. ecommerce, security, devops)", "default": "general"},
-                        "room": {"type": "string", "description": "Topic within the wing (e.g. woocommerce, firewall, docker)", "default": "general"},
-                        "pinned": {"type": "boolean", "description": "Set true to make permanently immune to Ebbinghaus temporal decay", "default": False},
+                        "wing": {
+                            "type": "string",
+                            "description": "Project/domain grouping (e.g. ecommerce, security, devops)",
+                            "default": "general",
+                        },
+                        "room": {
+                            "type": "string",
+                            "description": "Topic within the wing (e.g. woocommerce, firewall, docker)",
+                            "default": "general",
+                        },
+                        "pinned": {
+                            "type": "boolean",
+                            "description": "Set true to make permanently immune to Ebbinghaus temporal decay",
+                            "default": False,
+                        },
                     },
                     "required": ["title", "content"],
                 },
@@ -175,7 +203,10 @@ class MCPServer:
                     "type": "object",
                     "properties": {
                         "title": {"type": "string", "description": "Title for the shared policy or finding"},
-                        "content": {"type": "string", "description": "The shared knowledge content in markdown (must not contain private credentials)"},
+                        "content": {
+                            "type": "string",
+                            "description": "The shared knowledge content in markdown (must not contain private credentials)",
+                        },
                         "tags": {"type": "array", "items": {"type": "string"}, "description": "Tags"},
                         "wing": {"type": "string", "default": "shared"},
                         "room": {"type": "string", "default": "general"},
@@ -200,7 +231,11 @@ class MCPServer:
                                 "room": {"type": "string"},
                             },
                         },
-                        "include_shared": {"type": "boolean", "default": True, "description": "Whether to include cross-agent shared fleet memory"},
+                        "include_shared": {
+                            "type": "boolean",
+                            "default": True,
+                            "description": "Whether to include cross-agent shared fleet memory",
+                        },
                     },
                     "required": ["query"],
                 },
@@ -261,8 +296,16 @@ class MCPServer:
                     "type": "object",
                     "properties": {
                         "query": {"type": "string", "description": "Search query to retrieve context for"},
-                        "max_tokens": {"type": "integer", "default": 2000, "description": "Maximum token budget for the assembled context"},
-                        "mode": {"type": "string", "enum": ["hybrid", "semantic", "keyword", "graph"], "default": "hybrid"},
+                        "max_tokens": {
+                            "type": "integer",
+                            "default": 2000,
+                            "description": "Maximum token budget for the assembled context",
+                        },
+                        "mode": {
+                            "type": "string",
+                            "enum": ["hybrid", "semantic", "keyword", "graph"],
+                            "default": "hybrid",
+                        },
                         "scope": {
                             "type": "object",
                             "description": "Optional wing/room filter scope",
@@ -271,7 +314,11 @@ class MCPServer:
                                 "room": {"type": "string"},
                             },
                         },
-                        "include_shared": {"type": "boolean", "default": True, "description": "Whether to include shared fleet knowledge"},
+                        "include_shared": {
+                            "type": "boolean",
+                            "default": True,
+                            "description": "Whether to include shared fleet knowledge",
+                        },
                     },
                     "required": ["query"],
                 },
@@ -292,30 +339,32 @@ class MCPServer:
             if "title" not in args or "content" not in args:
                 raise ValueError("Missing required arguments: 'title' and 'content' are required for memory_remember.")
             return self.memory.remember(
-                title=args["title"],
-                content=args["content"],
-                tags=args.get("tags"),
+                title=str(args["title"]),
+                content=str(args["content"]),
+                tags=_safe_tags(args.get("tags")),
                 salience=_safe_float(args.get("salience"), 0.5),
-                wing=args.get("wing", "general"),
-                room=args.get("room", "general"),
+                wing=str(args.get("wing", "general")),
+                room=str(args.get("room", "general")),
                 pinned=_safe_bool(args.get("pinned"), False),
             )
         elif name == "memory_publish_shared":
             if "title" not in args or "content" not in args:
-                raise ValueError("Missing required arguments: 'title' and 'content' are required for memory_publish_shared.")
+                raise ValueError(
+                    "Missing required arguments: 'title' and 'content' are required for memory_publish_shared."
+                )
             return self.memory.publish_shared(
-                title=args["title"],
-                content=args["content"],
-                tags=args.get("tags"),
-                wing=args.get("wing", "shared"),
-                room=args.get("room", "general"),
+                title=str(args["title"]),
+                content=str(args["content"]),
+                tags=_safe_tags(args.get("tags")),
+                wing=str(args.get("wing", "shared")),
+                room=str(args.get("room", "general")),
             )
         elif name == "memory_recall":
             if "query" not in args:
                 raise ValueError("Missing required argument: 'query' is required for memory_recall.")
             results = self.memory.recall(
-                query=args["query"],
-                mode=args.get("mode", "hybrid"),
+                query=str(args["query"]),
+                mode=str(args.get("mode", "hybrid")),
                 top_k=_safe_int(args.get("top_k"), 5),
                 scope=args.get("scope"),
                 include_shared=_safe_bool(args.get("include_shared"), True),
@@ -325,34 +374,38 @@ class MCPServer:
             if "query" not in args:
                 raise ValueError("Missing required argument: 'query' is required for memory_assemble_context.")
             return self.memory.assemble_context(
-                query=args["query"],
+                query=str(args["query"]),
                 max_tokens=_safe_int(args.get("max_tokens"), 2000),
                 scope=args.get("scope"),
-                mode=args.get("mode", "hybrid"),
+                mode=str(args.get("mode", "hybrid")),
                 include_shared=_safe_bool(args.get("include_shared"), True),
             )
         elif name == "memory_ingest_session":
             if "transcript" not in args:
                 raise ValueError("Missing required argument: 'transcript' is required for memory_ingest_session.")
             return self.memory.ingest_session(
-                transcript=args["transcript"],
-                wing=args.get("wing", "general"),
-                room=args.get("room", "sessions"),
+                transcript=str(args["transcript"]),
+                wing=str(args.get("wing", "general")),
+                room=str(args.get("room", "sessions")),
             )
         elif name == "memory_timeline":
-            return {"timeline": self.memory.timeline(limit=args.get("limit", 20))}
+            return {"timeline": self.memory.timeline(limit=_safe_int(args.get("limit"), 20))}
         elif name == "memory_history":
             if "title" not in args:
                 raise ValueError("Missing required argument: 'title' is required for memory_history.")
-            return {"history": self.memory.note_history(title=args["title"], limit=args.get("limit", 10))}
+            return {
+                "history": self.memory.note_history(title=str(args["title"]), limit=_safe_int(args.get("limit"), 10))
+            }
         elif name == "memory_remind_me":
             if "title" not in args or "trigger_at" not in args:
-                raise ValueError("Missing required arguments: 'title' and 'trigger_at' are required for memory_remind_me.")
+                raise ValueError(
+                    "Missing required arguments: 'title' and 'trigger_at' are required for memory_remind_me."
+                )
             return self.memory.remind_me(
-                title=args["title"],
-                content=args.get("content", ""),
-                trigger_at=args["trigger_at"],
-                recurring=args.get("recurring"),
+                title=str(args["title"]),
+                content=str(args.get("content", "")),
+                trigger_at=str(args["trigger_at"]),
+                recurring=str(args["recurring"]) if args.get("recurring") else None,
             )
         elif name == "memory_audit":
             return {
@@ -360,7 +413,7 @@ class MCPServer:
                 "health": self._health(),
             }
         else:
-            return {"error": f"Unknown tool: {name}"}
+            raise ValueError(f"Unknown tool: {name}")
 
     def _health(self) -> Dict[str, Any]:
         return {

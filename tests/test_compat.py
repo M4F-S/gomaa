@@ -14,10 +14,7 @@ def test_compat_create_and_read_note(tmp_path):
     comp._global_memory = UnifiedMemorySystem(vault_path=str(tmp_path), auto_sync=False)
 
     res = create_note(
-        title="Compat Note",
-        content="Compat note content",
-        tags=["compat", "legacy"],
-        links=["Related Note"]
+        title="Compat Note", content="Compat note content", tags=["compat", "legacy"], links=["Related Note"]
     )
     assert res.get("success") is True
 

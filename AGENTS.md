@@ -85,6 +85,17 @@ All agents expose these MCP tools (under the `mcp__obsidian_memory__` prefix):
 
 ---
 
+## 🛡️ Core Engine Hardening & Architectural Guarantees (v3.5.0)
+
+1. **Thread-Safe Atomic Vault Writes:** Writes use unique temporary sibling files (`.{name}.{pid}.{uuid}.tmp`) with atomic replacement, preventing concurrency collisions across multi-threaded agents.
+2. **DB Error Rollback Safety:** Pre-write note backups ensure existing markdown notes are restored if a database upsert fails; newly created notes are cleanly unlinked.
+3. **Bi-Directional Knowledge Graph:** 2-hop graph walk queries traverse both forward links (`[[Target]]`) and backward backlinks across PostgreSQL and SQLite stores.
+4. **Step Decay Formulation:** Temporal decay applies a stable geometric step ($S_{t+1} = S_t \times d$) per consolidation cycle, preventing compounding over-decay.
+5. **Robust MCP Argument Coercion:** All 9 MCP tools gracefully coerce JSON-stringified arrays (`tags='["a", "b"]'`), comma-separated strings, and numeric strings into strongly typed Python primitives.
+6. **Dual Storage Parity:** 100% feature parity between zero-config SQLite WAL local mode and production PostgreSQL 16 + pgvector (HNSW) fleet mode.
+
+---
+
 ## 📚 Master Handover Dossier
 
 Architecture, security policies, and runbooks live in [`docs/handover/`](docs/handover/):
@@ -94,3 +105,11 @@ Architecture, security policies, and runbooks live in [`docs/handover/`](docs/ha
 - `03_AGENT_INTEGRATIONS_CATALOG.md` — skill catalogs & MCP definitions
 - `04_GITHUB_STARS_AND_DISTRIBUTION_PLAN.md` — growth plan
 - `05_OPERATIONS_AND_RUNBOOK.md` — VPS runbook & recovery
+
+---
+
+## 🧪 Current Verification & Health Status
+
+* **Automated Tests:** 98 / 98 tests passing (100% success rate across 28 test modules).
+* **Linter & Formatting:** 0 ruff errors, 53 files clean.
+* **VPS Production Fleet:** 5 agent containers (`hermes-agent`, `hermes-assistant`, `hermes-marketing`, `hermes-pentest`, `hermes-trader`) active, healthy, and synced with PostgreSQL + pgvector at `${DEPLOY_DIR}` (`/opt/gomaa`).

@@ -46,7 +46,9 @@ def main():
     p_remember.add_argument("--pinned", action="store_true", help="Make note permanent and immune to decay")
 
     # publish-shared
-    p_pub = subparsers.add_parser("publish-shared", help="Publish a curated note to shared fleet memory", parents=[common_parser])
+    p_pub = subparsers.add_parser(
+        "publish-shared", help="Publish a curated note to shared fleet memory", parents=[common_parser]
+    )
     p_pub.add_argument("title", help="Note title")
     p_pub.add_argument("content", help="Note markdown content")
     p_pub.add_argument("--tags", nargs="*", default=[], help="Tags list")
@@ -69,7 +71,9 @@ def main():
     subparsers.add_parser("stats", help="Get memory store statistics", parents=[common_parser])
 
     # consolidate
-    p_consolidate = subparsers.add_parser("consolidate", help="Apply link reconciliation and temporal decay", parents=[common_parser])
+    p_consolidate = subparsers.add_parser(
+        "consolidate", help="Apply link reconciliation and temporal decay", parents=[common_parser]
+    )
     p_consolidate.add_argument("--decay-rate", type=float, default=0.95, help="Daily retention factor")
     p_consolidate.add_argument("--archive-threshold", type=float, default=0.05, help="Salience threshold for archiving")
 
@@ -83,28 +87,35 @@ def main():
     p_embed_srv.add_argument("--model", default="all-MiniLM-L6-v2", help="Model name")
 
     # init
-    p_init = subparsers.add_parser("init", help="Initialize local vault and generate agent MCP configuration", parents=[common_parser])
+    p_init = subparsers.add_parser(
+        "init", help="Initialize local vault and generate agent MCP configuration", parents=[common_parser]
+    )
     p_init.add_argument("--path", default="~/.gomaa/vault", help="Target Obsidian vault directory")
 
     # dashboard
-    p_dash = subparsers.add_parser("dashboard", help="Launch interactive Aurora Web Knowledge Graph Dashboard", parents=[common_parser])
+    p_dash = subparsers.add_parser(
+        "dashboard", help="Launch interactive Aurora Web Knowledge Graph Dashboard", parents=[common_parser]
+    )
     p_dash.add_argument("--host", default="127.0.0.1", help="Dashboard host")
     p_dash.add_argument("--port", type=int, default=8765, help="Dashboard port")
     p_dash.add_argument("--no-browser", action="store_true", help="Do not open browser automatically")
 
     # assemble-context
-    p_ctx = subparsers.add_parser("assemble-context", help="Retrieve and pack memory into a token-budgeted prompt block", parents=[common_parser])
+    p_ctx = subparsers.add_parser(
+        "assemble-context", help="Retrieve and pack memory into a token-budgeted prompt block", parents=[common_parser]
+    )
     p_ctx.add_argument("query", help="Search query")
     p_ctx.add_argument("--max-tokens", type=int, default=2000, help="Maximum token budget")
     p_ctx.add_argument("--wing", default=None, help="Filter by wing")
     p_ctx.add_argument("--room", default=None, help="Filter by room")
 
-    # sync-gdrive
-    p_gdrive = subparsers.add_parser("sync-gdrive", help="Synchronize vault with Google Drive")
-    p_gdrive.add_argument("--folder", default="Gomaa-Vault", help="Google Drive folder name")
-    p_gdrive.add_argument("--credentials", default=None, help="Path to service account JSON")
-    p_gdrive.add_argument("--daemon", action="store_true", help="Run continuous sync daemon")
-    p_gdrive.add_argument("--interval", type=int, default=60, help="Sync interval in seconds (daemon mode)")
+    p_gdrive = subparsers.add_parser(
+        "sync-gdrive", help="Bi-directional Google Drive Obsidian vault sync", parents=[common_parser]
+    )
+    p_gdrive.add_argument("--folder", default="GomaaVault", help="Google Drive target folder name")
+    p_gdrive.add_argument("--credentials", default=None, help="Path to credentials.json or service_account.json")
+    p_gdrive.add_argument("--daemon", action="store_true", help="Run sync continuously as a background daemon")
+    p_gdrive.add_argument("--interval", type=int, default=300, help="Daemon sync interval in seconds")
 
     args = parser.parse_args()
 
@@ -116,6 +127,7 @@ def main():
     if args.command == "dashboard":
         print(GOMAA_BANNER)
         from gomaa.dashboard import run_dashboard
+
         mem = UnifiedMemorySystem(vault_path=args.vault_path, dsn=args.dsn, shared_dsn=args.shared_dsn)
         run_dashboard(host=args.host, port=args.port, memory=mem, open_browser=not args.no_browser)
         return
@@ -160,13 +172,16 @@ def main():
 
     if args.command == "sync-gdrive":
         from gomaa.sync.gdrive import GoogleDriveSyncManager
+
         manager = GoogleDriveSyncManager(
             vault_path=args.vault_path,
             folder_name=args.folder,
             credentials_path=args.credentials,
         )
         if not manager.is_available():
-            print(json.dumps({"error": "Google Drive client libraries missing. Install via: pip install 'gomaa[gdrive]'"}))
+            print(
+                json.dumps({"error": "Google Drive client libraries missing. Install via: pip install 'gomaa[gdrive]'"})
+            )
             sys.exit(1)
         if args.daemon:
             manager.run_daemon(interval_seconds=args.interval)
@@ -177,6 +192,7 @@ def main():
 
     if args.command == "embed-service":
         from gomaa.embed_service import run_service
+
         run_service(host=args.host, port=args.port, model_name=args.model)
         return
 
@@ -221,7 +237,10 @@ def main():
             scope["room"] = args.room
         res = mem.assemble_context(args.query, max_tokens=args.max_tokens, scope=scope or None)
         print(res.get("context_text", ""))
-        print(f"\n<!-- Estimated tokens: {res.get('estimated_tokens')} | Notes included: {res.get('notes_included')} -->", file=sys.stderr)
+        print(
+            f"\n<!-- Estimated tokens: {res.get('estimated_tokens')} | Notes included: {res.get('notes_included')} -->",
+            file=sys.stderr,
+        )
 
     elif args.command == "timeline":
         res = mem.timeline(limit=args.limit)

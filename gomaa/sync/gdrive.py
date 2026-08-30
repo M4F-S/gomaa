@@ -42,12 +42,14 @@ def safe_pull_dest_path(vault_root: Path, remote_name: str) -> Path:
         raise ValueError(f"Security Alert: path traversal attempt detected ({dest})")
     return dest
 
+
 # Optional Google Client imports
 try:
     from google.oauth2 import service_account
     from google.oauth2.credentials import Credentials
     from googleapiclient.discovery import build
     from googleapiclient.http import MediaFileUpload, MediaIoBaseDownload
+
     GOOGLE_API_AVAILABLE = True
 except ImportError:
     GOOGLE_API_AVAILABLE = False
@@ -98,9 +100,7 @@ class GoogleDriveSyncManager:
         try:
             # 1. Service Account JSON file path
             if self.credentials_path and os.path.exists(self.credentials_path):
-                creds = service_account.Credentials.from_service_account_file(
-                    self.credentials_path, scopes=self.SCOPES
-                )
+                creds = service_account.Credentials.from_service_account_file(self.credentials_path, scopes=self.SCOPES)
                 self.service = build("drive", "v3", credentials=creds, cache_discovery=False)
                 logger.info(f"GoogleDriveSync: authenticated via service account file ({self.credentials_path})")
                 return True
@@ -123,7 +123,9 @@ class GoogleDriveSyncManager:
                 logger.info("GoogleDriveSync: authenticated via OAuth2 token")
                 return True
 
-            logger.warning("GoogleDriveSync: No Google credentials found (set GOOGLE_APPLICATION_CREDENTIALS or GDRIVE_SERVICE_ACCOUNT_JSON).")
+            logger.warning(
+                "GoogleDriveSync: No Google credentials found (set GOOGLE_APPLICATION_CREDENTIALS or GDRIVE_SERVICE_ACCOUNT_JSON)."
+            )
             return False
         except Exception as e:
             logger.error(f"GoogleDriveSync authentication failed: {e}")
@@ -184,12 +186,16 @@ class GoogleDriveSyncManager:
         remote_notes = {}
         try:
             q = f"'{self._agent_folder_id}' in parents and mimeType != 'application/vnd.google-apps.folder' and trashed = false"
-            results = self.service.files().list(
-                q=q,
-                spaces="drive",
-                fields="files(id, name, md5Checksum, modifiedTime, size)",
-                pageSize=1000,
-            ).execute()
+            results = (
+                self.service.files()
+                .list(
+                    q=q,
+                    spaces="drive",
+                    fields="files(id, name, md5Checksum, modifiedTime, size)",
+                    pageSize=1000,
+                )
+                .execute()
+            )
             for item in results.get("files", []):
                 remote_notes[item["name"]] = item
             return remote_notes

@@ -1,6 +1,7 @@
 import logging
 from contextlib import contextmanager
 from typing import Any, Dict, List, Optional, Tuple
+
 try:
     import psycopg2
     from psycopg2.extras import RealDictCursor
@@ -18,9 +19,7 @@ logger = logging.getLogger("gomaa-postgres")
 class PgVectorStore(MemoryStore):
     def __init__(self, dsn: str, minconn: int = 1, maxconn: int = 10):
         if psycopg2 is None:
-            raise ImportError(
-                "psycopg2 is required for PostgreSQL store. Install with: pip install 'gomaa[postgres]'"
-            )
+            raise ImportError("psycopg2 is required for PostgreSQL store. Install with: pip install 'gomaa[postgres]'")
         self.dsn = dsn
         self._minconn = minconn
         self._maxconn = maxconn
@@ -29,31 +28,28 @@ class PgVectorStore(MemoryStore):
 
     @contextmanager
     def _conn(self):
-        """Thread-safe, self-healing connection pool manager."""
+        """Thread-safe connection pool manager with stale connection eviction."""
         conn = self._pool.getconn()
         try:
             if conn.closed != 0:
-                raise psycopg2.OperationalError("Stale closed connection acquired from pool")
-            yield conn
-            conn.commit()
-        except psycopg2.OperationalError as e:
-            logger.warning(f"Evicting dead connection from pool: {e}")
-            try:
-                conn.rollback()
-            except Exception:
-                pass
-            self._pool.putconn(conn, close=True)
-            conn = self._pool.getconn()
+                self._pool.putconn(conn, close=True)
+                conn = self._pool.getconn()
             yield conn
             conn.commit()
         except Exception:
             try:
-                conn.rollback()
+                if not conn.closed:
+                    conn.rollback()
             except Exception:
                 pass
             raise
         finally:
-            if not conn.closed:
+            if conn.closed:
+                try:
+                    self._pool.putconn(conn, close=True)
+                except Exception:
+                    pass
+            else:
                 self._pool.putconn(conn)
 
     def close(self):
@@ -172,7 +168,9 @@ class PgVectorStore(MemoryStore):
             params.append(scope["room"])
         return " AND ".join(clauses), params
 
-    def log_timeline(self, action: str, note_title: Optional[str] = None, query: Optional[str] = None, summary: Optional[str] = None) -> None:
+    def log_timeline(
+        self, action: str, note_title: Optional[str] = None, query: Optional[str] = None, summary: Optional[str] = None
+    ) -> None:
         with self._conn() as conn:
             with conn.cursor() as cur:
                 cur.execute(
@@ -230,7 +228,10 @@ class PgVectorStore(MemoryStore):
         vault_path = str(vault_path)
         with self._conn() as conn:
             with conn.cursor() as cur:
-                cur.execute("SELECT id, title, content, tags, salience FROM notes WHERE title = %s AND vault_path = %s;", (title, vault_path))
+                cur.execute(
+                    "SELECT id, title, content, tags, salience FROM notes WHERE title = %s AND vault_path = %s;",
+                    (title, vault_path),
+                )
                 existing = cur.fetchone()
                 if existing:
                     cur.execute(
@@ -259,7 +260,19 @@ class PgVectorStore(MemoryStore):
                         updated_at = NOW()
                     RETURNING id;
                 """,
-                    (title, content, tags, note_type, status, salience, embedding, vault_path, wing, room, origin_agent),
+                    (
+                        title,
+                        content,
+                        tags,
+                        note_type,
+                        status,
+                        salience,
+                        embedding,
+                        vault_path,
+                        wing,
+                        room,
+                        origin_agent,
+                    ),
                 )
                 note_id = cur.fetchone()[0]
 
@@ -285,7 +298,11 @@ class PgVectorStore(MemoryStore):
                 return cur.rowcount > 0
 
     def search_semantic(
-        self, query_embedding: List[float], top_k: int = 10, filters: Optional[Dict] = None, scope: Optional[Dict] = None,
+        self,
+        query_embedding: List[float],
+        top_k: int = 10,
+        filters: Optional[Dict] = None,
+        scope: Optional[Dict] = None,
     ) -> List[Dict]:
         with self._conn() as conn:
             with conn.cursor() as cur:
@@ -395,15 +412,15 @@ class PgVectorStore(MemoryStore):
                 cur.execute(
                     """
                     WITH RECURSIVE graph_walk AS (
-                        SELECT target_note_id AS note_id, 1 AS depth, ARRAY[source_note_id, target_note_id] AS path
+                        SELECT (CASE WHEN l.source_note_id = n.id THEN l.target_note_id ELSE l.source_note_id END) AS note_id, 1 AS depth, ARRAY[l.source_note_id, l.target_note_id] AS path
                         FROM links l
-                        JOIN notes n ON n.id = l.source_note_id
+                        JOIN notes n ON (n.id = l.source_note_id OR n.id = l.target_note_id)
                         WHERE n.title = %s AND n.status = 'active'
                         UNION
-                        SELECT l.target_note_id, gw.depth + 1, gw.path || l.target_note_id
+                        SELECT (CASE WHEN l.source_note_id = gw.note_id THEN l.target_note_id ELSE l.source_note_id END), gw.depth + 1, gw.path || (CASE WHEN l.source_note_id = gw.note_id THEN l.target_note_id ELSE l.source_note_id END)
                         FROM links l
-                        JOIN graph_walk gw ON gw.note_id = l.source_note_id
-                        WHERE gw.depth < %s AND NOT (l.target_note_id = ANY(gw.path))
+                        JOIN graph_walk gw ON (gw.note_id = l.source_note_id OR gw.note_id = l.target_note_id)
+                        WHERE gw.depth < %s AND NOT ((CASE WHEN l.source_note_id = gw.note_id THEN l.target_note_id ELSE l.source_note_id END) = ANY(gw.path))
                     )
                     SELECT DISTINCT ON (n.id) n.id, n.title, n.content, n.tags, n.salience, n.vault_path, n.wing, n.room, gw.depth
                     FROM graph_walk gw
@@ -470,7 +487,7 @@ class PgVectorStore(MemoryStore):
                 cur.execute(
                     """
                     UPDATE notes
-                    SET salience = salience * power(%s::float, EXTRACT(EPOCH FROM (NOW() - last_accessed_at)) / 86400.0)
+                    SET salience = salience * %s::float
                     WHERE status = 'active'
                       AND last_accessed_at < NOW() - INTERVAL '1 day'
                       AND NOT ('pinned' = ANY(tags) OR 'permanent' = ANY(tags) OR 'core' = ANY(tags))
@@ -573,8 +590,7 @@ class PgVectorStore(MemoryStore):
     # Same interface as SQLiteStore.schedule_reminder / get_due_reminders /
     # mark_reminder_done so ProspectiveMemory can delegate uniformly.
 
-    def schedule_reminder(self, title: str, content: str, trigger_at: str,
-                          recurring: Optional[str] = None) -> str:
+    def schedule_reminder(self, title: str, content: str, trigger_at: str, recurring: Optional[str] = None) -> str:
         with self._conn() as conn:
             with conn.cursor() as cur:
                 cur.execute(

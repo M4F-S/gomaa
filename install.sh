@@ -44,10 +44,12 @@ echo -e "   ✓ Found Python ${GREEN}${PY_VER}${NC}"
 echo -e "\n${CYAN}📦 [2/4] Installing Gomaa Memory OS...${NC}"
 if command -v uv >/dev/null 2>&1; then
     uv pip install --system --upgrade git+https://github.com/M4F-S/gomaa.git >/dev/null 2>&1 || uv pip install --upgrade git+https://github.com/M4F-S/gomaa.git
+elif command -v pipx >/dev/null 2>&1; then
+    pipx install --upgrade git+https://github.com/M4F-S/gomaa.git
 elif command -v pip3 >/dev/null 2>&1; then
-    pip3 install --user --upgrade git+https://github.com/M4F-S/gomaa.git
+    pip3 install --user --upgrade git+https://github.com/M4F-S/gomaa.git --break-system-packages 2>/dev/null || pip3 install --user --upgrade git+https://github.com/M4F-S/gomaa.git
 else
-    pip install --user --upgrade git+https://github.com/M4F-S/gomaa.git
+    pip install --user --upgrade git+https://github.com/M4F-S/gomaa.git --break-system-packages 2>/dev/null || pip install --user --upgrade git+https://github.com/M4F-S/gomaa.git
 fi
 echo -e "   ✓ Gomaa core package installed successfully!"
 

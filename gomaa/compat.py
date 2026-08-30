@@ -19,9 +19,7 @@ def _embed_links(content: str, links: Optional[List[str]] = None) -> str:
     """Render [[wikilinks]] as a trailing Links section without corrupting content."""
     if not links:
         return content
-    link_str = " ".join(
-        [f"[[{link_item}]]" if not link_item.startswith("[[") else link_item for link_item in links]
-    )
+    link_str = " ".join([f"[[{link_item}]]" if not link_item.startswith("[[") else link_item for link_item in links])
     return f"{content}\n\nLinks: {link_str}"
 
 

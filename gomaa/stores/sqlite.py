@@ -37,7 +37,6 @@ class SQLiteStore(MemoryStore):
         finally:
             conn.close()
 
-
     def _ensure_schema(self) -> None:
         """Create tables if they don't exist and run incremental column additions."""
         with self._conn() as conn:
@@ -125,7 +124,9 @@ class SQLiteStore(MemoryStore):
             params.append(scope["room"])
         return " AND ".join(clauses), params
 
-    def log_timeline(self, action: str, note_title: Optional[str] = None, query: Optional[str] = None, summary: Optional[str] = None) -> None:
+    def log_timeline(
+        self, action: str, note_title: Optional[str] = None, query: Optional[str] = None, summary: Optional[str] = None
+    ) -> None:
         with self._conn() as conn:
             conn.execute(
                 """
@@ -187,7 +188,10 @@ class SQLiteStore(MemoryStore):
         vault_path = str(vault_path)
         with self._conn() as conn:
             cur = conn.cursor()
-            cur.execute("SELECT id, title, content, tags, salience FROM notes WHERE title = ? AND vault_path = ?;", (title, vault_path))
+            cur.execute(
+                "SELECT id, title, content, tags, salience FROM notes WHERE title = ? AND vault_path = ?;",
+                (title, vault_path),
+            )
             existing = cur.fetchone()
 
             if existing:
@@ -221,26 +225,52 @@ class SQLiteStore(MemoryStore):
                 )
             else:
                 note_id = str(uuid.uuid4())
-                conn.execute(
-                    """
-                    INSERT INTO notes (id, title, content, tags, note_type, status, salience, embedding, vault_path, wing, room, origin_agent, last_accessed_at, created_at, updated_at)
-                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'), datetime('now'), datetime('now'));
-                """,
-                    (
-                        note_id,
-                        title,
-                        content,
-                        json.dumps(tags),
-                        note_type,
-                        status,
-                        salience,
-                        json.dumps(embedding) if embedding else None,
-                        vault_path,
-                        wing,
-                        room,
-                        origin_agent,
-                    ),
-                )
+                try:
+                    conn.execute(
+                        """
+                        INSERT INTO notes (id, title, content, tags, note_type, status, salience, embedding, vault_path, wing, room, origin_agent, last_accessed_at, created_at, updated_at)
+                        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'), datetime('now'), datetime('now'));
+                    """,
+                        (
+                            note_id,
+                            title,
+                            content,
+                            json.dumps(tags),
+                            note_type,
+                            status,
+                            salience,
+                            json.dumps(embedding) if embedding else None,
+                            vault_path,
+                            wing,
+                            room,
+                            origin_agent,
+                        ),
+                    )
+                except sqlite3.IntegrityError:
+                    cur.execute("SELECT id FROM notes WHERE title = ? AND vault_path = ?;", (title, vault_path))
+                    existing = cur.fetchone()
+                    if existing:
+                        note_id = existing["id"]
+                        conn.execute(
+                            """
+                            UPDATE notes
+                            SET content = ?, tags = ?, note_type = ?, status = ?, salience = ?,
+                                embedding = ?, wing = ?, room = ?, origin_agent = ?, last_accessed_at = datetime('now'), updated_at = datetime('now')
+                            WHERE id = ?;
+                        """,
+                            (
+                                content,
+                                json.dumps(tags),
+                                note_type,
+                                status,
+                                salience,
+                                json.dumps(embedding) if embedding else None,
+                                wing,
+                                room,
+                                origin_agent,
+                                note_id,
+                            ),
+                        )
 
             # Real-time incoming link resolution
             cur.execute(
@@ -263,7 +293,11 @@ class SQLiteStore(MemoryStore):
             return cur.rowcount > 0
 
     def search_semantic(
-        self, query_embedding: List[float], top_k: int = 10, filters: Optional[Dict] = None, scope: Optional[Dict] = None,
+        self,
+        query_embedding: List[float],
+        top_k: int = 10,
+        filters: Optional[Dict] = None,
+        scope: Optional[Dict] = None,
     ) -> List[Dict]:
         with self._conn() as conn:
             cur = conn.cursor()
@@ -280,7 +314,10 @@ class SQLiteStore(MemoryStore):
                     where += " AND note_type = ?"
                     params.append(filters["note_type"])
 
-            cur.execute(f"SELECT id, title, content, tags, note_type, salience, vault_path, wing, room, embedding FROM notes {where};", params)
+            cur.execute(
+                f"SELECT id, title, content, tags, note_type, salience, vault_path, wing, room, embedding FROM notes {where};",
+                params,
+            )
             rows = cur.fetchall()
 
             scored = []
@@ -317,14 +354,16 @@ class SQLiteStore(MemoryStore):
             high_conf = [r["id"] for r in results if r["score"] >= 0.55]
             if high_conf:
                 placeholders = ",".join("?" for _ in high_conf)
-                conn.execute(f"UPDATE notes SET last_accessed_at = datetime('now') WHERE id IN ({placeholders});", high_conf)
+                conn.execute(
+                    f"UPDATE notes SET last_accessed_at = datetime('now') WHERE id IN ({placeholders});", high_conf
+                )
 
             return results
 
     def search_keyword(self, query: str, top_k: int = 10, scope: Optional[Dict] = None) -> List[Dict]:
         with self._conn() as conn:
             cur = conn.cursor()
-            words = [w for w in re.split(r"\s+", query) if w and len(w) > 1 and w not in ('!', '&', '|', ':')]
+            words = [w for w in re.split(r"\s+", query) if w and len(w) > 1 and w not in ("!", "&", "|", ":")]
             if not words:
                 words = [query]
 
@@ -398,10 +437,10 @@ class SQLiteStore(MemoryStore):
                         """
                         SELECT n.id, n.title, n.content, n.tags, n.salience, n.vault_path, n.wing, n.room
                         FROM links l
-                        JOIN notes n ON n.id = l.target_note_id
-                        WHERE l.source_note_id = ? AND n.status = 'active';
+                        JOIN notes n ON (CASE WHEN l.source_note_id = ? THEN n.id = l.target_note_id ELSE n.id = l.source_note_id END)
+                        WHERE (l.source_note_id = ? OR l.target_note_id = ?) AND n.status = 'active';
                     """,
-                        (nid,),
+                        (nid, nid, nid),
                     )
                     for row in cur.fetchall():
                         if row["id"] != root["id"] and row["id"] not in visited:
@@ -485,7 +524,7 @@ class SQLiteStore(MemoryStore):
 
                 days_elapsed = (now - last_dt).total_seconds() / 86400.0
                 if days_elapsed >= 1.0:
-                    new_salience = row["salience"] * (decay_rate ** days_elapsed)
+                    new_salience = row["salience"] * decay_rate
                     if new_salience < archive_threshold:
                         to_archive.append((new_salience, row["id"]))
                     else:
@@ -544,7 +583,6 @@ class SQLiteStore(MemoryStore):
                         link_rows,
                     )
 
-
     def reconcile_links(self) -> int:
         """Parse all active notes and rebuild missing links in SQLite."""
         reconciled = 0
@@ -602,8 +640,7 @@ class SQLiteStore(MemoryStore):
     # on the SQLite backend. Kept in the store so ProspectiveMemory can delegate
     # to whatever backend is active.
 
-    def schedule_reminder(self, title: str, content: str, trigger_at: str,
-                          recurring: Optional[str] = None) -> str:
+    def schedule_reminder(self, title: str, content: str, trigger_at: str, recurring: Optional[str] = None) -> str:
         """Insert a pending reminder, returning its id string."""
         rid = str(uuid.uuid4())
         with self._conn() as conn:

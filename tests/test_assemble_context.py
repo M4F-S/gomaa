@@ -9,7 +9,9 @@ class TestAssembleContext:
         mem = UnifiedMemorySystem(vault_path=vault_path, dsn=db_path, auto_sync=False)
 
         # Store test notes
-        mem.remember("Database Config", "PostgreSQL running on port 5432 with pgvector.", tags=["db", "infra"], salience=0.9)
+        mem.remember(
+            "Database Config", "PostgreSQL running on port 5432 with pgvector.", tags=["db", "infra"], salience=0.9
+        )
         mem.remember("Redis Config", "Redis cache running on port 6379.", tags=["cache", "infra"], salience=0.7)
 
         res = mem.assemble_context(query="Database port", max_tokens=1000)

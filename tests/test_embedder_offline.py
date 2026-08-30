@@ -1,6 +1,7 @@
 """Embedder must not crash the process when a local model can't initialize
 (e.g. offline first run, HuggingFace download failure).
 """
+
 import sys
 import types
 

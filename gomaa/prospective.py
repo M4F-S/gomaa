@@ -12,9 +12,7 @@ class ProspectiveMemory:
     def __init__(self, db):
         self.db = db
 
-    def schedule(
-        self, title: str, content: str, trigger_at: str, recurring: Optional[str] = None
-    ) -> str:
+    def schedule(self, title: str, content: str, trigger_at: str, recurring: Optional[str] = None) -> str:
         """Schedule a future reminder. trigger_at: ISO 8601 datetime string."""
         rid = self.db.schedule_reminder(title, content, trigger_at, recurring)
         logger.info(f"Scheduled reminder: {title} at {trigger_at}")

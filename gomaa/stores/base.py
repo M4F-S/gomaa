@@ -26,7 +26,11 @@ class MemoryStore(ABC):
 
     @abstractmethod
     def search_semantic(
-        self, query_embedding: List[float], top_k: int = 10, filters: Optional[Dict] = None, scope: Optional[Dict] = None,
+        self,
+        query_embedding: List[float],
+        top_k: int = 10,
+        filters: Optional[Dict] = None,
+        scope: Optional[Dict] = None,
     ) -> List[Dict]:
         pass
 
@@ -65,7 +69,9 @@ class MemoryStore(ABC):
         pass
 
     @abstractmethod
-    def log_timeline(self, action: str, note_title: Optional[str] = None, query: Optional[str] = None, summary: Optional[str] = None) -> None:
+    def log_timeline(
+        self, action: str, note_title: Optional[str] = None, query: Optional[str] = None, summary: Optional[str] = None
+    ) -> None:
         pass
 
     @abstractmethod

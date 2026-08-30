@@ -11,6 +11,10 @@
 
 Gomaa equips AI agents (Hermes, OpenClaw, Claude Desktop, Cursor, Windsurf, CrewAI, LangChain) with permanent, structured long-term memory. It bridges human-readable **Obsidian Markdown Vaults** with high-speed **PostgreSQL + pgvector (HNSW)** or zero-config **SQLite WAL**, powering hybrid Reciprocal Rank Fusion (RRF) search, wikilink knowledge graphs, Ebbinghaus temporal decay, cross-agent fleet sharing, and asynchronous Google Drive cloud synchronization.
 
+<p align="center">
+  <img src="docs/assets/gomaa-editorial-architecture.jpg" alt="Gomaa AI Agent Long-Term Memory Architecture" width="100%" />
+</p>
+
 ---
 
 ## 💡 Why Gomaa?
@@ -256,7 +260,7 @@ $$\text{Salience}(t) = \text{Salience}_0 \times (0.95)^{\Delta t_{\text{days}}}$
 ### 5. Obsidian Markdown Vault & Bi-Directional Graph
 Every memory created by an agent is simultaneously written as a human-readable `.md` file inside your Obsidian vault:
 * **Zettelkasten Frontmatter:** Contains `title`, `date`, `tags`, `type`, `salience`, `wing`, and `room`.
-* **Knowledge Graph:** Target notes mentioned as `[[Target Note]]` are automatically parsed into bi-directional edges in PostgreSQL.
+* **Bi-Directional Knowledge Graph:** Target notes mentioned as `[[Target Note]]` are automatically parsed into bi-directional relationships in PostgreSQL & SQLite, enabling 2-hop traversal across both forward links and backlinks.
 * **Live Inspection:** Open Obsidian on your desktop or mobile device and explore your agent fleet's collective memory in Obsidian's interactive Graph View.
 
 ### 6. Turn-Aware Verbatim Session Ingestor
@@ -279,9 +283,10 @@ Gomaa adapts to any deployment resource budget:
 3. **Local SentenceTransformers:** Standalone PyTorch execution (`all-MiniLM-L6-v2`, 384-dimensional).
 4. **Deterministic Hash Fallback:** Zero-RAM mathematical vector hash for ultra-constrained environments.
 
-### 9. Defense-in-Depth Security & Injection Armor
+### 9. Defense-in-Depth Security & Data Integrity
 * **Path Traversal Immunity:** Dual-resolved canonical path checks (`is_relative_to`) ensure file operations cannot escape the vault root.
-* **Atomic Sibling Writes:** Files are written to sibling temporary files (`.note.pid.tmp`) and renamed atomically, with automatic fallback for `EXDEV` cross-device volume mounts.
+* **Thread-Safe Atomic Writes:** Files are written to unique sibling temporary files (`.{name}.{pid}.{uuid}.tmp`) and renamed atomically, preventing thread collisions with automatic fallback for `EXDEV` cross-device volume mounts.
+* **DB-Failure Safe Rollback:** If a database upsert fails, existing notes are restored from content backups, preventing data corruption.
 * **Control Token Neutralization:** Neutralizes LLM injection tokens (`<|im_start|>`, `<|system|>`, `[INST]`, `<<SYS>>`) in prose while preserving code blocks verbatim.
 * **Structured XML Context Enclosure:** Recalled memories are wrapped in `<recalled_memory_context id="..." title="..." source="...">` tags with internal tag escaping, ensuring host LLMs never confuse recalled memories with active system directives.
 
@@ -599,30 +604,30 @@ Benchmarked on Apple Silicon (M-series) / Ubuntu 24.04 LTS against a live knowle
 | **Graph Traversal** | Recursive CTE / In-Memory Wikilink Walk | **0.83 ms** | **0.97 ms** | ~1,200 walks/s |
 | **Context Assembler** | Top-K Recall + Token Budgeting + XML Packing | **6.12 ms** | **6.45 ms** | ~163 assemblies/s |
 
-### 🔬 Test Suite Coverage (94 / 94 Passed · 100%)
+### 🔬 Test Suite Coverage (98 / 98 Passed · 100%)
 
 Gomaa maintains a comprehensive automated test suite spanning 28 test modules:
 
 ```
-collected 94 items
+collected 98 items
 tests/test_adapters.py ..                                                [  2%]
 tests/test_assemble_context.py ...                                       [  5%]
 tests/test_chunking.py .                                                 [  6%]
 tests/test_cli_init.py ..                                                [  8%]
 tests/test_compat.py ....                                                [ 12%]
 tests/test_consolidation.py ..                                           [ 14%]
-tests/test_dashboard.py ......                                           [ 21%]
-tests/test_embedder.py ...                                               [ 24%]
-tests/test_embedder_offline.py .                                         [ 25%]
-tests/test_embedder_v32.py ..                                            [ 27%]
-tests/test_fts_websearch.py .                                            [ 28%]
-tests/test_gdrive_safe_path.py .....                                     [ 34%]
-tests/test_gdrive_sync.py ...                                            [ 37%]
-tests/test_graph_cycles.py .                                             [ 38%]
-tests/test_injection_defense.py ...                                      [ 41%]
-tests/test_integration.py ...                                            [ 44%]
-tests/test_mcp.py ..                                                     [ 46%]
-tests/test_mcp_edge_cases.py ..                                          [ 48%]
+tests/test_dashboard.py ......                                           [ 20%]
+tests/test_embedder.py ...                                               [ 23%]
+tests/test_embedder_offline.py .                                         [ 24%]
+tests/test_embedder_v32.py ..                                            [ 26%]
+tests/test_fts_websearch.py .                                            [ 27%]
+tests/test_gdrive_safe_path.py .....                                     [ 32%]
+tests/test_gdrive_sync.py ...                                            [ 35%]
+tests/test_graph_cycles.py .                                             [ 36%]
+tests/test_injection_defense.py ...                                      [ 39%]
+tests/test_integration.py ...                                            [ 42%]
+tests/test_mcp.py ..                                                     [ 44%]
+tests/test_mcp_edge_cases.py ....                                        [ 48%]
 tests/test_mcp_server.py ..............                                  [ 63%]
 tests/test_reconcile_links.py .                                          [ 64%]
 tests/test_remind_me_sqlite.py ....                                      [ 69%]
@@ -632,9 +637,9 @@ tests/test_shared_memory.py ..                                           [ 82%]
 tests/test_sqlite.py .....                                               [ 88%]
 tests/test_store_factory.py ...                                          [ 91%]
 tests/test_vault.py .....                                                [ 96%]
-tests/test_vault_security.py ...                                         [100%]
+tests/test_vault_security.py .....                                       [100%]
 
-======================= 94 passed, 41 warnings in 13.38s =======================
+======================= 98 passed in 13.80s =======================
 ```
 
 ### 🛠️ How to Execute the Test Suite

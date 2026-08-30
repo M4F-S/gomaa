@@ -86,7 +86,9 @@ class DashboardRequestHandler(BaseHTTPRequestHandler):
                     layer_counts["procedural"] += 1
                 elif any(k in all_tokens for k in ["user", "social", "contact", "person", "team", "collaborator"]):
                     layer_counts["social"] += 1
-                elif any(k in all_tokens for k in ["preference", "preferential", "config", "setting", "style", "taste"]):
+                elif any(
+                    k in all_tokens for k in ["preference", "preferential", "config", "setting", "style", "taste"]
+                ):
                     layer_counts["preferential"] += 1
                 else:
                     layer_counts["semantic"] += 1
@@ -109,16 +111,18 @@ class DashboardRequestHandler(BaseHTTPRequestHandler):
             raw_notes = self.memory.db.search_keyword("", top_k=150) if self.memory else []
             notes_data = []
             for n in raw_notes:
-                notes_data.append({
-                    "id": n.get("id"),
-                    "title": n.get("title"),
-                    "wing": n.get("wing", "general"),
-                    "room": n.get("room", "general"),
-                    "salience": n.get("salience", 0.5),
-                    "pinned": n.get("pinned", False),
-                    "tags": n.get("tags", []),
-                    "created_at": n.get("created_at"),
-                })
+                notes_data.append(
+                    {
+                        "id": n.get("id"),
+                        "title": n.get("title"),
+                        "wing": n.get("wing", "general"),
+                        "room": n.get("room", "general"),
+                        "salience": n.get("salience", 0.5),
+                        "pinned": n.get("pinned", False),
+                        "tags": n.get("tags", []),
+                        "created_at": n.get("created_at"),
+                    }
+                )
             self._send_json({"notes": notes_data})
             return
 
@@ -146,12 +150,16 @@ class DashboardRequestHandler(BaseHTTPRequestHandler):
             top_k = int(payload.get("top_k", 5))
             scope = payload.get("scope")
 
-            results = self.memory.recall(
-                query=query,
-                mode=mode,
-                top_k=top_k,
-                scope=scope,
-            ) if self.memory else []
+            results = (
+                self.memory.recall(
+                    query=query,
+                    mode=mode,
+                    top_k=top_k,
+                    scope=scope,
+                )
+                if self.memory
+                else []
+            )
             self._send_json({"query": query, "mode": mode, "results": results})
             return
 
@@ -160,11 +168,15 @@ class DashboardRequestHandler(BaseHTTPRequestHandler):
             max_tokens = int(payload.get("max_tokens", 1500))
             scope = payload.get("scope")
 
-            res = self.memory.assemble_context(
-                query=query,
-                max_tokens=max_tokens,
-                scope=scope,
-            ) if self.memory else {}
+            res = (
+                self.memory.assemble_context(
+                    query=query,
+                    max_tokens=max_tokens,
+                    scope=scope,
+                )
+                if self.memory
+                else {}
+            )
             self._send_json(res)
             return
 
@@ -181,15 +193,19 @@ class DashboardRequestHandler(BaseHTTPRequestHandler):
                 self._send_json({"success": False, "error": "Title and content are required"}, status=400)
                 return
 
-            res = self.memory.remember(
-                title=title,
-                content=content,
-                tags=tags,
-                salience=salience,
-                wing=wing,
-                room=room,
-                pinned=pinned,
-            ) if self.memory else {"success": False, "error": "No memory instance"}
+            res = (
+                self.memory.remember(
+                    title=title,
+                    content=content,
+                    tags=tags,
+                    salience=salience,
+                    wing=wing,
+                    room=room,
+                    pinned=pinned,
+                )
+                if self.memory
+                else {"success": False, "error": "No memory instance"}
+            )
             self._send_json(res)
             return
 

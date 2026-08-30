@@ -125,7 +125,9 @@ class UnifiedMemorySystem:
         ]
         for p in patterns:
             if re.search(p, content):
-                raise SecurityCheckError("Security Violation: Payload contains private credentials/tokens; publishing to shared memory blocked.")
+                raise SecurityCheckError(
+                    "Security Violation: Payload contains private credentials/tokens; publishing to shared memory blocked."
+                )
 
     def remember(
         self,
@@ -138,7 +140,13 @@ class UnifiedMemorySystem:
         room: str = "general",
         pinned: bool = False,
     ) -> Dict[str, Any]:
-        tags = tags or []
+        if tags is None:
+            tags = []
+        elif isinstance(tags, str):
+            tags = [t.strip() for t in tags.split(",") if t.strip()]
+        else:
+            tags = list(tags)
+
         if pinned:
             if "pinned" not in tags:
                 tags.append("pinned")
@@ -154,6 +162,17 @@ class UnifiedMemorySystem:
 
         emb = self.embedder.embed_query(f"{title} {safe_content}")
         wiki_links = self.vault.extract_wiki_links(safe_content)
+
+        # 0. Cache existing file content if updating an existing note
+        from gomaa.vault import get_safe_note_path
+
+        existing_raw: Optional[str] = None
+        try:
+            target_path = get_safe_note_path(self.vault.vault_path, wing=wing, room=room, title=title)
+            if target_path.exists():
+                existing_raw = target_path.read_text(encoding="utf-8")
+        except Exception:
+            existing_raw = None
 
         # 1. Write to physical Markdown vault first (atomic write)
         try:
@@ -198,9 +217,13 @@ class UnifiedMemorySystem:
             logger.error(f"Database upsert failed for note [{title}]: {e}; rolling back vault file.")
             try:
                 if written_path.exists():
-                    written_path.unlink()
+                    if existing_raw is not None:
+                        written_path.write_text(existing_raw, encoding="utf-8")
+                        logger.info(f"Restored previous vault note content for [{title}] on DB failure.")
+                    else:
+                        written_path.unlink()
             except Exception as cleanup_err:
-                logger.warning(f"Failed to remove vault file on rollback: {cleanup_err}")
+                logger.warning(f"Failed to handle vault file rollback: {cleanup_err}")
             return {"success": False, "error": f"Database write failed: {e}"}
 
     def publish_shared(
@@ -215,7 +238,13 @@ class UnifiedMemorySystem:
         if not self.shared_db:
             return {"success": False, "error": "Shared fleet database (MEMORY_SHARED_DSN) is not configured."}
 
-        tags = tags or []
+        if tags is None:
+            tags = []
+        elif isinstance(tags, str):
+            tags = [t.strip() for t in tags.split(",") if t.strip()]
+        else:
+            tags = list(tags)
+
         if "shared" not in tags:
             tags.append("shared")
 
@@ -287,6 +316,10 @@ class UnifiedMemorySystem:
             try:
                 if mode == "keyword":
                     shared_results = self.shared_db.search_keyword(query, top_k, scope=scope)
+                elif mode == "semantic":
+                    shared_results = self.shared_db.search_semantic(emb, top_k, filters, scope=scope)
+                elif mode == "graph":
+                    shared_results = self.shared_db.search_graph(query, top_k=top_k)
                 else:
                     shared_results = self.shared_db.hybrid_search(query, emb, top_k, scope=scope)
                 for r in shared_results:
@@ -294,7 +327,9 @@ class UnifiedMemorySystem:
             except Exception as e:
                 logger.warning(f"Shared memory recall failed softly ({e}); continuing with private memories.")
 
-        self.db.log_timeline(action="recall", query=query, summary=f"mode={mode} scope={scope} shared={len(shared_results)}")
+        self.db.log_timeline(
+            action="recall", query=query, summary=f"mode={mode} scope={scope} shared={len(shared_results)}"
+        )
 
         merged_dict: Dict[str, Dict] = {}
         for r in private_results:
@@ -305,18 +340,15 @@ class UnifiedMemorySystem:
 
         # Sort merged results by relevance (rrf_score or score) so high-value shared memories rank properly
         sorted_results = sorted(
-            merged_dict.values(),
-            key=lambda x: x.get("rrf_score", x.get("score", 0.0)),
-            reverse=True
+            merged_dict.values(), key=lambda x: x.get("rrf_score", x.get("score", 0.0)), reverse=True
         )
         results = sorted_results[:top_k]
 
         # Enclose memory content in structured XML context tags with tag escaping
         for r in results:
             content_raw = r.get("content", "")
-            safe_text = (
-                content_raw.replace("</recalled_memory_context>", "<\\/recalled_memory_context>")
-                .replace("<recalled_memory_context", "<\\recalled_memory_context")
+            safe_text = content_raw.replace("</recalled_memory_context>", "<\\/recalled_memory_context>").replace(
+                "<recalled_memory_context", "<\\recalled_memory_context"
             )
             r["formatted_context"] = (
                 f'<recalled_memory_context id="{r.get("id")}" title="{r.get("title")}" '
@@ -364,9 +396,8 @@ class UnifiedMemorySystem:
             source = note.get("source_store", "private")
 
             tags_str = ", ".join(tags) if isinstance(tags, list) else str(tags)
-            safe_content = (
-                content.replace("</recalled_memory>", "<\\/recalled_memory>")
-                .replace("<recalled_memory", "<\\recalled_memory")
+            safe_content = content.replace("</recalled_memory>", "<\\/recalled_memory>").replace(
+                "<recalled_memory", "<\\recalled_memory"
             )
 
             block = (
@@ -424,7 +455,11 @@ class UnifiedMemorySystem:
                 chunks = self._chunk_text(turn, max_chars=1500, overlap=200)
                 for c_idx, chunk in enumerate(chunks, 1):
                     title = f"Session {timestamp} Turn {idx:02d} Part {c_idx:02d}"
-                    next_link = f"\n\n[[Session {timestamp} Turn {idx:02d} Part {c_idx+1:02d}]]" if c_idx < len(chunks) else ""
+                    next_link = (
+                        f"\n\n[[Session {timestamp} Turn {idx:02d} Part {c_idx + 1:02d}]]"
+                        if c_idx < len(chunks)
+                        else ""
+                    )
                     res = self.remember(
                         title=title,
                         content=chunk + next_link,
@@ -455,7 +490,13 @@ class UnifiedMemorySystem:
             summary=f"ingested {ingested_count} units from {len(turns)} turns into wing={wing} room={room}",
         )
 
-        return {"success": True, "turns_total": len(turns), "units_ingested": ingested_count, "wing": wing, "room": room}
+        return {
+            "success": True,
+            "turns_total": len(turns),
+            "units_ingested": ingested_count,
+            "wing": wing,
+            "room": room,
+        }
 
     def _chunk_text(self, text: str, max_chars: int = 1500, overlap: int = 200) -> List[str]:
         chunks = []
@@ -472,7 +513,9 @@ class UnifiedMemorySystem:
         current_turn = []
         in_code_block = False
 
-        turn_markers = re.compile(r"^(User|Assistant|Human|AI|System|### Turn|\*\*User\*\*|\*\*Assistant\*\*):", re.IGNORECASE)
+        turn_markers = re.compile(
+            r"^(User|Assistant|Human|AI|System|### Turn|\*\*User\*\*|\*\*Assistant\*\*):", re.IGNORECASE
+        )
 
         for line in lines:
             if line.strip().startswith("```"):
@@ -504,14 +547,20 @@ class UnifiedMemorySystem:
         silently dropped.
         """
         if getattr(self, "prospective", None) is None:
-            self.db.log_timeline(action="remind", note_title=title, summary=f"trigger_at={trigger_at} recurring={recurring}")
+            self.db.log_timeline(
+                action="remind", note_title=title, summary=f"trigger_at={trigger_at} recurring={recurring}"
+            )
             return {"success": False, "error": "prospective memory engine is not initialized", "title": title}
 
         try:
             reminder_id = self.prospective.schedule(title, content, trigger_at, recurring)
         except Exception as e:
             logger.warning(f"Prospective schedule failed ({e}); reminder NOT scheduled.")
-            self.db.log_timeline(action="remind", note_title=title, summary=f"FAILED trigger_at={trigger_at} recurring={recurring} err={e}")
+            self.db.log_timeline(
+                action="remind",
+                note_title=title,
+                summary=f"FAILED trigger_at={trigger_at} recurring={recurring} err={e}",
+            )
             return {
                 "success": False,
                 "error": f"Failed to schedule reminder: {e}",
@@ -521,7 +570,9 @@ class UnifiedMemorySystem:
                 "reminder_id": None,
             }
 
-        self.db.log_timeline(action="remind", note_title=title, summary=f"trigger_at={trigger_at} recurring={recurring}")
+        self.db.log_timeline(
+            action="remind", note_title=title, summary=f"trigger_at={trigger_at} recurring={recurring}"
+        )
         return {
             "success": True,
             "title": title,
@@ -555,9 +606,7 @@ class UnifiedMemorySystem:
         engine_res: Dict[str, Any] = {}
         if getattr(self, "consolidation_engine", None) is not None:
             try:
-                engine_res = self.consolidation_engine.run(
-                    decay_factor=decay_rate, archive_threshold=archive_threshold
-                )
+                engine_res = self.consolidation_engine.run(decay_factor=decay_rate, archive_threshold=archive_threshold)
             except Exception as e:
                 logger.warning(f"ConsolidationEngine run failed ({e}); store-level consolidation still applied.")
         return {"reconciled_links": reconciled, **decay_res, "engine": engine_res}

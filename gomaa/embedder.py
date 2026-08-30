@@ -29,10 +29,7 @@ class CircuitBreakerOpen(Exception):
 
 class Embedder:
     def __init__(
-        self,
-        model_name: str = "all-MiniLM-L6-v2",
-        embed_url: Optional[str] = None,
-        prefer_remote: bool = True
+        self, model_name: str = "all-MiniLM-L6-v2", embed_url: Optional[str] = None, prefer_remote: bool = True
     ):
         self.model_name = model_name
         self.dim = 384
@@ -57,9 +54,10 @@ class Embedder:
             logger.info(f"Embedder: configured remote microservice at {self.embed_url}")
             try:
                 import httpx
+
                 self._http_client = httpx.Client(
                     timeout=httpx.Timeout(connect=1.0, read=3.0, write=1.0, pool=5.0),
-                    limits=httpx.Limits(max_keepalive_connections=5, max_connections=10)
+                    limits=httpx.Limits(max_keepalive_connections=5, max_connections=10),
                 )
             except ImportError:
                 self._http_client = None
@@ -70,6 +68,7 @@ class Embedder:
         # 1. Optional fastembed ONNX runtime (ultra-low RAM ~30MB, no PyTorch)
         try:
             from fastembed import TextEmbedding
+
             self._fastembed_model = TextEmbedding(model_name="sentence-transformers/all-MiniLM-L6-v2")
             self._provider = "fastembed-onnx"
             self.dim = 384
@@ -83,6 +82,7 @@ class Embedder:
         # 2. Local SentenceTransformers (PyTorch)
         try:
             from sentence_transformers import SentenceTransformer
+
             self._local_model = SentenceTransformer(self.model_name)
             self._provider = "sentence-transformers"
             try:
@@ -113,7 +113,9 @@ class Embedder:
             self._failure_count += 1
             if self._failure_count >= self._failure_threshold:
                 self._circuit_open_until = time.time() + self._recovery_timeout
-                logger.warning(f"Embedding circuit breaker OPEN for {self._recovery_timeout}s after {self._failure_count} failures.")
+                logger.warning(
+                    f"Embedding circuit breaker OPEN for {self._recovery_timeout}s after {self._failure_count} failures."
+                )
 
     def embed_documents(self, texts: List[str]) -> List[List[float]]:
         if not texts:
@@ -169,10 +171,9 @@ class Embedder:
         else:
             import urllib.request
             import json
+
             req = urllib.request.Request(
-                url,
-                data=json.dumps(payload).encode("utf-8"),
-                headers={"Content-Type": "application/json"}
+                url, data=json.dumps(payload).encode("utf-8"), headers={"Content-Type": "application/json"}
             )
             with urllib.request.urlopen(req, timeout=3.0) as response:
                 data = json.loads(response.read().decode("utf-8"))

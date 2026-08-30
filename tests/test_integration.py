@@ -11,8 +11,7 @@ class TestIntegration:
         with tempfile.TemporaryDirectory() as tmpdir:
             from gomaa import UnifiedMemorySystem
 
-            default_dsn = f"sqlite://{os.path.join(tmpdir, 'test.db')}"
-            dsn = os.environ.get("MEMORY_DB_DSN", default_dsn)
+            dsn = f"sqlite://{os.path.join(tmpdir, 'test.db')}"
             mem = UnifiedMemorySystem(
                 vault_path=tmpdir,
                 dsn=dsn,
@@ -43,7 +42,9 @@ class TestIntegration:
 
     def test_hybrid_search_rrf(self, memory):
         unique_term = "ivfflat_cosine_index_z88"
-        memory.remember("PostgreSQL Vector Search", f"Content about ivfflat and cosine distance {unique_term}.", tags=["db"])
+        memory.remember(
+            "PostgreSQL Vector Search", f"Content about ivfflat and cosine distance {unique_term}.", tags=["db"]
+        )
         memory.remember("Obsidian Graph Crawl", "Content about wikilinks and markdown.", tags=["graph"])
         results = memory.recall(unique_term, mode="hybrid")
         assert len(results) >= 1

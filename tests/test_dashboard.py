@@ -15,11 +15,30 @@ def dashboard_server(tmp_path):
     mem = UnifiedMemorySystem(vault_path=vault_path, dsn=db_path, auto_sync=False)
 
     # Pre-populate sample notes across layers
-    mem.remember("Turn 1 Session", "User asked about API keys", tags=["session", "dialog"], wing="sessions", room="general")
-    mem.remember("Production Rule", "Never commit .env secrets", tags=["rule", "policy"], wing="security", room="guidelines", pinned=True)
-    mem.remember("User Contact", "DevOps lead: Alice (alice@example.com)", tags=["user", "team"], wing="team", room="contacts")
-    mem.remember("Editor Style", "Prefers 4 spaces indent", tags=["preference", "config"], wing="preferences", room="ide")
-    mem.remember("FastAPI Guide", "Async endpoints with Pydantic schemas", tags=["python", "fastapi"], wing="engineering", room="backend")
+    mem.remember(
+        "Turn 1 Session", "User asked about API keys", tags=["session", "dialog"], wing="sessions", room="general"
+    )
+    mem.remember(
+        "Production Rule",
+        "Never commit .env secrets",
+        tags=["rule", "policy"],
+        wing="security",
+        room="guidelines",
+        pinned=True,
+    )
+    mem.remember(
+        "User Contact", "DevOps lead: Alice (alice@example.com)", tags=["user", "team"], wing="team", room="contacts"
+    )
+    mem.remember(
+        "Editor Style", "Prefers 4 spaces indent", tags=["preference", "config"], wing="preferences", room="ide"
+    )
+    mem.remember(
+        "FastAPI Guide",
+        "Async endpoints with Pydantic schemas",
+        tags=["python", "fastapi"],
+        wing="engineering",
+        room="backend",
+    )
 
     server = create_dashboard_server(host="127.0.0.1", port=18765, memory=mem)
     server_thread = threading.Thread(target=server.serve_forever, daemon=True)
@@ -87,14 +106,16 @@ class TestDashboardServer:
 
     def test_post_api_remember(self, dashboard_server):
         url = f"{dashboard_server}/api/remember"
-        payload = json.dumps({
-            "title": "New Dashboard Note",
-            "content": "Created from browser dashboard",
-            "tags": ["dashboard", "test"],
-            "wing": "general",
-            "room": "web",
-            "salience": 0.9,
-        }).encode("utf-8")
+        payload = json.dumps(
+            {
+                "title": "New Dashboard Note",
+                "content": "Created from browser dashboard",
+                "tags": ["dashboard", "test"],
+                "wing": "general",
+                "room": "web",
+                "salience": 0.9,
+            }
+        ).encode("utf-8")
         req = urllib.request.Request(url, data=payload, headers={"Content-Type": "application/json"})
         with urllib.request.urlopen(req) as response:
             assert response.status == 200

@@ -23,25 +23,14 @@ class TestMCPEdgeCases:
         req = {
             "jsonrpc": "2.0",
             "method": "tools/call",
-            "params": {
-                "name": "memory_remember",
-                "arguments": {"title": "Only Title"}
-            },
-            "id": 42
+            "params": {"name": "memory_remember", "arguments": {"title": "Only Title"}},
+            "id": 42,
         }
         resp = server._handle(req)
         assert resp.get("result", {}).get("isError") is True
 
         # Missing query in memory_recall
-        req = {
-            "jsonrpc": "2.0",
-            "method": "tools/call",
-            "params": {
-                "name": "memory_recall",
-                "arguments": {}
-            },
-            "id": 43
-        }
+        req = {"jsonrpc": "2.0", "method": "tools/call", "params": {"name": "memory_recall", "arguments": {}}, "id": 43}
         resp = server._handle(req)
         assert resp.get("result", {}).get("isError") is True
 
@@ -59,10 +48,10 @@ class TestMCPEdgeCases:
                     "title": "Coercion Note",
                     "content": "Test string inputs",
                     "salience": "0.85",
-                    "pinned": "true"
-                }
+                    "pinned": "true",
+                },
             },
-            "id": 44
+            "id": 44,
         }
         resp = server._handle(req)
         assert resp.get("result", {}).get("isError") is not True
@@ -73,13 +62,9 @@ class TestMCPEdgeCases:
             "method": "tools/call",
             "params": {
                 "name": "memory_recall",
-                "arguments": {
-                    "query": "Coercion",
-                    "top_k": "5",
-                    "include_shared": "false"
-                }
+                "arguments": {"query": "Coercion", "top_k": "5", "include_shared": "false"},
             },
-            "id": 45
+            "id": 45,
         }
         resp_recall = server._handle(req_recall)
         assert resp_recall.get("result", {}).get("isError") is not True
@@ -88,11 +73,6 @@ class TestMCPEdgeCases:
         mem = UnifiedMemorySystem(vault_path=str(tmp_path), auto_sync=False)
         server = MCPServer(memory=mem)
 
-        req = {
-            "jsonrpc": "2.0",
-            "method": "notifications/initialized",
-            "params": {}
-        }
+        req = {"jsonrpc": "2.0", "method": "notifications/initialized", "params": {}}
         resp = server._handle(req)
         assert resp is None
-

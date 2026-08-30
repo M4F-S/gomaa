@@ -22,4 +22,3 @@ class TestReconcileLinks:
         links = store.search_graph("Note A", depth=1)
         assert len(links) >= 1
         assert any(link["title"] == "Note B" for link in links)
-

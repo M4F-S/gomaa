@@ -130,7 +130,10 @@ case "${1:-}" in
             echo "Agent Container: $c"
             $SSH_CMD "docker exec -e MEMORY_DB_DSN='$(dns_for "$c")' ${c} /opt/data/mcp-servers/venv/bin/python -c \"
 import os, json
-from mnemosyne.mcp_server import MCPServer
+try:
+    from gomaa.mcp_server import MCPServer
+except ImportError:
+    from mnemosyne.mcp_server import MCPServer
 server = MCPServer()
 health = server._health()
 print('  Version:', health['server']['version'])

@@ -12,15 +12,14 @@ import os
 import re
 import shutil
 import unicodedata
+import uuid
 from datetime import datetime
 from pathlib import Path
 from typing import Dict, List, Optional
 
 logger = logging.getLogger("unified-memory")
 
-VAULT_PATH = os.environ.get(
-    "MEMORY_VAULT_PATH", os.path.expanduser("~/.gomaa/vault")
-)
+VAULT_PATH = os.environ.get("MEMORY_VAULT_PATH", os.path.expanduser("~/.gomaa/vault"))
 
 
 def safe_filename(title: str) -> str:
@@ -40,9 +39,9 @@ def get_safe_note_path(vault_root: Path, wing: str = "general", room: str = "gen
         if ".." in comp_val or "/" in comp_val or "\\" in comp_val:
             raise ValueError(f"Security Alert: Path traversal attempt detected in {comp_name}: {comp_val}")
 
-    safe_title = "".join(c for c in title if c.isalnum() or c in (' ', '_', '-')).strip()[:150] or "untitled"
-    safe_wing = "".join(c for c in wing if c.isalnum() or c in ('_', '-')).strip() or "general"
-    safe_room = "".join(c for c in room if c.isalnum() or c in ('_', '-')).strip() or "general"
+    safe_title = "".join(c for c in title if c.isalnum() or c in (" ", "_", "-")).strip()[:150] or "untitled"
+    safe_wing = "".join(c for c in wing if c.isalnum() or c in ("_", "-")).strip() or "general"
+    safe_room = "".join(c for c in room if c.isalnum() or c in ("_", "-")).strip() or "general"
 
     root_resolved = vault_root.resolve()
     target_resolved = (root_resolved / safe_wing / safe_room / f"{safe_title}.md").resolve()
@@ -58,7 +57,7 @@ def _atomic_write_text(target_path: Path, text: str) -> None:
     Includes fallback for cross-device filesystem moves (EXDEV).
     """
     target_path.parent.mkdir(parents=True, exist_ok=True)
-    tmp_path = target_path.parent / f".{target_path.name}.{os.getpid()}.tmp"
+    tmp_path = target_path.parent / f".{target_path.name}.{os.getpid()}.{uuid.uuid4().hex}.tmp"
     try:
         tmp_path.write_text(text, encoding="utf-8")
         try:
@@ -125,9 +124,7 @@ class VaultManager:
 
         import yaml  # type: ignore[import-untyped]
 
-        yaml_content = yaml.dump(
-            frontmatter, default_flow_style=False, allow_unicode=True, sort_keys=False
-        )
+        yaml_content = yaml.dump(frontmatter, default_flow_style=False, allow_unicode=True, sort_keys=False)
         full = f"---\n{yaml_content}---\n{body}\n"
 
         _atomic_write_text(filepath, full)
@@ -153,7 +150,7 @@ class VaultManager:
         body = result["body"]
         heading = f"# {title}\n\n"
         if body.startswith(heading):
-            result["content"] = body[len(heading):]
+            result["content"] = body[len(heading) :]
         else:
             result["content"] = body
         return result
