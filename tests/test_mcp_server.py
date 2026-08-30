@@ -1,7 +1,7 @@
 import json
 import gomaa
 import pytest
-from unittest.mock import MagicMock, patch, call
+from unittest.mock import MagicMock, patch
 import signal
 import time
 from gomaa.mcp_server import MCPServer

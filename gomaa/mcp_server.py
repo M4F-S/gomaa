@@ -5,7 +5,6 @@ Exposes memory tools over standard MCP JSON-RPC protocol via stdio.
 
 import json
 import logging
-import os
 import signal
 import sys
 import time
@@ -20,6 +19,34 @@ logging.basicConfig(
     format="%(asctime)s [%(levelname)s] %(message)s",
 )
 logger = logging.getLogger("gomaa-mcp")
+
+
+def _safe_int(val: Any, default: int) -> int:
+    if val is None:
+        return default
+    try:
+        return int(val)
+    except (ValueError, TypeError):
+        return default
+
+
+def _safe_float(val: Any, default: float) -> float:
+    if val is None:
+        return default
+    try:
+        return float(val)
+    except (ValueError, TypeError):
+        return default
+
+
+def _safe_bool(val: Any, default: bool) -> bool:
+    if val is None:
+        return default
+    if isinstance(val, bool):
+        return val
+    if isinstance(val, str):
+        return val.lower() in ("true", "1", "yes", "t")
+    return bool(val)
 
 
 class MCPServer:
@@ -87,7 +114,7 @@ class MCPServer:
                 "id": req_id,
             }
         elif method == "notifications/initialized":
-            return {}
+            return None
         elif method == "ping":
             return {"jsonrpc": "2.0", "result": {}, "id": req_id}
         elif method == "tools/list":
@@ -268,10 +295,10 @@ class MCPServer:
                 title=args["title"],
                 content=args["content"],
                 tags=args.get("tags"),
-                salience=args.get("salience", 0.5),
+                salience=_safe_float(args.get("salience"), 0.5),
                 wing=args.get("wing", "general"),
                 room=args.get("room", "general"),
-                pinned=args.get("pinned", False),
+                pinned=_safe_bool(args.get("pinned"), False),
             )
         elif name == "memory_publish_shared":
             if "title" not in args or "content" not in args:
@@ -289,9 +316,9 @@ class MCPServer:
             results = self.memory.recall(
                 query=args["query"],
                 mode=args.get("mode", "hybrid"),
-                top_k=args.get("top_k", 5),
+                top_k=_safe_int(args.get("top_k"), 5),
                 scope=args.get("scope"),
-                include_shared=args.get("include_shared", True),
+                include_shared=_safe_bool(args.get("include_shared"), True),
             )
             return {"results": results}
         elif name == "memory_assemble_context":
@@ -299,10 +326,10 @@ class MCPServer:
                 raise ValueError("Missing required argument: 'query' is required for memory_assemble_context.")
             return self.memory.assemble_context(
                 query=args["query"],
-                max_tokens=args.get("max_tokens", 2000),
+                max_tokens=_safe_int(args.get("max_tokens"), 2000),
                 scope=args.get("scope"),
                 mode=args.get("mode", "hybrid"),
-                include_shared=args.get("include_shared", True),
+                include_shared=_safe_bool(args.get("include_shared"), True),
             )
         elif name == "memory_ingest_session":
             if "transcript" not in args:
