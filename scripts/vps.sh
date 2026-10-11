@@ -93,13 +93,8 @@ case "${1:-}" in
         ;;
 
     test)
-        echo "=== Running Mnemosyne Test Suite on ${VPS_HOST} ==="
-        for c in "${CONTAINERS[@]}"; do
-            echo "--- Testing inside: $c ---"
-            # Container path may differ; DEPLOY_DIR defaults to /opt/mnemosyne.
-            $SSH_CMD "docker exec -e PYTHONPATH=${DEPLOY_DIR} -e MEMORY_DB_DSN='$(dns_for toy)' $c ${DEPLOY_DIR}/.venv/bin/pytest ${DEPLOY_DIR}/tests -v" \
-                2>/dev/null || echo "  (skipped — ${DEPLOY_DIR} not present or test failed on $c)"
-        done
+        echo "=== Running Gomaa v4.0 Test Suite on ${VPS_HOST} ==="
+        $SSH_CMD "docker exec -u hermes -e HF_HUB_OFFLINE=1 -e PYTHONPATH=${DEPLOY_DIR} -e MEMORY_DB_DSN='$(dns_for toy)' hermes-agent /opt/data/mcp-servers/venv/bin/python -m pytest ${DEPLOY_DIR}/tests -q"
         ;;
 
     sync)
@@ -107,14 +102,20 @@ case "${1:-}" in
         rsync -avz --exclude '.git' --exclude '__pycache__' --exclude '.venv' \
             -e "ssh -p ${VPS_PORT}" \
             "${PROJECT_ROOT}/" "${SSH_HOST}:${DEPLOY_DIR}/"
-        echo "Sync complete!"
+        echo "=== Installing Gomaa into all 5 agent containers ==="
+        $SSH_CMD "for c in ${CONTAINERS[*]}; do
+            echo \"  -> Updating container: \$c\"
+            docker exec \$c rm -rf ${DEPLOY_DIR}
+            docker cp ${DEPLOY_DIR} \$c:${DEPLOY_DIR}
+            docker exec \$c chown -R hermes:hermes ${DEPLOY_DIR}
+            docker exec \$c /opt/data/mcp-servers/venv/bin/pip install --no-deps -e ${DEPLOY_DIR} -q
+        done"
+        echo "Sync & container installation complete!"
         ;;
 
     restart)
         echo "=== Restarting agent containers ==="
-        for c in "${CONTAINERS[@]}"; do
-            $SSH_CMD "docker restart ${c}" && echo "restarted ${c}"
-        done
+        $SSH_CMD "docker restart ${CONTAINERS[*]}"
         ;;
 
     logs)
@@ -125,24 +126,27 @@ case "${1:-}" in
 
     audit)
         echo "=== Running Memory MCP Runtime Audit Across Fleet ==="
-        for c in "${CONTAINERS[@]}"; do
-            echo "----------------------------------------------------"
-            echo "Agent Container: $c"
-            $SSH_CMD "docker exec -e MEMORY_DB_DSN='$(dns_for "$c")' ${c} /opt/data/mcp-servers/venv/bin/python -c \"
-import os, json
-try:
-    from gomaa.mcp_server import MCPServer
-except ImportError:
-    from mnemosyne.mcp_server import MCPServer
+        $SSH_CMD "for c in ${CONTAINERS[*]}; do
+            echo '----------------------------------------------------'
+            echo \"Agent Container: \$c\"
+            docker exec -u hermes -e HF_HUB_OFFLINE=1 \$c /opt/data/mcp-servers/venv/bin/python -c '
+import os, sys, logging
+logging.disable(logging.WARNING)
+# Load container wrapper env vars
+with open(\"/opt/data/mcp-servers/obsidian_memory_mcp.py\") as f:
+    for line in f:
+        if line.startswith(\"os.environ[\"):
+            exec(line)
+from gomaa.mcp_server import MCPServer
 server = MCPServer()
 health = server._health()
-print('  Version:', health['server']['version'])
-print('  Status:', health['server']['status'])
-print('  Backend:', health['store']['backend'])
-print('  Shared connected:', health['store']['shared_store'])
-print('  Tools count:', len(server._get_tools()))
-\""
-        done
+print(\"  Version:\", health[\"server\"][\"version\"])
+print(\"  Status:\", health[\"server\"][\"status\"])
+print(\"  Backend:\", health[\"store\"][\"backend\"])
+print(\"  Shared connected:\", health[\"store\"][\"shared_store\"])
+print(\"  Tools count:\", len(server._get_tools()))
+'
+        done"
         ;;
 
     shell)
