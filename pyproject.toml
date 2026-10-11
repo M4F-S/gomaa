@@ -4,8 +4,8 @@ build-backend = "hatchling.build"
 
 [project]
 name = "gomaa"
-version = "3.5.0"
-description = "Production-grade local hierarchical memory platform for AI agents with Obsidian sync, hybrid RRF search, and Ebbinghaus temporal decay."
+version = "4.0.0"
+description = "Cognitive Quadrant Memory platform for AI agents with HippoRAG 2 associative PPR, 3-phase sleep consolidation, Obsidian sync, and ATMS truth maintenance."
 readme = "README.md"
 requires-python = ">=3.9"
 license = "Apache-2.0"

@@ -14,6 +14,12 @@ class TestMemoryMCPServer:
         mock_memory.remember.return_value = {"success": True, "note_id": 1}
         mock_memory.recall.return_value = [{"title": "Test", "score": 0.9}]
         mock_memory.stats.return_value = {"notes": 10, "links": 5}
+        mock_memory.log_event.return_value = {"id": 1, "session_id": "s1"}
+        mock_memory.upsert_playbook.return_value = {"id": 1, "skill_name": "sk1"}
+        mock_memory.sleep.return_value = {"reconciled_links": 2, "decayed": 0, "archived": 0, "engine": {}}
+        mock_memory.get_working_memory.return_value = {"session_id": "s1", "active_goal": "test"}
+        mock_memory.clear_working_memory.return_value = True
+        mock_memory.update_working_memory.return_value = {"session_id": "s1", "active_goal": "new"}
         mock_memory.db = MagicMock()
         mock_memory.vault = MagicMock()
         mock_memory.vault.vault_path = "/mock/vault"
@@ -36,13 +42,17 @@ class TestMemoryMCPServer:
         req = {"jsonrpc": "2.0", "method": "tools/list", "id": 2}
         resp = server._handle(req)
         tools = resp["result"]["tools"]
-        assert len(tools) == 9
+        assert len(tools) == 13
         tool_names = [t["name"] for t in tools]
         assert "memory_remember" in tool_names
         assert "memory_publish_shared" in tool_names
         assert "memory_recall" in tool_names
         assert "memory_assemble_context" in tool_names
         assert "memory_audit" in tool_names
+        assert "memory_ingest_event" in tool_names
+        assert "memory_save_playbook" in tool_names
+        assert "memory_sleep" in tool_names
+        assert "memory_working_buffer" in tool_names
 
     def test_tools_call_remember(self, server):
         req = {
@@ -164,3 +174,110 @@ class TestMemoryMCPServer:
         assert uptime >= 0
         time.sleep(0.01)
         assert server._uptime() > uptime
+
+    def test_tools_call_ingest_event(self, server):
+        req = {
+            "jsonrpc": "2.0",
+            "method": "tools/call",
+            "params": {
+                "name": "memory_ingest_event",
+                "arguments": {
+                    "session_id": "sess-42",
+                    "stimulus": "test stimulus",
+                    "response": "test response",
+                    "surprise_factor": 0.8,
+                },
+            },
+            "id": 10,
+        }
+        resp = server._handle(req)
+        assert "result" in resp
+        content = json.loads(resp["result"]["content"][0]["text"])
+        assert content["session_id"] == "s1"
+        server.memory.log_event.assert_called_once()
+
+    def test_tools_call_save_playbook(self, server):
+        req = {
+            "jsonrpc": "2.0",
+            "method": "tools/call",
+            "params": {
+                "name": "memory_save_playbook",
+                "arguments": {
+                    "skill_name": "backup_vps",
+                    "domain": "devops",
+                    "description": "Backup VPS data",
+                },
+            },
+            "id": 11,
+        }
+        resp = server._handle(req)
+        assert "result" in resp
+        content = json.loads(resp["result"]["content"][0]["text"])
+        assert content["skill_name"] == "sk1"
+        server.memory.upsert_playbook.assert_called_once()
+
+    def test_tools_call_sleep(self, server):
+        req = {
+            "jsonrpc": "2.0",
+            "method": "tools/call",
+            "params": {
+                "name": "memory_sleep",
+                "arguments": {"decay_factor": 0.90, "archive_threshold": 0.15},
+            },
+            "id": 12,
+        }
+        resp = server._handle(req)
+        assert "result" in resp
+        content = json.loads(resp["result"]["content"][0]["text"])
+        assert "reconciled_links" in content
+        server.memory.sleep.assert_called_once_with(decay_rate=0.90, archive_threshold=0.15)
+
+    def test_tools_call_working_buffer(self, server):
+        # 1. Update action
+        req_update = {
+            "jsonrpc": "2.0",
+            "method": "tools/call",
+            "params": {
+                "name": "memory_working_buffer",
+                "arguments": {
+                    "action": "update",
+                    "session_id": "sess-wb",
+                    "active_goal": "solve bug",
+                },
+            },
+            "id": 13,
+        }
+        resp_up = server._handle(req_update)
+        assert "result" in resp_up
+        content_up = json.loads(resp_up["result"]["content"][0]["text"])
+        assert content_up["active_goal"] == "new"
+
+        # 2. Get action
+        req_get = {
+            "jsonrpc": "2.0",
+            "method": "tools/call",
+            "params": {
+                "name": "memory_working_buffer",
+                "arguments": {"action": "get", "session_id": "sess-wb"},
+            },
+            "id": 14,
+        }
+        resp_get = server._handle(req_get)
+        assert "result" in resp_get
+        content_get = json.loads(resp_get["result"]["content"][0]["text"])
+        assert content_get["working_memory"]["active_goal"] == "test"
+
+        # 3. Clear action
+        req_clear = {
+            "jsonrpc": "2.0",
+            "method": "tools/call",
+            "params": {
+                "name": "memory_working_buffer",
+                "arguments": {"action": "clear", "session_id": "sess-wb"},
+            },
+            "id": 15,
+        }
+        resp_clear = server._handle(req_clear)
+        assert "result" in resp_clear
+        content_clear = json.loads(resp_clear["result"]["content"][0]["text"])
+        assert content_clear["cleared"] is True

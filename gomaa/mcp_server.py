@@ -1,5 +1,5 @@
 """
-MCP Server for Gomaa Unified Memory Platform (v3.5.0).
+MCP Server for Gomaa Unified Memory Platform (v4.0.0 - Mnemosyne Neo).
 Exposes memory tools over standard MCP JSON-RPC protocol via stdio.
 """
 
@@ -221,7 +221,12 @@ class MCPServer:
                     "type": "object",
                     "properties": {
                         "query": {"type": "string"},
-                        "mode": {"type": "string", "enum": ["hybrid", "semantic", "keyword", "graph"]},
+                        "mode": {
+                            "type": "string",
+                            "enum": ["hybrid", "semantic", "keyword", "graph", "associative_ppr", "procedural", "episodic"],
+                            "default": "hybrid",
+                            "description": "Recall mode: hybrid RRF, dense semantic, keyword BM25, 2-hop graph walk, HippoRAG associative PPR, procedural playbooks, or episodic turns.",
+                        },
                         "top_k": {"type": "integer", "default": 5},
                         "scope": {
                             "type": "object",
@@ -303,7 +308,7 @@ class MCPServer:
                         },
                         "mode": {
                             "type": "string",
-                            "enum": ["hybrid", "semantic", "keyword", "graph"],
+                            "enum": ["hybrid", "semantic", "keyword", "graph", "associative_ppr"],
                             "default": "hybrid",
                         },
                         "scope": {
@@ -321,6 +326,103 @@ class MCPServer:
                         },
                     },
                     "required": ["query"],
+                },
+            },
+            {
+                "name": "memory_ingest_event",
+                "description": "Log an episodic turn or experiential event into the biological episodic ledger with surprise rating and outcome.",
+                "inputSchema": {
+                    "type": "object",
+                    "properties": {
+                        "session_id": {"type": "string", "description": "Active session or conversation ID"},
+                        "stimulus": {"type": "string", "description": "The input stimulus, query, or prompt"},
+                        "response": {"type": "string", "description": "The agent's response, action, or output"},
+                        "event_type": {
+                            "type": "string",
+                            "enum": ["dialogue", "tool_call", "observation", "internal_thought"],
+                            "default": "dialogue",
+                        },
+                        "tool_name": {"type": "string", "description": "Optional name of tool executed"},
+                        "tool_args": {"type": "object", "description": "Optional tool arguments"},
+                        "surprise_factor": {
+                            "type": "number",
+                            "description": "Surprise rating 0.0-1.0 (>=0.5 triggers sleep crystallization)",
+                            "default": 0.0,
+                        },
+                        "outcome_status": {
+                            "type": "string",
+                            "enum": ["success", "failure", "partial"],
+                            "default": "success",
+                        },
+                    },
+                    "required": ["session_id", "stimulus", "response"],
+                },
+            },
+            {
+                "name": "memory_save_playbook",
+                "description": "Store or update a procedural skill playbook with preconditions, tool sequences, and error recovery.",
+                "inputSchema": {
+                    "type": "object",
+                    "properties": {
+                        "skill_name": {"type": "string", "description": "Unique identifier for the procedural skill"},
+                        "domain": {"type": "string", "description": "Skill domain (e.g. devops, pentest, data, coding)"},
+                        "description": {"type": "string", "description": "Functional description of when and how to execute this skill"},
+                        "preconditions": {
+                            "type": "array",
+                            "items": {"type": "string"},
+                            "description": "Required preconditions or environment state",
+                        },
+                        "tool_sequence": {
+                            "type": "array",
+                            "items": {"type": "object"},
+                            "description": "Ordered sequence of steps or tool invocations",
+                        },
+                        "error_recovery": {
+                            "type": "object",
+                            "description": "Fallback strategies or recovery policies",
+                        },
+                    },
+                    "required": ["skill_name", "domain", "description"],
+                },
+            },
+            {
+                "name": "memory_sleep",
+                "description": "Trigger biological sleep consolidation: SWS episodic crystallization, REM swarm playbook sharing, and synaptic homeostasis.",
+                "inputSchema": {
+                    "type": "object",
+                    "properties": {
+                        "decay_factor": {
+                            "type": "number",
+                            "default": 0.95,
+                            "description": "Temporal decay multiplier per sleep cycle",
+                        },
+                        "archive_threshold": {
+                            "type": "number",
+                            "default": 0.10,
+                            "description": "Salience cutoff below which stale inactive memories are archived",
+                        },
+                    },
+                },
+            },
+            {
+                "name": "memory_working_buffer",
+                "description": "Manage bounded working memory scratchpad, active goals, hypothesis state, and attention focus for a session.",
+                "inputSchema": {
+                    "type": "object",
+                    "properties": {
+                        "action": {
+                            "type": "string",
+                            "enum": ["get", "update", "clear"],
+                            "description": "Working memory action",
+                        },
+                        "session_id": {"type": "string", "description": "Session identifier"},
+                        "agent_role": {"type": "string", "default": "agent"},
+                        "active_goal": {"type": "string", "description": "Primary goal currently pursued"},
+                        "subtask_stack": {"type": "array", "description": "Stack of active subtasks"},
+                        "hypotheses": {"type": "array", "description": "Candidate hypotheses under evaluation"},
+                        "attention_window": {"type": "array", "description": "Top items currently within attention span"},
+                    },
+                    "required": ["action", "session_id"],
                 },
             },
             {
@@ -412,6 +514,62 @@ class MCPServer:
                 "stats": self.memory.stats(),
                 "health": self._health(),
             }
+        elif name == "memory_ingest_event":
+            if "session_id" not in args or "stimulus" not in args or "response" not in args:
+                raise ValueError(
+                    "Missing required arguments: 'session_id', 'stimulus', and 'response' are required for memory_ingest_event."
+                )
+            return self.memory.log_event(
+                session_id=str(args["session_id"]),
+                event_type=str(args.get("event_type", "dialogue")),
+                stimulus=str(args["stimulus"]),
+                response=str(args["response"]),
+                tool_name=str(args["tool_name"]) if args.get("tool_name") else None,
+                tool_args=args.get("tool_args"),
+                surprise_factor=_safe_float(args.get("surprise_factor"), 0.0),
+                outcome_status=str(args.get("outcome_status", "success")),
+            )
+        elif name == "memory_save_playbook":
+            if "skill_name" not in args or "domain" not in args or "description" not in args:
+                raise ValueError(
+                    "Missing required arguments: 'skill_name', 'domain', and 'description' are required for memory_save_playbook."
+                )
+            return self.memory.upsert_playbook(
+                skill_name=str(args["skill_name"]),
+                domain=str(args["domain"]),
+                description=str(args["description"]),
+                preconditions=args.get("preconditions") or [],
+                tool_sequence=args.get("tool_sequence") or [],
+                error_recovery=args.get("error_recovery") or {},
+            )
+        elif name == "memory_sleep":
+            return self.memory.sleep(
+                decay_rate=_safe_float(args.get("decay_factor"), 0.95),
+                archive_threshold=_safe_float(args.get("archive_threshold"), 0.10),
+            )
+        elif name == "memory_working_buffer":
+            if "action" not in args or "session_id" not in args:
+                raise ValueError(
+                    "Missing required arguments: 'action' and 'session_id' are required for memory_working_buffer."
+                )
+            action = str(args["action"]).lower()
+            sid = str(args["session_id"])
+            if action == "get":
+                return {"session_id": sid, "working_memory": self.memory.get_working_memory(sid)}
+            elif action == "clear":
+                success = self.memory.clear_working_memory(sid)
+                return {"session_id": sid, "cleared": success}
+            elif action == "update":
+                return self.memory.update_working_memory(
+                    session_id=sid,
+                    agent_role=str(args.get("agent_role", "agent")),
+                    active_goal=str(args["active_goal"]) if args.get("active_goal") is not None else None,
+                    subtask_stack=args.get("subtask_stack"),
+                    hypotheses=args.get("hypotheses"),
+                    attention_window=args.get("attention_window"),
+                )
+            else:
+                raise ValueError(f"Invalid working memory action: {action}")
         else:
             raise ValueError(f"Unknown tool: {name}")
 

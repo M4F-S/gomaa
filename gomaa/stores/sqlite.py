@@ -1,5 +1,7 @@
+import hashlib
 import json
 import logging
+import math
 import os
 import re
 import sqlite3
@@ -55,6 +57,11 @@ class SQLiteStore(MemoryStore):
                     wing TEXT NOT NULL DEFAULT 'general',
                     room TEXT NOT NULL DEFAULT 'general',
                     origin_agent TEXT NOT NULL DEFAULT 'local',
+                    memory_type TEXT NOT NULL DEFAULT 'semantic',
+                    episodic_parent_hash TEXT,
+                    superseded_by TEXT,
+                    access_count INTEGER DEFAULT 0,
+                    confidence REAL DEFAULT 1.0,
                     last_accessed_at TEXT NOT NULL DEFAULT (datetime('now')),
                     created_at TEXT NOT NULL DEFAULT (datetime('now')),
                     updated_at TEXT NOT NULL DEFAULT (datetime('now')),
@@ -66,6 +73,8 @@ class SQLiteStore(MemoryStore):
                     source_note_id TEXT NOT NULL,
                     target_note_id TEXT NOT NULL,
                     link_type TEXT NOT NULL DEFAULT 'wiki',
+                    relation_type TEXT NOT NULL DEFAULT 'associative',
+                    edge_weight REAL DEFAULT 1.0,
                     created_at TEXT NOT NULL DEFAULT (datetime('now')),
                     UNIQUE(source_note_id, target_note_id)
                 );
@@ -98,6 +107,61 @@ class SQLiteStore(MemoryStore):
                     salience REAL,
                     version_at TEXT NOT NULL DEFAULT (datetime('now'))
                 );
+
+                CREATE TABLE IF NOT EXISTS episodic_events (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    event_uuid TEXT UNIQUE,
+                    session_id TEXT NOT NULL,
+                    turn_index INTEGER NOT NULL,
+                    origin_agent TEXT NOT NULL,
+                    timestamp TEXT NOT NULL DEFAULT (datetime('now')),
+                    event_type TEXT NOT NULL,
+                    stimulus TEXT NOT NULL,
+                    response TEXT NOT NULL,
+                    outcome_status TEXT DEFAULT 'success',
+                    surprise_factor REAL DEFAULT 0.0,
+                    content_hash TEXT NOT NULL,
+                    consolidated INTEGER DEFAULT 0,
+                    embedding TEXT
+                );
+                CREATE INDEX IF NOT EXISTS idx_episodic_unconsolidated ON episodic_events (consolidated, timestamp);
+                CREATE INDEX IF NOT EXISTS idx_episodic_session ON episodic_events (session_id, turn_index);
+
+                CREATE TABLE IF NOT EXISTS procedural_playbooks (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    skill_name TEXT NOT NULL UNIQUE,
+                    domain TEXT NOT NULL,
+                    description TEXT NOT NULL,
+                    preconditions TEXT NOT NULL DEFAULT '[]',
+                    tool_sequence TEXT NOT NULL DEFAULT '[]',
+                    error_recovery TEXT NOT NULL DEFAULT '{}',
+                    invocation_count INTEGER DEFAULT 0,
+                    success_count INTEGER DEFAULT 0,
+                    embedding TEXT,
+                    created_at TEXT NOT NULL DEFAULT (datetime('now')),
+                    updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+                );
+                CREATE INDEX IF NOT EXISTS idx_procedural_domain ON procedural_playbooks (domain);
+
+                CREATE TABLE IF NOT EXISTS working_memory (
+                    session_id TEXT PRIMARY KEY,
+                    agent_role TEXT NOT NULL,
+                    active_goal TEXT,
+                    subtask_stack TEXT DEFAULT '[]',
+                    hypotheses TEXT DEFAULT '[]',
+                    attention_window TEXT DEFAULT '[]',
+                    updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+                );
+
+                CREATE TABLE IF NOT EXISTS epistemic_conflicts (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    old_note_id TEXT,
+                    new_note_id TEXT,
+                    detected_at TEXT NOT NULL DEFAULT (datetime('now')),
+                    conflict_description TEXT NOT NULL,
+                    resolution_status TEXT DEFAULT 'pending',
+                    resolved_by TEXT
+                );
             """
             )
             cur = conn.cursor()
@@ -111,6 +175,23 @@ class SQLiteStore(MemoryStore):
                 cur.execute("ALTER TABLE notes ADD COLUMN origin_agent TEXT NOT NULL DEFAULT 'local';")
             if "last_accessed_at" not in columns:
                 cur.execute("ALTER TABLE notes ADD COLUMN last_accessed_at TEXT NOT NULL DEFAULT '';")
+            if "memory_type" not in columns:
+                cur.execute("ALTER TABLE notes ADD COLUMN memory_type TEXT NOT NULL DEFAULT 'semantic';")
+            if "episodic_parent_hash" not in columns:
+                cur.execute("ALTER TABLE notes ADD COLUMN episodic_parent_hash TEXT;")
+            if "superseded_by" not in columns:
+                cur.execute("ALTER TABLE notes ADD COLUMN superseded_by TEXT;")
+            if "access_count" not in columns:
+                cur.execute("ALTER TABLE notes ADD COLUMN access_count INTEGER DEFAULT 0;")
+            if "confidence" not in columns:
+                cur.execute("ALTER TABLE notes ADD COLUMN confidence REAL DEFAULT 1.0;")
+
+            cur.execute("PRAGMA table_info(links);")
+            link_columns = [row["name"] for row in cur.fetchall()]
+            if "relation_type" not in link_columns:
+                cur.execute("ALTER TABLE links ADD COLUMN relation_type TEXT NOT NULL DEFAULT 'associative';")
+            if "edge_weight" not in link_columns:
+                cur.execute("ALTER TABLE links ADD COLUMN edge_weight REAL DEFAULT 1.0;")
 
     def _scope_clause(self, scope: Optional[Dict]) -> Tuple[str, List[Any]]:
         if not scope:
@@ -184,12 +265,16 @@ class SQLiteStore(MemoryStore):
         wing: str = "general",
         room: str = "general",
         origin_agent: str = "local",
+        memory_type: str = "semantic",
+        episodic_parent_hash: Optional[str] = None,
+        superseded_by: Optional[str] = None,
+        confidence: float = 1.0,
     ) -> str:
         vault_path = str(vault_path)
         with self._conn() as conn:
             cur = conn.cursor()
             cur.execute(
-                "SELECT id, title, content, tags, salience FROM notes WHERE title = ? AND vault_path = ?;",
+                "SELECT id, title, content, tags, salience, access_count FROM notes WHERE title = ? AND vault_path = ?;",
                 (title, vault_path),
             )
             existing = cur.fetchone()
@@ -207,7 +292,10 @@ class SQLiteStore(MemoryStore):
                     """
                     UPDATE notes
                     SET content = ?, tags = ?, note_type = ?, status = ?, salience = ?,
-                        embedding = ?, wing = ?, room = ?, origin_agent = ?, last_accessed_at = datetime('now'), updated_at = datetime('now')
+                        embedding = ?, wing = ?, room = ?, origin_agent = ?,
+                        memory_type = ?, episodic_parent_hash = ?, superseded_by = ?, confidence = ?,
+                        access_count = access_count + 1,
+                        last_accessed_at = datetime('now'), updated_at = datetime('now')
                     WHERE id = ?;
                 """,
                     (
@@ -220,6 +308,10 @@ class SQLiteStore(MemoryStore):
                         wing,
                         room,
                         origin_agent,
+                        memory_type,
+                        episodic_parent_hash,
+                        superseded_by,
+                        confidence,
                         note_id,
                     ),
                 )
@@ -228,8 +320,13 @@ class SQLiteStore(MemoryStore):
                 try:
                     conn.execute(
                         """
-                        INSERT INTO notes (id, title, content, tags, note_type, status, salience, embedding, vault_path, wing, room, origin_agent, last_accessed_at, created_at, updated_at)
-                        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'), datetime('now'), datetime('now'));
+                        INSERT INTO notes (
+                            id, title, content, tags, note_type, status, salience,
+                            embedding, vault_path, wing, room, origin_agent,
+                            memory_type, episodic_parent_hash, superseded_by, confidence,
+                            access_count, last_accessed_at, created_at, updated_at
+                        )
+                        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, datetime('now'), datetime('now'), datetime('now'));
                     """,
                         (
                             note_id,
@@ -244,6 +341,10 @@ class SQLiteStore(MemoryStore):
                             wing,
                             room,
                             origin_agent,
+                            memory_type,
+                            episodic_parent_hash,
+                            superseded_by,
+                            confidence,
                         ),
                     )
                 except sqlite3.IntegrityError:
@@ -255,7 +356,10 @@ class SQLiteStore(MemoryStore):
                             """
                             UPDATE notes
                             SET content = ?, tags = ?, note_type = ?, status = ?, salience = ?,
-                                embedding = ?, wing = ?, room = ?, origin_agent = ?, last_accessed_at = datetime('now'), updated_at = datetime('now')
+                                embedding = ?, wing = ?, room = ?, origin_agent = ?,
+                                memory_type = ?, episodic_parent_hash = ?, superseded_by = ?, confidence = ?,
+                                access_count = access_count + 1,
+                                last_accessed_at = datetime('now'), updated_at = datetime('now')
                             WHERE id = ?;
                         """,
                             (
@@ -268,6 +372,10 @@ class SQLiteStore(MemoryStore):
                                 wing,
                                 room,
                                 origin_agent,
+                                memory_type,
+                                episodic_parent_hash,
+                                superseded_by,
+                                confidence,
                                 note_id,
                             ),
                         )
@@ -315,7 +423,7 @@ class SQLiteStore(MemoryStore):
                     params.append(filters["note_type"])
 
             cur.execute(
-                f"SELECT id, title, content, tags, note_type, salience, vault_path, wing, room, embedding FROM notes {where};",
+                f"SELECT id, title, content, tags, note_type, salience, vault_path, wing, room, embedding, memory_type, episodic_parent_hash, superseded_by, access_count, confidence FROM notes {where};",
                 params,
             )
             rows = cur.fetchall()
@@ -345,6 +453,11 @@ class SQLiteStore(MemoryStore):
                         "wing": row["wing"],
                         "room": row["room"],
                         "score": score,
+                        "memory_type": row["memory_type"] if "memory_type" in row.keys() else "semantic",
+                        "episodic_parent_hash": row["episodic_parent_hash"] if "episodic_parent_hash" in row.keys() else None,
+                        "superseded_by": row["superseded_by"] if "superseded_by" in row.keys() else None,
+                        "access_count": row["access_count"] if "access_count" in row.keys() else 0,
+                        "confidence": row["confidence"] if "confidence" in row.keys() else 1.0,
                     }
                 )
 
@@ -382,7 +495,8 @@ class SQLiteStore(MemoryStore):
 
             cur.execute(
                 f"""
-                SELECT id, title, content, tags, note_type, salience, vault_path, wing, room
+                SELECT id, title, content, tags, note_type, salience, vault_path, wing, room,
+                       memory_type, episodic_parent_hash, superseded_by, access_count, confidence
                 FROM notes
                 {where}
                 ORDER BY salience DESC
@@ -405,6 +519,11 @@ class SQLiteStore(MemoryStore):
                         "wing": row["wing"],
                         "room": row["room"],
                         "score": 1.0,
+                        "memory_type": row["memory_type"] if "memory_type" in row.keys() else "semantic",
+                        "episodic_parent_hash": row["episodic_parent_hash"] if "episodic_parent_hash" in row.keys() else None,
+                        "superseded_by": row["superseded_by"] if "superseded_by" in row.keys() else None,
+                        "access_count": row["access_count"] if "access_count" in row.keys() else 0,
+                        "confidence": row["confidence"] if "confidence" in row.keys() else 1.0,
                     }
                 )
             if results:
@@ -463,6 +582,58 @@ class SQLiteStore(MemoryStore):
             results.sort(key=lambda x: (x["depth"], -x["salience"]))
             return results[:top_k]
 
+    def search_associative_ppr(
+        self,
+        query_embedding: List[float],
+        top_k: int = 10,
+        scope: Optional[Dict] = None,
+        restart_prob: float = 0.15,
+    ) -> List[Dict[str, Any]]:
+        """
+        HippoRAG 2 Personalized PageRank associative search.
+        Seeds nodes from dense vector similarity, diffusing activation across graph topology.
+        """
+        seeds = self.search_semantic(query_embedding, top_k=5, scope=scope)
+        if not seeds:
+            return []
+
+        seed_scores = {r["title"]: max(0.01, float(r.get("score", 0.5))) for r in seeds}
+        adj = self.get_graph_adjacency()
+
+        from gomaa.hipporag import HippoRAGEngine
+
+        engine = HippoRAGEngine(restart_prob=restart_prob)
+        ppr_distribution = engine.compute_ppr(adj, seed_scores)
+
+        sorted_nodes = sorted(ppr_distribution.items(), key=lambda x: x[1], reverse=True)[:top_k]
+        if not sorted_nodes:
+            return []
+
+        titles = [n[0] for n in sorted_nodes]
+        score_map = dict(sorted_nodes)
+
+        with self._conn() as conn:
+            cur = conn.cursor()
+            placeholders = ",".join("?" for _ in titles)
+            cur.execute(
+                f"""
+                SELECT id, title, content, tags, note_type, salience, vault_path, wing, room, access_count, confidence
+                FROM notes
+                WHERE title IN ({placeholders}) AND status = 'active';
+            """,
+                titles,
+            )
+            note_dict = {}
+            for row in cur.fetchall():
+                d = dict(row)
+                d["tags"] = json.loads(d["tags"]) if d["tags"] else []
+                d["ppr_score"] = score_map.get(d["title"], 0.0)
+                d["score"] = d["ppr_score"]
+                note_dict[d["title"]] = d
+
+            results = [note_dict[t] for t in titles if t in note_dict]
+            return results
+
     def hybrid_search(
         self,
         query: str,
@@ -472,6 +643,7 @@ class SQLiteStore(MemoryStore):
     ) -> List[Dict]:
         semantic = self.search_semantic(query_embedding, top_k=top_k * 2, scope=scope)
         keyword = self.search_keyword(query, top_k=top_k * 2, scope=scope)
+        ppr_results = self.search_associative_ppr(query_embedding, top_k=top_k * 2, scope=scope)
 
         scores: Dict[str, Dict] = {}
 
@@ -487,9 +659,15 @@ class SQLiteStore(MemoryStore):
 
         add_results(semantic, "semantic", 1.0)
         add_results(keyword, "keyword", 0.8)
+        add_results(ppr_results, "hipporag_ppr", 1.2)
 
         for nid in scores:
-            scores[nid]["rrf_score"] += scores[nid].get("salience", 0.5) * 0.005
+            salience = scores[nid].get("salience", 0.5)
+            access_count = scores[nid].get("access_count", 0)
+            confidence = scores[nid].get("confidence", 1.0)
+            # ACT-R dynamic activation bonus: frequency + salience + confidence
+            actr_bonus = 0.005 * salience + 0.002 * math.log(1 + max(0, access_count)) * confidence
+            scores[nid]["rrf_score"] += actr_bonus
 
         sorted_results = sorted(scores.values(), key=lambda x: x["rrf_score"], reverse=True)
         return sorted_results[:top_k]
@@ -672,3 +850,456 @@ class SQLiteStore(MemoryStore):
     def mark_reminder_done(self, reminder_id: str) -> None:
         with self._conn() as conn:
             conn.execute("UPDATE prospective SET status = 'done' WHERE id = ?;", (reminder_id,))
+
+    # =========================================================================
+    # Quadrant 1: Episodic Event Ledger
+    # =========================================================================
+
+    def log_episodic_event(
+        self,
+        session_id: str,
+        turn_index: int,
+        origin_agent: str,
+        event_type: str,
+        stimulus: str,
+        response: str,
+        outcome_status: str = "success",
+        surprise_factor: float = 0.0,
+        embedding: Optional[List[float]] = None,
+    ) -> Dict[str, Any]:
+        event_uuid = str(uuid.uuid4())
+        raw_to_hash = f"{session_id}:{turn_index}:{stimulus}:{response}".encode("utf-8")
+        content_hash = hashlib.sha256(raw_to_hash).hexdigest()
+        emb_json = json.dumps(embedding) if embedding else None
+
+        with self._conn() as conn:
+            cur = conn.cursor()
+            cur.execute(
+                """
+                INSERT INTO episodic_events (
+                    event_uuid, session_id, turn_index, origin_agent,
+                    event_type, stimulus, response, outcome_status,
+                    surprise_factor, content_hash, consolidated, embedding, timestamp
+                )
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, ?, datetime('now'));
+            """,
+                (
+                    event_uuid,
+                    session_id,
+                    turn_index,
+                    origin_agent,
+                    event_type,
+                    stimulus,
+                    response,
+                    outcome_status,
+                    surprise_factor,
+                    content_hash,
+                    emb_json,
+                ),
+            )
+            event_id = cur.lastrowid
+            return {
+                "id": event_id,
+                "event_uuid": event_uuid,
+                "session_id": session_id,
+                "turn_index": turn_index,
+                "content_hash": content_hash,
+                "consolidated": False,
+            }
+
+    def get_unconsolidated_events(self, limit: int = 100) -> List[Dict[str, Any]]:
+        with self._conn() as conn:
+            cur = conn.cursor()
+            cur.execute(
+                """
+                SELECT id, event_uuid, session_id, turn_index, origin_agent,
+                       timestamp, event_type, stimulus, response, outcome_status,
+                       surprise_factor, content_hash, consolidated, embedding
+                FROM episodic_events
+                WHERE consolidated = 0
+                ORDER BY timestamp ASC
+                LIMIT ?;
+            """,
+                (limit,),
+            )
+            results = []
+            for row in cur.fetchall():
+                d = dict(row)
+                d["embedding"] = json.loads(d["embedding"]) if d["embedding"] else None
+                d["consolidated"] = bool(d["consolidated"])
+                results.append(d)
+            return results
+
+    def mark_events_consolidated(self, event_ids: List[Any]) -> int:
+        if not event_ids:
+            return 0
+        with self._conn() as conn:
+            cur = conn.cursor()
+            placeholders = ",".join("?" for _ in event_ids)
+            cur.execute(
+                f"UPDATE episodic_events SET consolidated = 1 WHERE id IN ({placeholders});",
+                event_ids,
+            )
+            return cur.rowcount
+
+    def get_episodic_events(self, session_id: Optional[str] = None, limit: int = 50) -> List[Dict[str, Any]]:
+        with self._conn() as conn:
+            cur = conn.cursor()
+            if session_id:
+                cur.execute(
+                    """
+                    SELECT id, event_uuid, session_id, turn_index, origin_agent,
+                           timestamp, event_type, stimulus, response, outcome_status,
+                           surprise_factor, content_hash, consolidated, embedding
+                    FROM episodic_events
+                    WHERE session_id = ?
+                    ORDER BY turn_index ASC, timestamp ASC
+                    LIMIT ?;
+                """,
+                    (session_id, limit),
+                )
+            else:
+                cur.execute(
+                    """
+                    SELECT id, event_uuid, session_id, turn_index, origin_agent,
+                           timestamp, event_type, stimulus, response, outcome_status,
+                           surprise_factor, content_hash, consolidated, embedding
+                    FROM episodic_events
+                    ORDER BY timestamp DESC
+                    LIMIT ?;
+                """,
+                    (limit,),
+                )
+            results = []
+            for row in cur.fetchall():
+                d = dict(row)
+                d["embedding"] = json.loads(d["embedding"]) if d["embedding"] else None
+                d["consolidated"] = bool(d["consolidated"])
+                results.append(d)
+            return results
+
+    # =========================================================================
+    # Quadrant 2: Procedural Playbooks
+    # =========================================================================
+
+    def upsert_playbook(
+        self,
+        skill_name: str,
+        domain: str,
+        description: str,
+        preconditions: List[Any],
+        tool_sequence: List[Any],
+        error_recovery: Dict[str, Any],
+        embedding: Optional[List[float]] = None,
+    ) -> Dict[str, Any]:
+        precond_json = json.dumps(preconditions)
+        tool_seq_json = json.dumps(tool_sequence)
+        recovery_json = json.dumps(error_recovery)
+        emb_json = json.dumps(embedding) if embedding else None
+
+        with self._conn() as conn:
+            cur = conn.cursor()
+            cur.execute("SELECT id, invocation_count, success_count FROM procedural_playbooks WHERE skill_name = ?;", (skill_name,))
+            existing = cur.fetchone()
+            if existing:
+                cur.execute(
+                    """
+                    UPDATE procedural_playbooks
+                    SET domain = ?, description = ?, preconditions = ?, tool_sequence = ?,
+                        error_recovery = ?, embedding = COALESCE(?, embedding), updated_at = datetime('now')
+                    WHERE skill_name = ?;
+                """,
+                    (domain, description, precond_json, tool_seq_json, recovery_json, emb_json, skill_name),
+                )
+                pid = existing["id"]
+                inv = existing["invocation_count"]
+                succ = existing["success_count"]
+            else:
+                cur.execute(
+                    """
+                    INSERT INTO procedural_playbooks (
+                        skill_name, domain, description, preconditions, tool_sequence,
+                        error_recovery, invocation_count, success_count, embedding, created_at, updated_at
+                    )
+                    VALUES (?, ?, ?, ?, ?, ?, 0, 0, ?, datetime('now'), datetime('now'));
+                """,
+                    (skill_name, domain, description, precond_json, tool_seq_json, recovery_json, emb_json),
+                )
+                pid = cur.lastrowid
+                inv, succ = 0, 0
+
+            bayesian_rate = (succ + 1.0) / (inv + 2.0)
+            return {
+                "id": pid,
+                "skill_name": skill_name,
+                "domain": domain,
+                "bayesian_success_rate": bayesian_rate,
+            }
+
+    def search_playbooks(
+        self,
+        query_embedding: Optional[List[float]] = None,
+        domain: Optional[str] = None,
+        limit: int = 5,
+    ) -> List[Dict[str, Any]]:
+        with self._conn() as conn:
+            cur = conn.cursor()
+            query = "SELECT id, skill_name, domain, description, preconditions, tool_sequence, error_recovery, invocation_count, success_count, embedding FROM procedural_playbooks"
+            params: List[Any] = []
+            if domain:
+                query += " WHERE domain = ?"
+                params.append(domain)
+
+            cur.execute(query, params)
+            rows = cur.fetchall()
+            playbooks = []
+            for row in rows:
+                p = dict(row)
+                p["preconditions"] = json.loads(p["preconditions"]) if p["preconditions"] else []
+                p["tool_sequence"] = json.loads(p["tool_sequence"]) if p["tool_sequence"] else []
+                p["error_recovery"] = json.loads(p["error_recovery"]) if p["error_recovery"] else {}
+                emb = json.loads(p["embedding"]) if p["embedding"] else None
+                p["embedding"] = emb
+                p["bayesian_success_rate"] = (p["success_count"] + 1.0) / (p["invocation_count"] + 2.0)
+
+                # Similarity scoring
+                score = 0.0
+                if query_embedding and emb:
+                    dot = sum(a * b for a, b in zip(query_embedding, emb))
+                    norm_q = sum(a * a for a in query_embedding) ** 0.5
+                    norm_e = sum(b * b for b in emb) ** 0.5
+                    score = dot / (norm_q * norm_e) if (norm_q > 0 and norm_e > 0) else 0.0
+                p["score"] = score
+                playbooks.append(p)
+
+            if query_embedding:
+                playbooks.sort(key=lambda x: (x["score"] * 0.7 + x["bayesian_success_rate"] * 0.3), reverse=True)
+            else:
+                playbooks.sort(key=lambda x: x["bayesian_success_rate"], reverse=True)
+
+            return playbooks[:limit]
+
+    def record_playbook_execution(self, skill_name: str, success: bool) -> bool:
+        with self._conn() as conn:
+            cur = conn.cursor()
+            succ_inc = 1 if success else 0
+            cur.execute(
+                """
+                UPDATE procedural_playbooks
+                SET invocation_count = invocation_count + 1,
+                    success_count = success_count + ?,
+                    updated_at = datetime('now')
+                WHERE skill_name = ?;
+            """,
+                (succ_inc, skill_name),
+            )
+            return cur.rowcount > 0
+
+    def get_playbook(self, skill_name: str) -> Optional[Dict[str, Any]]:
+        with self._conn() as conn:
+            cur = conn.cursor()
+            cur.execute(
+                """
+                SELECT id, skill_name, domain, description, preconditions, tool_sequence,
+                       error_recovery, invocation_count, success_count, embedding
+                FROM procedural_playbooks
+                WHERE skill_name = ?;
+            """,
+                (skill_name,),
+            )
+            row = cur.fetchone()
+            if not row:
+                return None
+            p = dict(row)
+            p["preconditions"] = json.loads(p["preconditions"]) if p["preconditions"] else []
+            p["tool_sequence"] = json.loads(p["tool_sequence"]) if p["tool_sequence"] else []
+            p["error_recovery"] = json.loads(p["error_recovery"]) if p["error_recovery"] else {}
+            p["embedding"] = json.loads(p["embedding"]) if p["embedding"] else None
+            p["bayesian_success_rate"] = (p["success_count"] + 1.0) / (p["invocation_count"] + 2.0)
+            return p
+
+    # =========================================================================
+    # Quadrant 3: Working Memory Buffer
+    # =========================================================================
+
+    def get_working_memory(self, session_id: str) -> Optional[Dict[str, Any]]:
+        with self._conn() as conn:
+            cur = conn.cursor()
+            cur.execute(
+                """
+                SELECT session_id, agent_role, active_goal, subtask_stack, hypotheses, attention_window, updated_at
+                FROM working_memory
+                WHERE session_id = ?;
+            """,
+                (session_id,),
+            )
+            row = cur.fetchone()
+            if not row:
+                return None
+            w = dict(row)
+            w["subtask_stack"] = json.loads(w["subtask_stack"]) if w["subtask_stack"] else []
+            w["hypotheses"] = json.loads(w["hypotheses"]) if w["hypotheses"] else []
+            w["attention_window"] = json.loads(w["attention_window"]) if w["attention_window"] else []
+            return w
+
+    def update_working_memory(
+        self,
+        session_id: str,
+        agent_role: str,
+        active_goal: Optional[str] = None,
+        subtask_stack: Optional[List[Any]] = None,
+        hypotheses: Optional[List[Any]] = None,
+        attention_window: Optional[List[Any]] = None,
+    ) -> Dict[str, Any]:
+        with self._conn() as conn:
+            cur = conn.cursor()
+            cur.execute("SELECT active_goal, subtask_stack, hypotheses, attention_window FROM working_memory WHERE session_id = ?;", (session_id,))
+            existing = cur.fetchone()
+
+            goal_val = active_goal if active_goal is not None else (existing["active_goal"] if existing else None)
+            subtask_val = json.dumps(subtask_stack) if subtask_stack is not None else (existing["subtask_stack"] if existing else "[]")
+            hypo_val = json.dumps(hypotheses) if hypotheses is not None else (existing["hypotheses"] if existing else "[]")
+            attn_val = json.dumps(attention_window) if attention_window is not None else (existing["attention_window"] if existing else "[]")
+
+            cur.execute(
+                """
+                INSERT INTO working_memory (session_id, agent_role, active_goal, subtask_stack, hypotheses, attention_window, updated_at)
+                VALUES (?, ?, ?, ?, ?, ?, datetime('now'))
+                ON CONFLICT(session_id) DO UPDATE SET
+                    agent_role = excluded.agent_role,
+                    active_goal = excluded.active_goal,
+                    subtask_stack = excluded.subtask_stack,
+                    hypotheses = excluded.hypotheses,
+                    attention_window = excluded.attention_window,
+                    updated_at = datetime('now');
+            """,
+                (session_id, agent_role, goal_val, subtask_val, hypo_val, attn_val),
+            )
+            return {
+                "session_id": session_id,
+                "agent_role": agent_role,
+                "active_goal": goal_val,
+                "subtask_stack": json.loads(subtask_val),
+                "hypotheses": json.loads(hypo_val),
+                "attention_window": json.loads(attn_val),
+            }
+
+    def clear_working_memory(self, session_id: str) -> bool:
+        with self._conn() as conn:
+            cur = conn.cursor()
+            cur.execute("DELETE FROM working_memory WHERE session_id = ?;", (session_id,))
+            return cur.rowcount > 0
+
+    # =========================================================================
+    # Weighted Graph Links & Graph Topology
+    # =========================================================================
+
+    def add_weighted_link(
+        self,
+        source_id: Any,
+        target_id: Any,
+        relation_type: str = "associative",
+        weight: float = 1.0,
+    ) -> bool:
+        link_id = str(uuid.uuid4())
+        with self._conn() as conn:
+            cur = conn.cursor()
+            cur.execute(
+                """
+                INSERT INTO links (id, source_note_id, target_note_id, link_type, relation_type, edge_weight, created_at)
+                VALUES (?, ?, ?, 'wiki', ?, ?, datetime('now'))
+                ON CONFLICT(source_note_id, target_note_id) DO UPDATE SET
+                    relation_type = excluded.relation_type,
+                    edge_weight = excluded.edge_weight;
+            """,
+                (link_id, str(source_id), str(target_id), relation_type, float(weight)),
+            )
+            return True
+
+    def get_graph_adjacency(self) -> Dict[str, List[Dict[str, Any]]]:
+        with self._conn() as conn:
+            cur = conn.cursor()
+            cur.execute(
+                """
+                SELECT ns.title AS source_title, nt.title AS target_title,
+                       l.relation_type, l.edge_weight
+                FROM links l
+                JOIN notes ns ON ns.id = l.source_note_id
+                JOIN notes nt ON nt.id = l.target_note_id
+                WHERE ns.status = 'active' AND nt.status = 'active';
+            """
+            )
+            adj: Dict[str, List[Dict[str, Any]]] = {}
+            for row in cur.fetchall():
+                src = row["source_title"]
+                if src not in adj:
+                    adj[src] = []
+                adj[src].append({
+                    "target_title": row["target_title"],
+                    "relation_type": row["relation_type"],
+                    "edge_weight": float(row["edge_weight"]),
+                })
+            return adj
+
+    # =========================================================================
+    # Epistemic Conflicts & Truth Maintenance (ATMS)
+    # =========================================================================
+
+    def log_conflict(self, old_note_id: Any, new_note_id: Any, conflict_description: str) -> int:
+        with self._conn() as conn:
+            cur = conn.cursor()
+            cur.execute(
+                """
+                INSERT INTO epistemic_conflicts (old_note_id, new_note_id, conflict_description, resolution_status, detected_at)
+                VALUES (?, ?, ?, 'pending', datetime('now'));
+            """,
+                (str(old_note_id), str(new_note_id), conflict_description),
+            )
+            return cur.lastrowid
+
+    def get_pending_conflicts(self, limit: int = 20) -> List[Dict[str, Any]]:
+        with self._conn() as conn:
+            cur = conn.cursor()
+            cur.execute(
+                """
+                SELECT ec.id, ec.old_note_id, no.title AS old_title,
+                       ec.new_note_id, nn.title AS new_title,
+                       ec.conflict_description, ec.resolution_status, ec.detected_at
+                FROM epistemic_conflicts ec
+                LEFT JOIN notes no ON no.id = ec.old_note_id
+                LEFT JOIN notes nn ON nn.id = ec.new_note_id
+                WHERE ec.resolution_status = 'pending'
+                ORDER BY ec.id DESC
+                LIMIT ?;
+            """,
+                (limit,),
+            )
+            return [dict(row) for row in cur.fetchall()]
+
+    def resolve_conflict_supersede(self, old_id: Any, new_id: Any, resolved_by: str = "system") -> bool:
+        with self._conn() as conn:
+            cur = conn.cursor()
+            cur.execute(
+                """
+                UPDATE notes
+                SET superseded_by = ?, status = 'deprecated', updated_at = datetime('now')
+                WHERE id = ?;
+            """,
+                (str(new_id), str(old_id)),
+            )
+            cur.execute(
+                """
+                INSERT OR IGNORE INTO links (id, source_note_id, target_note_id, link_type, relation_type, edge_weight)
+                VALUES (?, ?, ?, 'wiki', 'supersedes', 2.0);
+            """,
+                (str(uuid.uuid4()), str(new_id), str(old_id)),
+            )
+            cur.execute(
+                """
+                UPDATE epistemic_conflicts
+                SET resolution_status = 'superseded', resolved_by = ?
+                WHERE old_note_id = ? AND new_note_id = ?;
+            """,
+                (resolved_by, str(old_id), str(new_id)),
+            )
+            return True

@@ -75,15 +75,15 @@ class UnifiedMemorySystem:
         self.security = AdmissionControl()
         self.db: MemoryStore = create_store(dsn)
 
-        # Reconcile orphaned maintenance modules back into the core system
-        self.consolidation_engine = ConsolidationEngine(self.db, self.vault, self.embedder)
-        self.prospective = ProspectiveMemory(self.db)
-
         # Optional shared cross-agent memory store
         self.shared_dsn = shared_dsn or os.environ.get("MEMORY_SHARED_DSN")
         self.shared_db: Optional[MemoryStore] = create_store(self.shared_dsn) if self.shared_dsn else None
         if self.shared_db:
             logger.info(f"UnifiedMemorySystem: Connected to shared fleet memory at {self.shared_dsn}")
+
+        # Biological sleep consolidation engine & prospective memory
+        self.consolidation_engine = ConsolidationEngine(self.db, self.vault, self.embedder, shared_db=self.shared_db)
+        self.prospective = ProspectiveMemory(self.db)
 
         if auto_sync:
             self.sync_vault_to_db()
@@ -304,6 +304,36 @@ class UnifiedMemorySystem:
             private_results = self.db.search_keyword(query, top_k, scope=scope)
         elif mode == "graph":
             private_results = self.db.search_graph(query, top_k=top_k)
+        elif mode == "associative_ppr" and hasattr(self.db, "search_associative_ppr"):
+            private_results = self.db.search_associative_ppr(query_embedding=emb, top_k=top_k, scope=scope)
+        elif mode == "procedural" and hasattr(self.db, "search_playbooks"):
+            raw_pbs = self.db.search_playbooks(query_embedding=emb, limit=top_k)
+            private_results = [
+                {
+                    "id": p.get("id"),
+                    "title": f"Playbook: {p.get('skill_name')}",
+                    "content": f"Description: {p.get('description')}\nPreconditions: {p.get('preconditions')}\nSequence: {p.get('tool_sequence')}\nRecovery: {p.get('error_recovery')}",
+                    "tags": ["playbook", p.get("domain", "general")],
+                    "score": p.get("score", p.get("bayesian_success_rate", 0.0)),
+                    "wing": "procedural",
+                    "room": p.get("domain", "general"),
+                }
+                for p in raw_pbs
+            ]
+        elif mode == "episodic" and hasattr(self.db, "get_episodic_events"):
+            raw_eps = self.db.get_episodic_events(limit=top_k)
+            private_results = [
+                {
+                    "id": e.get("id"),
+                    "title": f"Episodic Event #{e.get('id')} [{e.get('event_type')}]",
+                    "content": f"Stimulus: {e.get('stimulus')}\nResponse: {e.get('response')}\nStatus: {e.get('outcome_status')}",
+                    "tags": ["episodic", e.get("event_type", "dialogue")],
+                    "score": float(e.get("surprise_factor", 0.5)),
+                    "wing": "episodic",
+                    "room": e.get("session_id", "general"),
+                }
+                for e in raw_eps
+            ]
         else:
             private_results = self.db.hybrid_search(query, emb, top_k, scope=scope)
 
@@ -320,6 +350,22 @@ class UnifiedMemorySystem:
                     shared_results = self.shared_db.search_semantic(emb, top_k, filters, scope=scope)
                 elif mode == "graph":
                     shared_results = self.shared_db.search_graph(query, top_k=top_k)
+                elif mode == "associative_ppr" and hasattr(self.shared_db, "search_associative_ppr"):
+                    shared_results = self.shared_db.search_associative_ppr(query_embedding=emb, top_k=top_k, scope=scope)
+                elif mode == "procedural" and hasattr(self.shared_db, "search_playbooks"):
+                    raw_pbs = self.shared_db.search_playbooks(query_embedding=emb, limit=top_k)
+                    shared_results = [
+                        {
+                            "id": p.get("id"),
+                            "title": f"Playbook: {p.get('skill_name')}",
+                            "content": f"Description: {p.get('description')}\nPreconditions: {p.get('preconditions')}\nSequence: {p.get('tool_sequence')}\nRecovery: {p.get('error_recovery')}",
+                            "tags": ["playbook", p.get("domain", "general"), "shared"],
+                            "score": p.get("score", p.get("bayesian_success_rate", 0.0)),
+                            "wing": "procedural",
+                            "room": p.get("domain", "general"),
+                        }
+                        for p in raw_pbs
+                    ]
                 else:
                     shared_results = self.shared_db.hybrid_search(query, emb, top_k, scope=scope)
                 for r in shared_results:
@@ -613,3 +659,97 @@ class UnifiedMemorySystem:
 
     def stats(self) -> Dict[str, Any]:
         return self.db.get_stats()
+
+    def sleep(self, decay_rate: float = 0.95, archive_threshold: float = 0.05) -> Dict[str, Any]:
+        """Trigger 3-phase biological sleep consolidation (SWS crystallization, REM replay, synaptic homeostasis)."""
+        return self.consolidate(decay_rate=decay_rate, archive_threshold=archive_threshold)
+
+    # ---------------- Quadrant Memory APIs ----------------
+
+    def log_event(
+        self,
+        session_id: str,
+        event_type: str,
+        stimulus: str,
+        response: str,
+        turn_index: int = 1,
+        origin_agent: Optional[str] = None,
+        tool_name: Optional[str] = None,
+        tool_args: Optional[Dict] = None,
+        surprise_factor: float = 0.0,
+        outcome_status: str = "success",
+    ) -> Dict[str, Any]:
+        """Log an episodic experiential event turn."""
+        agent = origin_agent or self.agent_name
+        return self.db.log_event(
+            session_id=session_id,
+            turn_index=turn_index,
+            origin_agent=agent,
+            event_type=event_type,
+            stimulus=stimulus,
+            response=response,
+            outcome_status=outcome_status,
+            surprise_factor=surprise_factor,
+            tool_name=tool_name,
+            tool_args=tool_args,
+        )
+
+    def upsert_playbook(
+        self,
+        skill_name: str,
+        domain: str,
+        description: str,
+        preconditions: Optional[List[str]] = None,
+        tool_sequence: Optional[List[Dict[str, Any]]] = None,
+        error_recovery: Optional[Dict[str, Any]] = None,
+    ) -> Dict[str, Any]:
+        """Store or update a procedural skill playbook."""
+        emb = self.embedder.embed_query(f"{skill_name} {description}") if self.embedder else None
+        return self.db.upsert_playbook(
+            skill_name=skill_name,
+            domain=domain,
+            description=description,
+            preconditions=preconditions or [],
+            tool_sequence=tool_sequence or [],
+            error_recovery=error_recovery or {},
+            embedding=emb,
+        )
+
+    def search_playbooks(
+        self, query: Optional[str] = None, domain: Optional[str] = None, limit: int = 5
+    ) -> List[Dict[str, Any]]:
+        """Search procedural skill playbooks via semantic similarity or domain filtering."""
+        emb = self.embedder.embed_query(query) if (query and self.embedder) else None
+        return self.db.search_playbooks(query_embedding=emb, domain=domain, limit=limit)
+
+    def get_working_memory(self, session_id: str) -> Optional[Dict[str, Any]]:
+        """Retrieve working memory scratchpad for an active session."""
+        return self.db.get_working_memory(session_id)
+
+    def update_working_memory(
+        self,
+        session_id: str,
+        agent_role: Optional[str] = None,
+        active_goal: Optional[str] = None,
+        subtask_stack: Optional[List[Any]] = None,
+        hypotheses: Optional[List[Any]] = None,
+        attention_window: Optional[List[Any]] = None,
+    ) -> Dict[str, Any]:
+        """Update working memory scratchpad and goal state."""
+        role = agent_role or self.agent_name
+        return self.db.update_working_memory(
+            session_id=session_id,
+            agent_role=role,
+            active_goal=active_goal,
+            subtask_stack=subtask_stack,
+            hypotheses=hypotheses,
+            attention_window=attention_window,
+        )
+
+    def clear_working_memory(self, session_id: str) -> bool:
+        """Clear working memory for an active session."""
+        return self.db.clear_working_memory(session_id)
+
+    def resolve_conflict(self, old_id: Any, new_id: Any, resolved_by: str = "user") -> bool:
+        """Resolve an epistemic truth contradiction by marking old note as superseded."""
+        return self.db.resolve_conflict_supersede(old_id=old_id, new_id=new_id, resolved_by=resolved_by)

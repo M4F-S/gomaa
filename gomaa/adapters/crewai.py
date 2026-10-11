@@ -56,7 +56,7 @@ class GomaaMemoryHandler:
         self,
         query: str,
         limit: int = 5,
-        score_threshold: float = 0.35,
+        score_threshold: Optional[float] = None,
         agent_role: Optional[str] = None,
     ) -> List[Dict[str, Any]]:
         """Search memories relevant to the crew task."""
@@ -67,7 +67,9 @@ class GomaaMemoryHandler:
             top_k=limit,
             scope=scope,
         )
-        return [r for r in results if r.get("score", r.get("rrf_score", 1.0)) >= score_threshold]
+        if score_threshold is None:
+            return results
+        return [r for r in results if r.get("rrf_score", r.get("score", 0.0)) >= score_threshold]
 
 
 # Backwards compatibility alias
