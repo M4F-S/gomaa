@@ -1,5 +1,5 @@
 """
-Gomaa CLI Interface (v3.5.0)
+Gomaa CLI Interface (v4.0.0 - Mnemosyne Neo)
 """
 
 import argparse
@@ -17,7 +17,7 @@ GOMAA_BANNER = """\033[1;35m
   ██║   ██║██║   ██║██║╚██╔╝██║██╔══██║██╔══██║
   ╚██████╔╝╚██████╔╝██║ ╚═╝ ██║██║  ██║██║  ██║
    ╚═════╝  ╚═════╝ ╚═╝     ╚═╝╚═╝  ╚═╝╚═╝  ╚═╝\033[0m
-\033[0;36m   🧠 Autonomous AI Agent Long-Term Memory OS (v3.5.0)\033[0m
+\033[0;36m   🧠 Autonomous AI Agent Long-Term Memory OS (v4.0.0 - Mnemosyne Neo)\033[0m
 """
 
 
@@ -58,7 +58,11 @@ def main():
     # recall
     p_recall = subparsers.add_parser("recall", help="Search memory", parents=[common_parser])
     p_recall.add_argument("query", help="Search query")
-    p_recall.add_argument("--mode", choices=["hybrid", "semantic", "keyword", "graph"], default="hybrid")
+    p_recall.add_argument(
+        "--mode",
+        choices=["hybrid", "semantic", "keyword", "graph", "associative_ppr", "procedural", "episodic"],
+        default="hybrid",
+    )
     p_recall.add_argument("--top-k", type=int, default=5, help="Number of results")
     p_recall.add_argument("--wing", default=None, help="Filter by wing")
     p_recall.add_argument("--room", default=None, help="Filter by room")
@@ -76,6 +80,13 @@ def main():
     )
     p_consolidate.add_argument("--decay-rate", type=float, default=0.95, help="Daily retention factor")
     p_consolidate.add_argument("--archive-threshold", type=float, default=0.05, help="Salience threshold for archiving")
+
+    # sleep
+    p_sleep = subparsers.add_parser(
+        "sleep", help="Run biological 3-phase sleep consolidation (SWS + REM + Homeostasis)", parents=[common_parser]
+    )
+    p_sleep.add_argument("--decay-rate", type=float, default=0.95, help="Step decay multiplier")
+    p_sleep.add_argument("--archive-threshold", type=float, default=0.10, help="Salience threshold for archiving")
 
     # server
     subparsers.add_parser("server", help="Run MCP stdio server", parents=[common_parser])
@@ -252,6 +263,10 @@ def main():
 
     elif args.command == "consolidate":
         res = mem.consolidate(decay_rate=args.decay_rate, archive_threshold=args.archive_threshold)
+        print(json.dumps(res, indent=2))
+
+    elif args.command == "sleep":
+        res = mem.sleep(decay_rate=args.decay_rate, archive_threshold=args.archive_threshold)
         print(json.dumps(res, indent=2))
 
 

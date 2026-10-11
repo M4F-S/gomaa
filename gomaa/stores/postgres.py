@@ -468,7 +468,10 @@ class PgVectorStore(MemoryStore):
                 # Selective access touch (only high-confidence matches >= 0.55)
                 high_conf_ids = [r["id"] for r in results if r["score"] >= 0.55]
                 if high_conf_ids:
-                    cur.execute("UPDATE notes SET last_accessed_at = NOW() WHERE id = ANY(%s);", (high_conf_ids,))
+                    cur.execute(
+                        "UPDATE notes SET last_accessed_at = NOW(), access_count = COALESCE(access_count, 0) + 1 WHERE id = ANY(%s);",
+                        (high_conf_ids,),
+                    )
                 return results
 
     def search_keyword(self, query: str, top_k: int = 10, scope: Optional[Dict] = None) -> List[Dict]:
@@ -521,7 +524,10 @@ class PgVectorStore(MemoryStore):
                 # Selective access touch (score >= 0.02)
                 high_conf_ids = [r["id"] for r in results if r["score"] >= 0.02]
                 if high_conf_ids:
-                    cur.execute("UPDATE notes SET last_accessed_at = NOW() WHERE id = ANY(%s);", (high_conf_ids,))
+                    cur.execute(
+                        "UPDATE notes SET last_accessed_at = NOW(), access_count = COALESCE(access_count, 0) + 1 WHERE id = ANY(%s);",
+                        (high_conf_ids,),
+                    )
                 return results
 
     def search_graph(self, note_title: str, depth: int = 2, top_k: int = 10) -> List[Dict]:
@@ -1088,6 +1094,9 @@ class PgVectorStore(MemoryStore):
         hypotheses: Optional[List[Any]] = None,
         attention_window: Optional[List[Any]] = None,
     ) -> Dict[str, Any]:
+        if attention_window is not None:
+            # Miller's Law (7 +/- 2): bound attention window to maximum 9 items
+            attention_window = list(attention_window)[:9]
         with self._conn() as conn:
             with conn.cursor() as cur:
                 cur.execute(
@@ -1169,7 +1178,8 @@ class PgVectorStore(MemoryStore):
                 """
                 )
                 adj: Dict[str, List[Dict[str, Any]]] = {}
-                for row in cur.fetchall():
+                rows = cur.fetchall()
+                for row in rows:
                     src = row["source_title"]
                     if src not in adj:
                         adj[src] = []
@@ -1178,6 +1188,17 @@ class PgVectorStore(MemoryStore):
                         "relation_type": row["relation_type"],
                         "edge_weight": float(row["edge_weight"]),
                     })
+                for row in rows:
+                    src = row["source_title"]
+                    tgt = row["target_title"]
+                    if tgt not in adj:
+                        adj[tgt] = []
+                    if not any(e["target_title"] == src for e in adj[tgt]):
+                        adj[tgt].append({
+                            "target_title": src,
+                            "relation_type": "backlink",
+                            "edge_weight": round(float(row["edge_weight"]) * 0.7, 4),
+                        })
                 return adj
 
     # =========================================================================

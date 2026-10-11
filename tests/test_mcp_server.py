@@ -281,3 +281,32 @@ class TestMemoryMCPServer:
         assert "result" in resp_clear
         content_clear = json.loads(resp_clear["result"]["content"][0]["text"])
         assert content_clear["cleared"] is True
+
+    def test_v4_tools_json_string_coercion(self, server):
+        # Verify JSON-stringified lists and dicts are coerced properly
+        req_pb = {
+            "jsonrpc": "2.0",
+            "method": "tools/call",
+            "params": {
+                "name": "memory_save_playbook",
+                "arguments": {
+                    "skill_name": "coerced_skill",
+                    "domain": "devops",
+                    "description": "Test stringified JSON coercion",
+                    "preconditions": '["docker_running", "root_access"]',
+                    "tool_sequence": '[{"tool": "docker_ps"}]',
+                    "error_recovery": '{"retry": 3}',
+                },
+            },
+            "id": 16,
+        }
+        resp_pb = server._handle(req_pb)
+        assert "result" in resp_pb
+        server.memory.upsert_playbook.assert_called_with(
+            skill_name="coerced_skill",
+            domain="devops",
+            description="Test stringified JSON coercion",
+            preconditions=["docker_running", "root_access"],
+            tool_sequence=[{"tool": "docker_ps"}],
+            error_recovery={"retry": 3},
+        )

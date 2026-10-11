@@ -19,6 +19,7 @@ from gomaa.embedder import Embedder  # noqa: F401
 from gomaa.security import AdmissionControl  # noqa: F401
 from gomaa.consolidation import ConsolidationEngine  # noqa: F401
 from gomaa.prospective import ProspectiveMemory  # noqa: F401
+from gomaa.hipporag import HippoRAGEngine  # noqa: F401
 from gomaa.adapters import MnemosyneMemory, MnemosyneMemoryHandler  # noqa: F401
 
 __all__ = [
@@ -29,6 +30,7 @@ __all__ = [
     "AdmissionControl",
     "ConsolidationEngine",
     "ProspectiveMemory",
+    "HippoRAGEngine",
     "MnemosyneMemory",
     "MnemosyneMemoryHandler",
 ]

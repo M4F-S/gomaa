@@ -181,3 +181,38 @@ def test_epistemic_conflicts_and_atms(sqlite_store):
     # Verify pending conflicts cleared
     pending_after = sqlite_store.get_pending_conflicts()
     assert not any(c["id"] == conflict_id for c in pending_after)
+
+
+def test_millers_law_working_memory_bound(sqlite_store):
+    # Pass 15 items in attention_window; verify Miller's Law (7 +/- 2 => max 9) bound is enforced
+    fifteen_items = [{"item": f"node_{i}"} for i in range(15)]
+    wm = sqlite_store.update_working_memory(
+        session_id="session_miller",
+        agent_role="researcher",
+        active_goal="Test cognitive capacity limit",
+        attention_window=fifteen_items,
+    )
+    assert len(wm["attention_window"]) == 9
+    fetched = sqlite_store.get_working_memory("session_miller")
+    assert len(fetched["attention_window"]) == 9
+
+
+def test_act_r_dynamic_access_count(sqlite_store):
+    note_id = sqlite_store.upsert_note(
+        title="ACT-R Base Level Activation",
+        content="Memory retrieval frequency increases base-level activation log-odds.",
+        tags=["cognitive"],
+        embedding=[1.0, 0.0, 0.0],
+    )
+    # High-confidence semantic search (similarity = 1.0 > 0.35) should increment access_count
+    res1 = sqlite_store.search_semantic([1.0, 0.0, 0.0], top_k=3)
+    assert len(res1) == 1
+    # High-confidence keyword search should increment access_count again
+    res2 = sqlite_store.search_keyword("ACT-R Base Level Activation", top_k=3)
+    assert len(res2) >= 1
+
+    with sqlite_store._conn() as conn:
+        cur = conn.cursor()
+        cur.execute("SELECT access_count FROM notes WHERE id = ?;", (note_id,))
+        row = cur.fetchone()
+        assert row["access_count"] >= 2

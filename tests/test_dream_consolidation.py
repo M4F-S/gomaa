@@ -191,3 +191,29 @@ class TestDreamConsolidation:
             row = cur.fetchone()
             assert row["status"] == "deprecated"
             assert str(row["superseded_by"]) == str(new_id)
+
+    def test_rem_latent_link_discovery(self, test_env):
+        store = test_env["private"]
+        engine = test_env["engine"]
+
+        # Create two unlinked notes sharing specific domain tags
+        store.upsert_note(
+            title="Zero-Trust mTLS Mesh",
+            content="Service mesh mutual TLS authentication policy.",
+            tags=["zerotrust", "mtls", "mesh"],
+            salience=0.8,
+        )
+        store.upsert_note(
+            title="Envoy Sidecar Proxy mTLS",
+            content="Envoy sidecar enforces strict client certificate validation.",
+            tags=["zerotrust", "mtls", "envoy"],
+            salience=0.8,
+        )
+
+        stats = engine.run()
+        assert stats["discovered_links"] >= 1
+
+        adj = store.get_graph_adjacency()
+        assert "Zero-Trust mTLS Mesh" in adj
+        targets = [edge["target_title"] for edge in adj["Zero-Trust mTLS Mesh"]]
+        assert "Envoy Sidecar Proxy mTLS" in targets

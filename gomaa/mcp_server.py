@@ -67,6 +67,41 @@ def _safe_tags(val: Any) -> List[str]:
     return [str(val)]
 
 
+def _safe_list(val: Any, default: Optional[List] = None) -> Optional[List]:
+    if val is None:
+        return default
+    if isinstance(val, list):
+        return val
+    if isinstance(val, str):
+        val = val.strip()
+        if val.startswith("[") and val.endswith("]"):
+            try:
+                parsed = json.loads(val)
+                if isinstance(parsed, list):
+                    return parsed
+            except Exception:
+                pass
+        return [t.strip() for t in val.split(",") if t.strip()]
+    return [val]
+
+
+def _safe_dict(val: Any, default: Optional[Dict] = None) -> Optional[Dict]:
+    if val is None:
+        return default
+    if isinstance(val, dict):
+        return val
+    if isinstance(val, str):
+        val = val.strip()
+        if val.startswith("{") and val.endswith("}"):
+            try:
+                parsed = json.loads(val)
+                if isinstance(parsed, dict):
+                    return parsed
+            except Exception:
+                pass
+    return default
+
+
 class MCPServer:
     def __init__(self, memory: Optional[UnifiedMemorySystem] = None):
         self.memory = memory or UnifiedMemorySystem()
@@ -468,7 +503,7 @@ class MCPServer:
                 query=str(args["query"]),
                 mode=str(args.get("mode", "hybrid")),
                 top_k=_safe_int(args.get("top_k"), 5),
-                scope=args.get("scope"),
+                scope=_safe_dict(args.get("scope"), None),
                 include_shared=_safe_bool(args.get("include_shared"), True),
             )
             return {"results": results}
@@ -478,7 +513,7 @@ class MCPServer:
             return self.memory.assemble_context(
                 query=str(args["query"]),
                 max_tokens=_safe_int(args.get("max_tokens"), 2000),
-                scope=args.get("scope"),
+                scope=_safe_dict(args.get("scope"), None),
                 mode=str(args.get("mode", "hybrid")),
                 include_shared=_safe_bool(args.get("include_shared"), True),
             )
@@ -525,7 +560,7 @@ class MCPServer:
                 stimulus=str(args["stimulus"]),
                 response=str(args["response"]),
                 tool_name=str(args["tool_name"]) if args.get("tool_name") else None,
-                tool_args=args.get("tool_args"),
+                tool_args=_safe_dict(args.get("tool_args"), None),
                 surprise_factor=_safe_float(args.get("surprise_factor"), 0.0),
                 outcome_status=str(args.get("outcome_status", "success")),
             )
@@ -538,9 +573,9 @@ class MCPServer:
                 skill_name=str(args["skill_name"]),
                 domain=str(args["domain"]),
                 description=str(args["description"]),
-                preconditions=args.get("preconditions") or [],
-                tool_sequence=args.get("tool_sequence") or [],
-                error_recovery=args.get("error_recovery") or {},
+                preconditions=_safe_tags(args.get("preconditions")),
+                tool_sequence=_safe_list(args.get("tool_sequence"), []) or [],
+                error_recovery=_safe_dict(args.get("error_recovery"), {}) or {},
             )
         elif name == "memory_sleep":
             return self.memory.sleep(
@@ -564,9 +599,9 @@ class MCPServer:
                     session_id=sid,
                     agent_role=str(args.get("agent_role", "agent")),
                     active_goal=str(args["active_goal"]) if args.get("active_goal") is not None else None,
-                    subtask_stack=args.get("subtask_stack"),
-                    hypotheses=args.get("hypotheses"),
-                    attention_window=args.get("attention_window"),
+                    subtask_stack=_safe_list(args.get("subtask_stack"), None),
+                    hypotheses=_safe_list(args.get("hypotheses"), None),
+                    attention_window=_safe_list(args.get("attention_window"), None),
                 )
             else:
                 raise ValueError(f"Invalid working memory action: {action}")

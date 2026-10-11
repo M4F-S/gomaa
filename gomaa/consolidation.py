@@ -102,17 +102,36 @@ class ConsolidationEngine:
             # 2. Semantic crystallization: turns with high surprise
             high_surprise_turns = [e for e in group if float(e.get("surprise_factor", 0.0)) >= 0.5]
             if high_surprise_turns and hasattr(self.db, "upsert_note"):
+                vault_path_str = str(getattr(self.vault, "vault_path", "")) if self.vault else ""
                 for h in high_surprise_turns:
                     title = f"Crystallized - {h.get('stimulus')[:30].strip()}"
                     content = f"Event Stimulus:\n{h.get('stimulus')}\n\nOutcome / Response:\n{h.get('response')}"
                     emb = self.embedder.embed_query(f"{title} {content}") if self.embedder else None
                     try:
+                        if self.vault and hasattr(self.vault, "write_note"):
+                            try:
+                                self.vault.write_note(
+                                    title=title,
+                                    content=content,
+                                    tags=["crystallized", "sws_replay"],
+                                    note_type="concept",
+                                    status="active",
+                                    salience=0.8,
+                                    links=[],
+                                    wing="general",
+                                    room="crystallized",
+                                )
+                            except Exception as ve:
+                                logger.debug(f"Vault write during SWS crystallization skipped: {ve}")
                         self.db.upsert_note(
                             title=title,
                             content=content,
                             tags=["crystallized", "sws_replay"],
                             salience=0.8,
                             embedding=emb,
+                            vault_path=vault_path_str,
+                            wing="general",
+                            room="crystallized",
                             memory_type="semantic",
                             episodic_parent_hash=h.get("content_hash"),
                         )
@@ -139,7 +158,39 @@ class ConsolidationEngine:
         discovered_links = 0
         shared_playbooks = 0
 
-        # Swarm playbook dissemination
+        # 1. Latent associative link formation between unlinked related notes
+        if (
+            hasattr(self.db, "search_keyword")
+            and hasattr(self.db, "add_weighted_link")
+            and hasattr(self.db, "get_graph_adjacency")
+        ):
+            try:
+                candidates = self.db.search_keyword("a", top_k=30) or self.db.search_keyword("e", top_k=30)
+                adj = self.db.get_graph_adjacency()
+                ignore_tags = {"crystallized", "sws_replay", "pinned", "session", "transcript", "chunk", "shared"}
+                for i in range(len(candidates)):
+                    for j in range(i + 1, len(candidates)):
+                        n1, n2 = candidates[i], candidates[j]
+                        if n1["id"] == n2["id"]:
+                            continue
+                        existing_targets = {e["target_title"] for e in adj.get(n1["title"], [])}
+                        if n2["title"] in existing_targets:
+                            continue
+                        t1 = set(n1.get("tags") or []) - ignore_tags
+                        t2 = set(n2.get("tags") or []) - ignore_tags
+                        shared_tags = t1 & t2
+                        if shared_tags:
+                            self.db.add_weighted_link(
+                                source_id=n1["id"],
+                                target_id=n2["id"],
+                                relation_type="rem_associative",
+                                weight=round(min(1.5, 0.7 + 0.2 * len(shared_tags)), 2),
+                            )
+                            discovered_links += 1
+            except Exception as e:
+                logger.warning(f"REM latent link discovery skipped: {e}")
+
+        # 2. Swarm playbook dissemination
         if self.shared_db and hasattr(self.db, "search_playbooks") and hasattr(self.shared_db, "upsert_playbook"):
             try:
                 local_playbooks = self.db.search_playbooks(limit=10)

@@ -90,3 +90,30 @@ def test_hipporag_store_associative_search(tmp_path):
     assert len(hybrid) >= 2
     top_sources = [s for r in hybrid for s in r.get("sources", [])]
     assert "hipporag_ppr" in top_sources
+
+
+def test_hipporag_bidirectional_backlink_ppr(tmp_path):
+    db_file = tmp_path / "hipporag_backlink.db"
+    store = SQLiteStore(str(db_file))
+
+    # Source_Node links forward to Target_Anchor, but query matches Target_Anchor
+    id_src = store.upsert_note(
+        title="Root Cause Exploit CVE-2026",
+        content="Buffer overflow in legacy parser module.",
+        tags=["security"],
+        embedding=[0.0, 1.0, 0.0],
+    )
+    id_tgt = store.upsert_note(
+        title="Production WAF Alert",
+        content="WAF triggered anomaly on parser endpoint.",
+        tags=["security"],
+        embedding=[1.0, 0.0, 0.0],
+    )
+    # Directed link: Root Cause -> Production WAF Alert
+    store.add_weighted_link(id_src, id_tgt, relation_type="causes", weight=2.0)
+
+    # Query matches Production WAF Alert ([1.0, 0.0, 0.0]); PPR should traverse backlink to Root Cause
+    results = store.search_associative_ppr(query_embedding=[1.0, 0.0, 0.0], top_k=5)
+    titles = [r["title"] for r in results]
+    assert "Production WAF Alert" in titles
+    assert "Root Cause Exploit CVE-2026" in titles
