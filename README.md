@@ -7,9 +7,9 @@
 [![Code style: ruff](https://img.shields.io/badge/code%20style-ruff-000000.svg)](https://github.com/astral-sh/ruff)
 [![License: Apache-2.0](https://img.shields.io/badge/License-Apache--2.0-blue.svg)](https://opensource.org/licenses/Apache-2.0)
 
-**Production-grade, local-first hierarchical memory engine for autonomous AI agents.**
+**Production-grade, local-first hierarchical & neuro-inspired cognitive memory engine for autonomous AI agents (v4.0.0 — "Mnemosyne Neo").**
 
-Gomaa equips AI agents (Hermes, OpenClaw, Claude Desktop, Cursor, Windsurf, CrewAI, LangChain) with permanent, structured long-term memory. It bridges human-readable **Obsidian Markdown Vaults** with high-speed **PostgreSQL + pgvector (HNSW)** or zero-config **SQLite WAL**, powering hybrid Reciprocal Rank Fusion (RRF) search, wikilink knowledge graphs, Ebbinghaus temporal decay, cross-agent fleet sharing, and asynchronous Google Drive cloud synchronization.
+Gomaa equips AI agents (Hermes, OpenClaw, Claude Desktop, Cursor, Windsurf, CrewAI, LangChain) with permanent, human-like and transhuman long-term memory. It unites human-readable **Obsidian Markdown Vaults** with high-speed **PostgreSQL + pgvector (HNSW)** or zero-config **SQLite WAL**, powering a **4-Quadrant Cognitive Architecture** (Episodic, Semantic, Procedural, Working Memory), **HippoRAG 2 Personalized PageRank (PPR)** associative retrieval, **3-Phase Biological Sleep Consolidation** (SWS + REM + Synaptic Homeostasis), **ACT-R Base-Level Activation**, hybrid Reciprocal Rank Fusion (RRF) search, Ebbinghaus temporal decay, cross-agent fleet sharing, and asynchronous Google Drive cloud synchronization.
 
 <p align="center">
   <img src="docs/assets/gomaa-editorial-architecture.jpg" alt="Gomaa AI Agent Long-Term Memory Architecture" width="100%" />
@@ -21,14 +21,17 @@ Gomaa equips AI agents (Hermes, OpenClaw, Claude Desktop, Cursor, Windsurf, Crew
 
 Most AI memory systems suffer from three fundamental flaws:
 1. **Black-Box Vector Blobs:** Memories disappear into opaque vector databases. Humans cannot audit, correct, or curate what the agent learned.
-2. **Context Pollution:** Without forgetting mechanisms, old noise accumulates and pollutes the agent's prompt window.
-3. **Domain Cross-Contamination:** Research notes, credentials, and task scratchpads collide, causing hallucinations.
+2. **Context Pollution & Flat Storage:** Raw chat logs, factual knowledge, and procedural skills are dumped into a single flat vector index without forgetting mechanisms or cognitive separation.
+3. **Multi-Hop Blindness & Domain Cross-Contamination:** Standard vector similarity fails when connecting facts across multiple hops, while un-scoped stores leak context across domains.
 
-**Gomaa solves this:**
-* 📖 **Human-in-the-Loop Auditability:** Every memory is a human-readable Markdown note in your Obsidian vault with `[[Wiki Links]]` and YAML frontmatter.
-* ⏳ **Ebbinghaus Temporal Decay:** Inactive memories fade exponentially ($Salience \times 0.95^{\Delta t}$) while `#pinned` memories stay permanent.
+**Gomaa v4.0 ("Mnemosyne Neo") solves this:**
+* 🧠 **4-Quadrant Cognitive Architecture:** Explicit separation of **Episodic** (`episodic_events` turn ledger), **Semantic** (`notes` + weighted `links`), **Procedural** (`procedural_playbooks` with Bayesian Laplace utility), and **Working Memory** (`working_memory` bounded by Miller's Law $7 \pm 2$).
+* 🕸️ **HippoRAG 2 Associative PPR Retrieval:** Single-step multi-hop retrieval using Personalized PageRank ($K=20, \alpha=0.15$) over bi-directional weighted graph links, fused with dense vectors, BM25 FTS, and **ACT-R base-level activation** ($\ln(1 + \text{access\_count})$).
+* 🌙 **3-Phase Biological Sleep Consolidation (`gomaa sleep`):** Slow-Wave Sleep (SWS) crystallizes high-surprise episodes into semantic notes and extracts procedural playbooks; REM sleep shares proven playbooks across the agent fleet and discovers latent tag-bridge links; Synaptic Homeostasis resolves epistemic conflicts via an Assumption-based Truth Maintenance System (ATMS).
+* 📖 **Human-in-the-Loop Auditability:** Every semantic memory is a human-readable Markdown note in your Obsidian vault with `[[Wiki Links]]` and YAML frontmatter.
+* ⏳ **Ebbinghaus Temporal Decay & Pinned Immunity:** Inactive memories fade exponentially ($Salience \times 0.95^{\Delta t}$) while `#pinned` memories stay permanent.
 * 🏛️ **Physical Wing & Room Scoping:** A 2-level taxonomy (`wing` = domain/project, `room` = channel/topic) isolates context strictly.
-* 🌐 **Cross-Agent Fleet Memory:** Multi-agent swarms share sanitized global policies through `shared_db` while keeping private databases isolated.
+* 🌐 **Cross-Agent Fleet Memory:** Multi-agent swarms share sanitized global policies and high-utility playbooks through `shared_db` while keeping private databases isolated.
 
 ---
 
@@ -137,16 +140,18 @@ gomaa dashboard --port 8765
 - [⚡ Complete Feature Matrix](#-complete-feature-matrix)
 - [🏗️ System Architecture](#️-system-architecture)
 - [🧠 Deep Dive into Key Capabilities](#-deep-dive-into-key-capabilities)
-  - [1. Hierarchical Wing & Room Taxonomy](#1-hierarchical-wing--room-taxonomy)
-  - [2. Hybrid Reciprocal Rank Fusion (RRF) Search](#2-hybrid-reciprocal-rank-fusion-rrf-search)
-  - [3. Cross-Agent Shared Memory Layer (`shared_db`)](#3-cross-agent-shared-memory-layer-shared_db)
-  - [4. Ebbinghaus Temporal Decay & Pinned Immunity](#4-ebbinghaus-temporal-decay--pinned-immunity)
-  - [5. Obsidian Markdown Vault & Bi-Directional Graph](#5-obsidian-markdown-vault--bi-directional-graph)
-  - [6. Turn-Aware Verbatim Session Ingestor](#6-turn-aware-verbatim-session-ingestor)
-  - [7. Asynchronous Google Drive Cloud Synchronization](#7-asynchronous-google-drive-cloud-synchronization)
-  - [8. Flexible Embedding Backends (FastEmbed / Microservice / Local)](#8-flexible-embedding-backends-fastembed--microservice--local)
-  - [9. Defense-in-Depth Security & Injection Armor](#9-defense-in-depth-security--injection-armor)
-- [🛠️ MCP Tool Reference (9 Tools)](#️-mcp-tool-reference-9-tools)
+  - [1. 4-Quadrant Cognitive Architecture (v4.0)](#1-4-quadrant-cognitive-architecture-v40)
+  - [2. HippoRAG 2 Personalized PageRank (PPR) & Hybrid RRF Search](#2-hipporag-2-personalized-pagerank-ppr--hybrid-rrf-search)
+  - [3. 3-Phase Biological Sleep Consolidation (`gomaa sleep`)](#3-3-phase-biological-sleep-consolidation-gomaa-sleep)
+  - [4. Hierarchical Wing & Room Taxonomy](#4-hierarchical-wing--room-taxonomy)
+  - [5. Cross-Agent Shared Memory Layer (`shared_db`)](#5-cross-agent-shared-memory-layer-shared_db)
+  - [6. Ebbinghaus Temporal Decay, ACT-R Activation & Pinned Immunity](#6-ebbinghaus-temporal-decay-act-r-activation--pinned-immunity)
+  - [7. Obsidian Markdown Vault & Bi-Directional Graph](#7-obsidian-markdown-vault--bi-directional-graph)
+  - [8. Turn-Aware Verbatim Session Ingestor](#8-turn-aware-verbatim-session-ingestor)
+  - [9. Asynchronous Google Drive Cloud Synchronization](#9-asynchronous-google-drive-cloud-synchronization)
+  - [10. Flexible Embedding Backends (FastEmbed / Microservice / Local)](#10-flexible-embedding-backends-fastembed--microservice--local)
+  - [11. Defense-in-Depth Security & Data Integrity](#11-defense-in-depth-security--data-integrity)
+- [🛠️ MCP Tool Reference (13 Tools)](#️-mcp-tool-reference-13-tools)
 - [🌐 Multi-Agent Fleet Production Architecture](#-multi-agent-fleet-production-architecture)
 - [🤖 Agent Framework Integration Recipes](#-agent-framework-integration-recipes)
 - [💻 Complete CLI Command Reference](#-complete-cli-command-reference)
@@ -160,9 +165,12 @@ gomaa dashboard --port 8765
 
 | Feature | Description | Benefit |
 |---|---|---|
-| **🤖 MCP Native (v2024-11-05)** | Standardized stdio JSON-RPC protocol server | Seamless drop-in for Claude, Cursor, Windsurf, Hermes, OpenClaw |
+| **🤖 MCP Native (v2024-11-05)** | Standardized stdio JSON-RPC protocol server (13 tools) | Seamless drop-in for Claude, Cursor, Windsurf, Hermes, OpenClaw |
+| **🧠 4-Quadrant Cognitive Store** | Dedicated schemas for Episodic, Semantic, Procedural, and Working Memory | Prevents chat logs, factual knowledge, and tool skills from polluting each other |
+| **🕸️ HippoRAG 2 Associative PPR** | Personalized PageRank ($K=20, \alpha=0.15$) over bi-directional weighted edges | Solves multi-hop associative queries in a single sub-millisecond retrieval step |
+| **🌙 3-Phase Sleep Consolidation** | SWS crystallization + REM swarm playbook synthesis & link discovery + ATMS homeostasis | Automatically distills raw episodes into semantic notes and reusable procedural skills |
 | **🔎 High-Recall HNSW Vector Search** | `pgvector` HNSW indexing with `vector_cosine_ops` (`m=16, ef_construction=64`) | Sub-millisecond vector recall without clustering retraining |
-| **⚖️ Hybrid RRF Retrieval** | Reciprocal Rank Fusion of Dense Embeddings (1.0) + GIN FTS (0.8) + Graph (0.6) + Salience (0.2) | Captures exact technical keywords (CVEs, code tokens) & fuzzy semantics |
+| **⚖️ Hybrid RRF + ACT-R Ranking** | Fuses Dense (1.0) + FTS (0.8) + Graph (0.6) + HippoRAG PPR (0.9) + Salience/ACT-R | Captures exact technical keywords, multi-hop graph bridges & frequently accessed facts |
 | **🏛️ Wing & Room Scoping** | 2-level taxonomy (`wing` = domain/project, `room` = channel/topic) | Eliminates context window bloating & cross-domain hallucination |
 | **🌐 Cross-Agent Shared Memory** | Central `shared_db` queryable across multi-agent fleets with credential screening | Collective fleet intelligence without compromising private databases |
 | **☁️ Async Google Drive Sync** | Local-first bidirectional sync engine with MD5 diffing and `.conflict.md` branch resolution | Sub-millisecond agent I/O locally + automatic cloud backup & team sharing |
@@ -171,10 +179,9 @@ gomaa dashboard --port 8765
 | **📖 Obsidian Zettelkasten** | Writes human-readable Markdown notes with YAML frontmatter & `[[Wiki Links]]` | Direct visual inspection, editing, and graph visualization in Obsidian |
 | **📜 Turn-Aware Ingestor** | 1,500-char sliding-window chunking with 200-char overlap along turn boundaries | Preserves entire conversation history without breaking code blocks |
 | **🛡️ Prompt Injection Armor** | Neutralizes control tokens (`<|im_start|>`, `[INST]`) in prose; escapes XML context tags | Prevents memory poisoning and context hijacking attacks |
-| **🎨 Native Aurora Dashboard** | Zero-dependency embedded web knowledge graph (`gomaa dashboard`) | Real-time visual memory graph, 5-layer distribution charts & live query sandbox |
-| **🧠 5 Cognitive Memory Layers** | Scientific classification (Episodic, Semantic, Procedural, Social, Preferential) | Eliminates cross-domain noise and structures long-term agent understanding |
+| **🎨 Native Aurora Dashboard** | Zero-dependency embedded web knowledge graph (`gomaa dashboard`) | Real-time visual memory graph, cognitive distribution charts & live query sandbox |
 | **📦 Token-Budgeted Assembler** | Packs top-salience memories into exact LLM prompt budgets with XML escaping | Direct drop-in context injection for LLM system prompts without overflow |
-| **🔌 Framework Adapters** | Native integrations for LangChain, LangGraph, and CrewAI | Drop-in multi-agent swarm memory with zero boilerplate |
+| **🔌 Framework Adapters** | Native integrations for LangChain, LangGraph, and CrewAI (including Procedural recall) | Drop-in multi-agent swarm memory with zero boilerplate |
 | **🔄 Zero-Config SQLite Light Mode** | Automatic fallback to local SQLite WAL when PostgreSQL is offline | 5-second setup with 100% feature parity for standalone developer workstations |
 
 ---
@@ -189,19 +196,21 @@ flowchart TD
         Swarm["CrewAI / LangGraph Swarms"]
     end
 
-    subgraph Core["🧠 Gomaa Core Engine (v3.5.0)"]
+    subgraph Core["🧠 Gomaa Core Engine (v4.0.0 - Mnemosyne Neo)"]
         direction TB
-        MCP["MCP JSON-RPC Server\n(9 Tools · Stdio)"]
+        MCP["MCP JSON-RPC Server\n(13 Tools · Stdio)"]
         Security["Admission & Security Guard\n(Credential Regex · Control Token Sanitizer)"]
-        RRF["Hybrid RRF Ranker\nDense(1.0) + FTS(0.8) + Graph(0.6) + Salience(0.2)"]
-        Decay["Ebbinghaus Temporal Decay Engine\n(Exponential Decay · Pinned Immunity)"]
+        RRF["Hybrid RRF + HippoRAG 2 PPR Ranker\nDense(1.0) + PPR(0.9) + FTS(0.8) + Graph(0.6) + ACT-R"]
+        Sleep["3-Phase Biological Sleep Engine\n(SWS Crystallization · REM Playbooks · ATMS Homeostasis)"]
         Assembler["Token-Budgeted Context Assembler\n(Structured XML Prompt Enclosure)"]
     end
 
-    subgraph Storage["💾 Dual Storage Topology"]
-        Postgres[("🐘 PostgreSQL 16 + pgvector\nHNSW Indexing · GIN FTS\nPrivate DBs + shared_db")]
-        SQLite[("⚡ SQLite WAL\nZero-Config Local Mode")]
-        Vault["📖 Obsidian Markdown Vault\nYAML Frontmatter · [[Wikilinks]] Graph"]
+    subgraph Quadrants["🏛️ 4-Quadrant Cognitive Topology (PostgreSQL 16 pgvector & SQLite WAL)"]
+        Episodic[("⚡ Episodic Ledger\nepisodic_events")]
+        Semantic[("📖 Semantic Graph\nnotes + weighted links")]
+        Procedural[("🛠️ Procedural Store\nprocedural_playbooks")]
+        Working[("🎯 Working Memory\nworking_memory (7±2)")]
+        Vault["📂 Obsidian Markdown Vault\nYAML Frontmatter · [[Wikilinks]]"]
     end
 
     subgraph Cloud["☁️ Remote Sync (Optional)"]
@@ -211,79 +220,91 @@ flowchart TD
     Clients -->|MCP stdio / Python SDK| MCP
     MCP --> Security
     Security --> RRF
-    RRF <--> Postgres
-    RRF <--> SQLite
-    RRF <--> Vault
-    Decay --> Postgres
-    Decay --> SQLite
+    Security --> Sleep
+    RRF <--> Episodic
+    RRF <--> Semantic
+    RRF <--> Procedural
+    RRF <--> Working
+    Semantic <--> Vault
+    Sleep --> Episodic
+    Sleep --> Semantic
+    Sleep --> Procedural
     Assembler --> Clients
     Vault <-->|Async Daemon / Cron| GDrive
 ```
-
 
 ---
 
 ## 🧠 Deep Dive into Key Capabilities
 
-### 1. Hierarchical Wing & Room Taxonomy
+### 1. 4-Quadrant Cognitive Architecture (v4.0)
+Inspired by cognitive neuroscience (Tulving, Squire, Anderson's ACT-R), Gomaa v4.0 separates agent memory into four specialized stores across both SQLite and PostgreSQL:
+* **Episodic Memory (`episodic_events`):** Autonoetic, append-only turn ledger recording raw agent stimuli, tool invocations, outcomes (`success`, `failure`, `partial`), and a `surprise_factor` ($[0.0, 1.0]$).
+* **Semantic Memory (`notes` + `links`):** Noetic, decontextualized factual knowledge stored simultaneously in the Obsidian vault and database with typed, weighted edges (`relation_type`, `edge_weight`), `access_count`, and ATMS provenance (`status`, `superseded_by`).
+* **Procedural Memory (`procedural_playbooks`):** Executable skill schemas storing `preconditions`, `tool_sequence`, and `error_recovery` policies ranked by Bayesian Laplace-smoothed success rate:
+  $$U_{\text{Bayesian}} = \frac{\text{success\_count} + 1}{\text{invocation\_count} + 2}$$
+* **Working Memory (`working_memory`):** Session-scoped scratchpad tracking `active_goal`, `subtask_stack`, `hypotheses`, and an `attention_window` strictly bounded by Miller's Law ($7 \pm 2 \Rightarrow \text{max } 9$ items).
+
+### 2. HippoRAG 2 Personalized PageRank (PPR) & Hybrid RRF Search
+Standard vector search fails on exact technical strings (e.g. `CVE-2024-38077`) and multi-hop associative bridges. Gomaa v4.0 implements **HippoRAG 2 Personalized PageRank (`associative_ppr`)** alongside hybrid Reciprocal Rank Fusion:
+* **Personalized PageRank (`gomaa/hipporag.py`):** Extracts top anchor nodes via dense cosine similarity to build a sparse personalization reset distribution $p$, then runs 20 power iterations ($\alpha=0.15$) over bi-directional forward and backlink graph edges:
+  $$\pi^{(k+1)} = \alpha \cdot p + (1 - \alpha) \cdot M^{\top} \pi^{(k)}$$
+* **5-Way Hybrid RRF + ACT-R Fusion:**
+  $$\text{RRF Score}(d) = \sum_{m \in \text{modes}} w_m \cdot \frac{1}{k + \text{rank}_m(d)} + 0.2 \cdot \text{Salience}(d) + 0.05 \cdot \ln(1 + \text{access\_count}(d))$$
+  Combining Dense Vector ($1.0$), HippoRAG PPR ($0.9$), Full-Text Search ($0.8$), 2-Hop Graph Walk ($0.6$), Salience ($0.2$), and ACT-R Base-Level Activation.
+
+### 3. 3-Phase Biological Sleep Consolidation (`gomaa sleep`)
+Instead of simple decay, Gomaa v4.0 implements a 3-phase offline consolidation cycle (`ConsolidationEngine.run()`):
+1. **Phase 1 — Slow-Wave Sleep (SWS — Episodic-to-Semantic Crystallization):** Scans unconsolidated `episodic_events`. High-surprise episodes ($\text{surprise\_factor} \ge 0.5$ or failure recovery) are crystallized into permanent Semantic Markdown notes in the Obsidian vault and database, while multi-step successful tool trajectories ($\ge 2$ tool calls) are extracted into `procedural_playbooks`.
+2. **Phase 2 — REM Sleep (Associative Synthesis & Swarm Skill Sharing):** Promotes high-utility procedural playbooks ($\text{bayesian\_success\_rate} \ge 0.60$, screened by `AdmissionControl`) to the cross-agent `shared_db` fleet store, and discovers latent `rem_associative` links between unlinked semantic notes sharing domain tags.
+3. **Phase 3 — Synaptic Homeostasis & ATMS Truth Maintenance:** Resolves pending contradictions in `epistemic_conflicts` by marking superseded notes `status = 'deprecated'` with `superseded_by` provenance pointers, then applies geometric Ebbinghaus step decay ($S_{t+1} = S_t \times d$).
+
+### 4. Hierarchical Wing & Room Taxonomy
 Memory cross-contamination is a major failure mode in multi-agent fleets. Gomaa structures memory as a 2-level physical palace:
 * **`wing` (Domain/Project):** Top-level domain boundary (e.g. `ecommerce`, `pentest`, `devops`, `shared`).
 * **`room` (Topic/Channel):** Granular topic partition (e.g. `database`, `firewall`, `stripe_api`).
 
 Queries can be scoped tightly to a specific wing or room, preventing marketing prompts from recalling penetration testing findings.
 
-### 2. Hybrid Reciprocal Rank Fusion (RRF) Search
-Standard vector search fails on exact technical strings (e.g. `CVE-2024-38077`, `0x7fff5fbff8c0`), while keyword search fails on semantic concepts. Gomaa executes multi-candidate retrieval and merges results using weighted RRF:
-
-$$\text{RRF Score}(d) = \sum_{m \in \text{modes}} w_m \cdot \frac{1}{k + \text{rank}_m(d)} + 0.2 \cdot \text{Salience}(d)$$
-
-* **Dense HNSW Vector Search:** Weight $1.0$ (Cosine distance over 384-dimensional embeddings).
-* **PostgreSQL Full-Text Search:** Weight $0.8$ (`tsvector` weighted with title as `A` and content as `B`).
-* **Recursive Graph Traversal:** Weight $0.6$ (Recursive CTE discovering 1-hop and 2-hop `[[Wiki Links]]`).
-* **Memory Salience Engine:** Weight $0.2$ (Importance score from $0.0$ to $1.0$).
-
-### 3. Cross-Agent Shared Memory Layer (`shared_db`)
+### 5. Cross-Agent Shared Memory Layer (`shared_db`)
 In autonomous multi-agent environments, agents maintain isolated private databases (`toy_db`, `old_db`, `candy_db`, etc.) to prevent state corruption. However, collective intelligence requires sharing global policies and verified facts.
 * **Publishing:** Using `memory_publish_shared`, vetted notes are published to `shared_db`.
 * **Credential Screening:** Content is scanned against strict regex filters for Anthropic keys (`sk-ant-`), Google Gemini keys (`AIza...`), HuggingFace tokens (`hf_...`), OpenAI keys (`sk-proj-...`), AWS access keys (`AKIA...`), Slack tokens (`xox-`), and private keys.
 * **Fail-Soft Recall:** When an agent queries memory, `memory_recall` queries both the private store and `shared_db`. If the shared database is temporarily unreachable, it degrades gracefully without interrupting the agent.
 
-### 4. Ebbinghaus Temporal Decay & Pinned Immunity
-Memories naturally lose relevance over time. Gomaa implements Herman Ebbinghaus's exponential forgetting curve:
-
-$$\text{Salience}(t) = \text{Salience}_0 \times (0.95)^{\Delta t_{\text{days}}}$$
-
-* **Touch Feedback:** Accessing a memory updates `last_accessed_at`, resetting its decay.
-* **Nightly Auto-Archiving:** Consolidation automatically transitions notes with $\text{Salience} < 0.05$ and unaccessed for $>90\text{ days}$ to `status = 'archived'`.
+### 6. Ebbinghaus Temporal Decay, ACT-R Activation & Pinned Immunity
+Memories naturally lose relevance over time while frequently recalled memories grow stronger:
+* **ACT-R Dynamic Access Tracking:** Every high-confidence semantic or keyword recall increments `access_count` and updates `last_accessed_at`, boosting the note's base-level activation $\ln(1 + \text{access\_count})$.
+* **Nightly Auto-Archiving:** Consolidation automatically transitions notes below the archive threshold and unaccessed for $>90\text{ days}$ to `status = 'archived'`.
 * **Pinned Immunity:** System rules, core policies, or notes marked with `pinned=True` or tagged `#pinned` receive permanent immunity from temporal decay ($\text{Salience} = 1.0$).
 
-### 5. Obsidian Markdown Vault & Bi-Directional Graph
+### 7. Obsidian Markdown Vault & Bi-Directional Graph
 Every memory created by an agent is simultaneously written as a human-readable `.md` file inside your Obsidian vault:
 * **Zettelkasten Frontmatter:** Contains `title`, `date`, `tags`, `type`, `salience`, `wing`, and `room`.
-* **Bi-Directional Knowledge Graph:** Target notes mentioned as `[[Target Note]]` are automatically parsed into bi-directional relationships in PostgreSQL & SQLite, enabling 2-hop traversal across both forward links and backlinks.
+* **Bi-Directional Knowledge Graph:** Target notes mentioned as `[[Target Note]]` are automatically parsed into bi-directional relationships in PostgreSQL & SQLite, enabling 2-hop traversal and HippoRAG PPR propagation across both forward links and backlinks.
 * **Live Inspection:** Open Obsidian on your desktop or mobile device and explore your agent fleet's collective memory in Obsidian's interactive Graph View.
 
-### 6. Turn-Aware Verbatim Session Ingestor
+### 8. Turn-Aware Verbatim Session Ingestor
 Conversational transcripts often contain crucial nuances lost in lossy summarization. `memory_ingest_session`:
 * Splits raw transcripts along turn boundaries (`User:`, `Assistant:`, `### Turn`, `**Human**:`).
 * For turns longer than 1,500 characters, applies a **linear sliding window** (1,500 chars with 200-char overlap).
 * Chains sequential chunks using `[[Session ... Turn 01 Part 02]]` wikilinks, preserving code blocks, execution traces, and conversational flow.
 
-### 7. Asynchronous Google Drive Cloud Synchronization
+### 9. Asynchronous Google Drive Cloud Synchronization
 Keep your agent vaults securely backed up and synchronized across multiple machines or mobile devices:
 * **Local-First Speed:** Agent tool calls execute at local SSD speeds (<1ms) without blocking on Google Drive network latency.
 * **Background Daemon / Cron Sync:** Scans vault files, computes MD5 checksums, and synchronizes deltas bidirectionally with Google Drive.
 * **Conflict Resolution:** If a file is modified on both Google Drive and the local agent vault simultaneously, Gomaa saves the incoming version as `NoteName.conflict-YYYYMMDD-HHMMSS.md`, preventing data loss.
 * **Authentication:** Supports Google Cloud Service Account JSON (`GOOGLE_APPLICATION_CREDENTIALS`, `GDRIVE_SERVICE_ACCOUNT_JSON`) and OAuth2 user tokens (`GDRIVE_TOKEN_JSON`).
 
-### 8. Flexible Embedding Backends (FastEmbed / Microservice / Local)
+### 10. Flexible Embedding Backends (FastEmbed / Microservice / Local)
 Gomaa adapts to any deployment resource budget:
 1. **FastEmbed ONNX Runtime (Recommended for Standalone Nodes):** Uses ONNX Runtime C++ execution (~30MB RAM). Zero PyTorch overhead.
 2. **Centralized Microservice (`gomaa.embed_service`):** Hosts sentence-transformers in a single dedicated container serving multiple agent containers over HTTP (`MEMORY_EMBED_URL`).
 3. **Local SentenceTransformers:** Standalone PyTorch execution (`all-MiniLM-L6-v2`, 384-dimensional).
 4. **Deterministic Hash Fallback:** Zero-RAM mathematical vector hash for ultra-constrained environments.
 
-### 9. Defense-in-Depth Security & Data Integrity
+### 11. Defense-in-Depth Security & Data Integrity
 * **Path Traversal Immunity:** Dual-resolved canonical path checks (`is_relative_to`) ensure file operations cannot escape the vault root.
 * **Thread-Safe Atomic Writes:** Files are written to unique sibling temporary files (`.{name}.{pid}.{uuid}.tmp`) and renamed atomically, preventing thread collisions with automatic fallback for `EXDEV` cross-device volume mounts.
 * **DB-Failure Safe Rollback:** If a database upsert fails, existing notes are restored from content backups, preventing data corruption.
@@ -292,9 +313,9 @@ Gomaa adapts to any deployment resource budget:
 
 ---
 
-## 🛠️ MCP Tool Reference (9 Tools)
+## 🛠️ MCP Tool Reference (13 Tools)
 
-All 9 tools are natively exposed to agents over standard MCP JSON-RPC stdio:
+All 13 tools are natively exposed to agents over standard MCP JSON-RPC stdio:
 
 ### 1. `memory_remember`
 Store a private memory note in the vault with semantic embedding, tags, and hierarchical scoping.
@@ -323,11 +344,11 @@ Publish a sanitized, vetted finding or policy to the cross-agent shared fleet me
 ```
 
 ### 3. `memory_recall`
-Search memories across private and shared fleet databases using hybrid RRF, HNSW vectors, keywords, or graph.
+Search memories across private and shared fleet databases using `hybrid` RRF, `semantic`, `keyword`, 2-hop `graph`, HippoRAG `associative_ppr`, `procedural` playbooks, or `episodic` turns.
 ```json
 {
   "query": "HNSW index configuration parameters",
-  "mode": "hybrid",
+  "mode": "associative_ppr",
   "top_k": 5,
   "scope": {
     "wing": "engineering",
@@ -389,7 +410,61 @@ Retrieve, rank, and pack high-salience memories into a strict token-budgeted XML
 }
 ```
 
-### 9. `memory_audit`
+### 9. `memory_ingest_event`
+Log a turn-level experiential episode into the biological episodic ledger (`episodic_events`) with a surprise rating and outcome status.
+```json
+{
+  "session_id": "sess-2026-01",
+  "event_type": "tool_call",
+  "stimulus": "nmap -p 8080 10.0.0.5",
+  "response": "Port 8080 open (Apache Tomcat)",
+  "tool_name": "nmap_scan",
+  "tool_args": {"port": 8080, "target": "10.0.0.5"},
+  "surprise_factor": 0.85,
+  "outcome_status": "success"
+}
+```
+
+### 10. `memory_save_playbook`
+Store or update a reusable procedural skill playbook (`procedural_playbooks`) with preconditions, tool sequences, error recovery, and Bayesian Laplace-smoothed utility tracking.
+```json
+{
+  "skill_name": "harden_ssh_daemon",
+  "domain": "devops",
+  "description": "Disable password auth and root password login in sshd_config",
+  "preconditions": ["root_access", "ssh_key_installed"],
+  "tool_sequence": [
+    {"tool": "edit_config", "args": {"file": "/etc/ssh/sshd_config"}},
+    {"tool": "systemctl_reload", "args": {"service": "ssh"}}
+  ],
+  "error_recovery": {"syntax_error": "sshd -t && restore backup"}
+}
+```
+
+### 11. `memory_sleep`
+Trigger the 3-phase biological sleep consolidation engine (Slow-Wave Sleep crystallization + REM swarm playbook synthesis & latent link discovery + ATMS synaptic homeostasis).
+```json
+{
+  "decay_factor": 0.95,
+  "archive_threshold": 0.10
+}
+```
+
+### 12. `memory_working_buffer`
+Manage the Miller's Law ($7 \pm 2$) bounded working memory scratchpad (`get`, `update`, `clear`) for active session goals, subtask stacks, hypotheses, and attention windows.
+```json
+{
+  "action": "update",
+  "session_id": "sess-2026-01",
+  "agent_role": "lead_researcher",
+  "active_goal": "Verify zero-downtime migration",
+  "subtask_stack": ["Check replica lag", "Switch PgBouncer pool"],
+  "hypotheses": ["Replica lag < 10ms under load"],
+  "attention_window": [{"note": "PostgreSQL HNSW Tuning", "salience": 0.9}]
+}
+```
+
+### 13. `memory_audit`
 Get real-time memory health metrics, store backend status, request counts, and active wings.
 ```json
 {}
@@ -544,8 +619,8 @@ gomaa remember "API Architecture" "Uses Bearer JWT auth." --tags security auth -
 # 4. Publish shared fleet memory
 gomaa publish-shared "Global Production Policy" "Always check SSL certs." --wing devops
 
-# 5. Search memories (hybrid / semantic / keyword / graph)
-gomaa recall "JWT authentication" --mode hybrid --top-k 5 --wing backend
+# 5. Search memories (hybrid / semantic / keyword / graph / associative_ppr / procedural / episodic)
+gomaa recall "JWT authentication" --mode associative_ppr --top-k 5 --wing backend
 
 # 6. Assemble token-budgeted prompt context block
 gomaa assemble-context "production policy" --max-tokens 1500 --wing devops
@@ -553,17 +628,20 @@ gomaa assemble-context "production policy" --max-tokens 1500 --wing devops
 # 7. View activity timeline
 gomaa timeline --limit 20
 
-# 8. Trigger Ebbinghaus decay & link reconciliation
+# 8. Trigger 3-phase biological sleep consolidation (SWS + REM + Homeostasis)
+gomaa sleep --decay-rate 0.95 --archive-threshold 0.10
+
+# 9. Trigger Ebbinghaus decay & link reconciliation
 gomaa consolidate --decay-rate 0.95 --archive-threshold 0.05
 
-# 9. Check system statistics & health
+# 10. Check system statistics & health
 gomaa stats
 
-# 10. Synchronize with Google Drive (One-off pass or daemon mode)
+# 11. Synchronize with Google Drive (One-off pass or daemon mode)
 gomaa sync-gdrive --folder "My-Agent-Vault" --credentials service-account.json
 gomaa sync-gdrive --daemon --interval 60
 
-# 11. Run standalone Centralized Embedding Microservice
+# 12. Run standalone Centralized Embedding Microservice
 gomaa embed-service --host 0.0.0.0 --port 8000 --model all-MiniLM-L6-v2
 ```
 
@@ -600,46 +678,51 @@ Benchmarked on Apple Silicon (M-series) / Ubuntu 24.04 LTS against a live knowle
 | **Cold Engine Init** | SQLite WAL + Obsidian Vault | **6.28 ms** | **6.50 ms** | ~160 init/s |
 | **Neural Ingest** | FastEmbed ONNX + SQLite + Markdown File IO | **13.50 ms** | **21.47 ms** | ~75 notes/s |
 | **Neural Recall** | Query Embedding + Dot Product + Keyword RRF | **13.71 ms** | **14.79 ms** | ~73 queries/s |
+| **HippoRAG 2 PPR** | 20-Step Power Iteration ($K=20, \alpha=0.15$) | **1.42 ms** | **1.85 ms** | ~700 walks/s |
 | **Keyword FTS Search** | SQLite FTS5 / PostgreSQL GIN `tsvector` | **0.99 ms** | **1.24 ms** | ~1,010 queries/s |
 | **Graph Traversal** | Recursive CTE / In-Memory Wikilink Walk | **0.83 ms** | **0.97 ms** | ~1,200 walks/s |
 | **Context Assembler** | Top-K Recall + Token Budgeting + XML Packing | **6.12 ms** | **6.45 ms** | ~163 assemblies/s |
 
-### 🔬 Test Suite Coverage (98 / 98 Passed · 100%)
+### 🔬 Test Suite Coverage (120 / 120 Passed · 100%)
 
-Gomaa maintains a comprehensive automated test suite spanning 28 test modules:
+Gomaa v4.0 maintains a comprehensive automated test suite spanning 32 test modules (including LoCoMo, LongMemEval, and HotpotQA multi-hop cognitive benchmark harnesses):
 
 ```
-collected 98 items
-tests/test_adapters.py ..                                                [  2%]
-tests/test_assemble_context.py ...                                       [  5%]
-tests/test_chunking.py .                                                 [  6%]
-tests/test_cli_init.py ..                                                [  8%]
+collected 120 items
+tests/benchmarks/test_memory_benchmarks.py ...                           [  2%]
+tests/test_adapters.py ..                                                [  4%]
+tests/test_assemble_context.py ...                                       [  6%]
+tests/test_chunking.py .                                                 [  7%]
+tests/test_cli_init.py ..                                                [  9%]
 tests/test_compat.py ....                                                [ 12%]
 tests/test_consolidation.py ..                                           [ 14%]
-tests/test_dashboard.py ......                                           [ 20%]
-tests/test_embedder.py ...                                               [ 23%]
-tests/test_embedder_offline.py .                                         [ 24%]
-tests/test_embedder_v32.py ..                                            [ 26%]
-tests/test_fts_websearch.py .                                            [ 27%]
+tests/test_dashboard.py ......                                           [ 19%]
+tests/test_dream_consolidation.py ....                                   [ 22%]
+tests/test_embedder.py ...                                               [ 25%]
+tests/test_embedder_offline.py .                                         [ 25%]
+tests/test_embedder_v32.py ..                                            [ 27%]
+tests/test_fts_websearch.py .                                            [ 28%]
 tests/test_gdrive_safe_path.py .....                                     [ 32%]
 tests/test_gdrive_sync.py ...                                            [ 35%]
-tests/test_graph_cycles.py .                                             [ 36%]
-tests/test_injection_defense.py ...                                      [ 39%]
-tests/test_integration.py ...                                            [ 42%]
-tests/test_mcp.py ..                                                     [ 44%]
+tests/test_graph_cycles.py .                                             [ 35%]
+tests/test_hipporag.py ...                                               [ 38%]
+tests/test_injection_defense.py ...                                      [ 40%]
+tests/test_integration.py ...                                            [ 43%]
+tests/test_mcp.py ..                                                     [ 45%]
 tests/test_mcp_edge_cases.py ....                                        [ 48%]
-tests/test_mcp_server.py ..............                                  [ 63%]
-tests/test_reconcile_links.py .                                          [ 64%]
-tests/test_remind_me_sqlite.py ....                                      [ 69%]
-tests/test_security.py ......                                            [ 75%]
-tests/test_security_expanded.py .....                                    [ 80%]
-tests/test_shared_memory.py ..                                           [ 82%]
-tests/test_sqlite.py .....                                               [ 88%]
+tests/test_mcp_server.py ...................                             [ 64%]
+tests/test_quadrant_stores.py .......                                    [ 70%]
+tests/test_reconcile_links.py .                                          [ 70%]
+tests/test_remind_me_sqlite.py ....                                      [ 74%]
+tests/test_security.py ......                                            [ 79%]
+tests/test_security_expanded.py .....                                    [ 83%]
+tests/test_shared_memory.py ..                                           [ 85%]
+tests/test_sqlite.py .....                                               [ 89%]
 tests/test_store_factory.py ...                                          [ 91%]
-tests/test_vault.py .....                                                [ 96%]
+tests/test_vault.py .....                                                [ 95%]
 tests/test_vault_security.py .....                                       [100%]
 
-======================= 98 passed in 13.80s =======================
+======================= 120 passed in 9.85s =======================
 ```
 
 ### 🛠️ How to Execute the Test Suite
