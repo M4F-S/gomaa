@@ -540,7 +540,7 @@ class PgVectorStore(MemoryStore):
                         SELECT (CASE WHEN l.source_note_id = n.id THEN l.target_note_id ELSE l.source_note_id END) AS note_id, 1 AS depth, ARRAY[l.source_note_id, l.target_note_id] AS path
                         FROM links l
                         JOIN notes n ON (n.id = l.source_note_id OR n.id = l.target_note_id)
-                        WHERE n.title = %s AND n.status = 'active'
+                        WHERE (n.title = %s OR n.title ILIKE %s) AND n.status = 'active'
                         UNION
                         SELECT (CASE WHEN l.source_note_id = gw.note_id THEN l.target_note_id ELSE l.source_note_id END), gw.depth + 1, gw.path || (CASE WHEN l.source_note_id = gw.note_id THEN l.target_note_id ELSE l.source_note_id END)
                         FROM links l
@@ -554,7 +554,7 @@ class PgVectorStore(MemoryStore):
                     ORDER BY n.id, gw.depth ASC
                     LIMIT %s;
                 """,
-                    (note_title, depth, top_k),
+                    (note_title, f"%{note_title}%", depth, top_k),
                 )
                 rows = cur.fetchall()
                 results = []
@@ -1005,10 +1005,10 @@ class PgVectorStore(MemoryStore):
                     sql = f"""
                         SELECT id, skill_name, domain, description, preconditions, tool_sequence,
                                error_recovery, invocation_count, success_count,
-                               1 - (embedding <=> %s::vector) AS score
+                               COALESCE(1 - (embedding <=> %s::vector), (success_count + 1.0) / (invocation_count + 2.0)) AS score
                         FROM procedural_playbooks
                         {where_sql}
-                        ORDER BY embedding <=> %s::vector ASC
+                        ORDER BY embedding <=> %s::vector ASC NULLS LAST
                         LIMIT %s;
                     """
                     cur.execute(sql, params_all)
@@ -1016,7 +1016,8 @@ class PgVectorStore(MemoryStore):
                     params.append(limit)
                     sql = f"""
                         SELECT id, skill_name, domain, description, preconditions, tool_sequence,
-                               error_recovery, invocation_count, success_count, 0.0 AS score
+                               error_recovery, invocation_count, success_count,
+                               (success_count + 1.0) / (invocation_count + 2.0) AS score
                         FROM procedural_playbooks
                         {where_sql}
                         ORDER BY (success_count + 1.0) / (invocation_count + 2.0) DESC
@@ -1029,6 +1030,8 @@ class PgVectorStore(MemoryStore):
                 for row in rows:
                     p = dict(row)
                     p["bayesian_success_rate"] = (p["success_count"] + 1.0) / (p["invocation_count"] + 2.0)
+                    if p.get("score") is None:
+                        p["score"] = p["bayesian_success_rate"]
                     results.append(p)
                 return results
 

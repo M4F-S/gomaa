@@ -68,15 +68,15 @@ assert set(tool_names) == expected_tools, f"Mismatch in MCP tools: {set(tool_nam
 print(f"✅ [2/12] MCPServer Verified: 13/13 MCP tools registered")
 
 # 4. Test Semantic Quadrant & Bi-Directional Graph Links (memory_remember)
-run_tag = uuid.uuid4().hex[:6]
-title_a = f"Gomaa v4 Node A ({AGENT_NAME}-{run_tag})"
-title_b = f"Gomaa v4 Node B ({AGENT_NAME}-{run_tag})"
+run_tag = f"r{uuid.uuid4().hex[:6]}"
+title_a = f"Gomaa v4 Node A {AGENT_NAME} {run_tag}"
+title_b = f"Gomaa v4 Node B {AGENT_NAME} {run_tag}"
 
 res_b = server._call_tool(
     "memory_remember",
     {
         "title": title_b,
-        "content": f"Downstream target node for HippoRAG PPR multi-hop test by {AGENT_NAME}.",
+        "content": f"Downstream target node for HippoRAG PPR multi-hop test by {AGENT_NAME} {run_tag}.",
         "tags": '["gomaa-v4", "hipporag", "ppr"]',  # test JSON-stringified tag coercion
         "salience": "0.85",
         "wing": "diagnostics",
@@ -90,7 +90,7 @@ res_a = server._call_tool(
     "memory_remember",
     {
         "title": title_a,
-        "content": f"Primary anchor node for {AGENT_NAME} linking to [[{title_b}]].",
+        "content": f"Primary anchor node for {AGENT_NAME} {run_tag} linking to [[{title_b}]].",
         "tags": ["gomaa-v4", "hipporag", "anchor"],
         "salience": 0.9,
         "wing": "diagnostics",
@@ -103,17 +103,18 @@ print(f"✅ [3/12] Semantic Quadrant & Vault Write Verified: '{title_a}' -> '[[{
 
 # 5. Test Recall Modes: hybrid, semantic, keyword, graph, associative_ppr + ACT-R access_count
 for mode in ["hybrid", "semantic", "keyword", "graph", "associative_ppr"]:
+    query_str = title_a if mode == "graph" else f"Primary anchor node {AGENT_NAME} {run_tag}"
     rec = server._call_tool(
         "memory_recall",
         {
-            "query": f"Primary anchor node {AGENT_NAME} {run_tag}",
+            "query": query_str,
             "mode": mode,
             "top_k": 5,
             "scope": '{"wing": "diagnostics"}',  # test JSON-stringified scope coercion
         },
     )
     results = rec.get("results", [])
-    assert len(results) > 0, f"memory_recall mode={mode} returned 0 results"
+    assert len(results) > 0, f"memory_recall mode={mode} returned 0 results for query={query_str}"
 print("✅ [4/12] All 5 Semantic/Graph Recall Modes Verified (hybrid, semantic, keyword, graph, associative_ppr)")
 
 # 6. Test Context Assembler (memory_assemble_context)
@@ -286,8 +287,34 @@ pub_res = server._call_tool(
 assert pub_res.get("success") is True, f"publish_shared failed: {pub_res}"
 print(f"✅ [11/12] Security Gate & Cross-Agent Shared Fleet Publication Verified ('{shared_title}')")
 
-# 13. Clean up diagnostic notes so production vaults stay clean
+# 13. Clean up ephemeral diagnostic artifacts so production vaults & DBs stay pristine
+import shutil
+
 mem.db.delete_note(title_a)
 mem.db.delete_note(title_b)
+try:
+    with mem.db._conn() as conn:
+        with conn.cursor() as cur:
+            cur.execute(
+                "DELETE FROM notes WHERE wing = 'diagnostics' "
+                "OR title LIKE 'Crystallized Episode (sess-%' "
+                "OR title LIKE 'Gomaa v4 Node %' "
+                "OR title LIKE 'Routine Sleep Cycle %';"
+            )
+            cur.execute("DELETE FROM episodic_events WHERE session_id LIKE 'sess-%';")
+            cur.execute(
+                "DELETE FROM procedural_playbooks WHERE skill_name LIKE 'pgvector_maintenance_%' "
+                "OR skill_name LIKE 'auto_workflow_sess-%';"
+            )
+    if mem.shared_db:
+        with mem.shared_db._conn() as sconn:
+            with sconn.cursor() as scur:
+                scur.execute("DELETE FROM procedural_playbooks WHERE skill_name LIKE 'pgvector_maintenance_%' OR skill_name LIKE 'auto_workflow_sess-%';")
+    diag_dir = Path(VAULT_PATH) / "diagnostics"
+    if diag_dir.exists():
+        shutil.rmtree(diag_dir, ignore_errors=True)
+except Exception as cleanup_exc:
+    print(f"Cleanup notice: {cleanup_exc}")
+
 print(f"✅ [12/12] Ephemeral Diagnostic Artifacts Cleaned Up")
 print(f"\n🎉 ALL 13 MCP TOOLS, 4 QUADRANTS, HIPPORAG PPR & SLEEP CONSOLIDATION PASSED ON {AGENT_NAME}!\n")

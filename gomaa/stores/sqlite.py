@@ -542,6 +542,12 @@ class SQLiteStore(MemoryStore):
             cur.execute("SELECT id FROM notes WHERE title = ? AND status = 'active';", (note_title,))
             root = cur.fetchone()
             if not root:
+                cur.execute(
+                    "SELECT id FROM notes WHERE title LIKE ? AND status = 'active' ORDER BY salience DESC LIMIT 1;",
+                    (f"%{note_title}%",),
+                )
+                root = cur.fetchone()
+            if not root:
                 return []
 
             visited = set()

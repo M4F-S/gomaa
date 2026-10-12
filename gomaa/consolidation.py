@@ -199,6 +199,7 @@ class ConsolidationEngine:
                         desc = pb.get("description", "")
                         seq = str(pb.get("tool_sequence", ""))
                         if not self._has_credentials(desc) and not self._has_credentials(seq):
+                            emb = pb.get("embedding") or self.embedder.embed_query(f"{pb['skill_name']}: {desc}")
                             self.shared_db.upsert_playbook(
                                 skill_name=pb["skill_name"],
                                 domain=pb["domain"],
@@ -206,7 +207,7 @@ class ConsolidationEngine:
                                 preconditions=pb["preconditions"],
                                 tool_sequence=pb["tool_sequence"],
                                 error_recovery=pb["error_recovery"],
-                                embedding=pb.get("embedding"),
+                                embedding=emb,
                             )
                             shared_playbooks += 1
             except Exception as e:

@@ -93,13 +93,27 @@ case "${1:-}" in
         ;;
 
     test)
-        echo "=== Running Gomaa v4.0 Test Suite on ${VPS_HOST} ==="
-        $SSH_CMD "docker exec -u hermes -e HF_HUB_OFFLINE=1 -e PYTHONPATH=${DEPLOY_DIR} -e MEMORY_DB_DSN='$(dns_for toy)' hermes-agent /opt/data/mcp-servers/venv/bin/python -m pytest ${DEPLOY_DIR}/tests -q"
+        echo "=== [1/2] Running Gomaa v4.0 Unit & Integration Test Suite on ${VPS_HOST} ==="
+        $SSH_CMD "docker exec -u hermes -e HF_HUB_OFFLINE=1 -e PYTHONPATH=${DEPLOY_DIR} -e MEMORY_DB_DSN='$(dns_for toy)' hermes-agent /opt/data/mcp-servers/venv/bin/python -m pytest -p no:postgresql ${DEPLOY_DIR}/tests -q"
+        echo ""
+        echo "=== [2/2] Running Strict 12-Stage Live E2E Fleet Diagnostic Across All 5 Containers ==="
+        $SSH_CMD "for c in ${CONTAINERS[*]}; do
+            echo '----------------------------------------------------'
+            echo \"Live E2E Test in Container: \$c\"
+            docker exec -u hermes -e HF_HUB_OFFLINE=1 -e PYTHONPATH=${DEPLOY_DIR} \$c /opt/data/mcp-servers/venv/bin/python -c '
+import os
+with open(\"/opt/data/mcp-servers/obsidian_memory_mcp.py\") as f:
+    for line in f:
+        if line.startswith(\"os.environ[\"):
+            exec(line)
+exec(open(\"${DEPLOY_DIR}/scripts/fleet_e2e_diagnostic.py\").read())
+'
+        done"
         ;;
 
     sync)
         echo "=== Syncing local repo to ${SSH_HOST}:${DEPLOY_DIR} ==="
-        rsync -avz --exclude '.git' --exclude '__pycache__' --exclude '.venv' \
+        rsync -avz --delete --exclude '.git' --exclude '__pycache__' --exclude '.venv' \
             -e "ssh -p ${VPS_PORT}" \
             "${PROJECT_ROOT}/" "${SSH_HOST}:${DEPLOY_DIR}/"
         echo "=== Installing Gomaa into all 5 agent containers ==="
@@ -108,6 +122,7 @@ case "${1:-}" in
             docker exec \$c rm -rf ${DEPLOY_DIR}
             docker cp ${DEPLOY_DIR} \$c:${DEPLOY_DIR}
             docker exec \$c chown -R hermes:hermes ${DEPLOY_DIR}
+            docker exec \$c /opt/data/mcp-servers/venv/bin/pip uninstall -y mnemosyne mnemosyne-memory >/dev/null 2>&1 || true
             docker exec \$c /opt/data/mcp-servers/venv/bin/pip install --no-deps -e ${DEPLOY_DIR} -q
         done"
         echo "Sync & container installation complete!"

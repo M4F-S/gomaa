@@ -314,7 +314,7 @@ class UnifiedMemorySystem:
                     "title": f"Playbook: {p.get('skill_name')}",
                     "content": f"Description: {p.get('description')}\nPreconditions: {p.get('preconditions')}\nSequence: {p.get('tool_sequence')}\nRecovery: {p.get('error_recovery')}",
                     "tags": ["playbook", p.get("domain", "general")],
-                    "score": p.get("score", p.get("bayesian_success_rate", 0.0)),
+                    "score": float(p.get("score") or p.get("bayesian_success_rate") or 0.0),
                     "wing": "procedural",
                     "room": p.get("domain", "general"),
                 }
@@ -328,7 +328,7 @@ class UnifiedMemorySystem:
                     "title": f"Episodic Event #{e.get('id')} [{e.get('event_type')}]",
                     "content": f"Stimulus: {e.get('stimulus')}\nResponse: {e.get('response')}\nStatus: {e.get('outcome_status')}",
                     "tags": ["episodic", e.get("event_type", "dialogue")],
-                    "score": float(e.get("surprise_factor", 0.5)),
+                    "score": float(e.get("surprise_factor") or 0.5),
                     "wing": "episodic",
                     "room": e.get("session_id", "general"),
                 }
@@ -360,7 +360,7 @@ class UnifiedMemorySystem:
                             "title": f"Playbook: {p.get('skill_name')}",
                             "content": f"Description: {p.get('description')}\nPreconditions: {p.get('preconditions')}\nSequence: {p.get('tool_sequence')}\nRecovery: {p.get('error_recovery')}",
                             "tags": ["playbook", p.get("domain", "general"), "shared"],
-                            "score": p.get("score", p.get("bayesian_success_rate", 0.0)),
+                            "score": float(p.get("score") or p.get("bayesian_success_rate") or 0.0),
                             "wing": "procedural",
                             "room": p.get("domain", "general"),
                         }
@@ -386,7 +386,7 @@ class UnifiedMemorySystem:
 
         # Sort merged results by relevance (rrf_score or score) so high-value shared memories rank properly
         sorted_results = sorted(
-            merged_dict.values(), key=lambda x: x.get("rrf_score", x.get("score", 0.0)), reverse=True
+            merged_dict.values(), key=lambda x: float(x.get("rrf_score") or x.get("score") or 0.0), reverse=True
         )
         results = sorted_results[:top_k]
 
