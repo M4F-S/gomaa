@@ -1,11 +1,11 @@
-# Contributing to Mnemosyne
+# Contributing to Gomaa
 
 Thank you for your interest in contributing!
 
 ## Getting Started
 
 1. Fork the repository
-2. Clone your fork: `git clone https://github.com/YOUR_USERNAME/mnemosyne`
+2. Clone your fork: `git clone https://github.com/YOUR_USERNAME/gomaa`
 3. Install dependencies: `make install`
 4. Run tests: `make test`
 

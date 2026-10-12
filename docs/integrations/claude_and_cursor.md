@@ -1,6 +1,6 @@
-# Integrating Mnemosyne with Claude Desktop, Claude Code & Cursor
+# Integrating Gomaa with Claude Desktop, Claude Code & Cursor
 
-Mnemosyne is built on the Model Context Protocol (MCP). It can be configured in any MCP client in seconds.
+Gomaa is built on the Model Context Protocol (MCP). It can be configured in any MCP client in seconds.
 
 ---
 
@@ -13,11 +13,11 @@ Mnemosyne is built on the Model Context Protocol (MCP). It can be configured in 
 ```json
 {
   "mcpServers": {
-    "mnemosyne": {
+    "gomaa": {
       "command": "python3",
-      "args": ["-m", "mnemosyne", "server"],
+      "args": ["-m", "gomaa", "server"],
       "env": {
-        "MEMORY_DB_DSN": "postgresql://mnemosyne:***@localhost:5432/claude_memory",
+        "MEMORY_DB_DSN": "postgresql://gomaa:***@localhost:5432/claude_memory",
         "MEMORY_VAULT_PATH": "~/Documents/Obsidian/ClaudeVault",
         "MEMORY_DEFAULT_WING": "personal"
       }
@@ -35,9 +35,9 @@ In Cursor settings (Features → MCP) or `.cursor/mcp.json`:
 ```json
 {
   "mcpServers": {
-    "mnemosyne": {
+    "gomaa": {
       "command": "python3",
-      "args": ["-m", "mnemosyne", "server"],
+      "args": ["-m", "gomaa", "server"],
       "env": {
         "MEMORY_VAULT_PATH": "./.vault",
         "MEMORY_DEFAULT_WING": "my-codebase"
@@ -51,8 +51,8 @@ In Cursor settings (Features → MCP) or `.cursor/mcp.json`:
 
 ## 3. Claude Code CLI (`~/.claude.json` or `claude mcp add`)
 
-Add Mnemosyne to Claude Code CLI directly:
+Add Gomaa to Claude Code CLI directly:
 
 ```bash
-claude mcp add mnemosyne -- python3 -m mnemosyne server
+claude mcp add gomaa -- python3 -m gomaa server
 ```

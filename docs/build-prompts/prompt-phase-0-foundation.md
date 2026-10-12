@@ -17,7 +17,7 @@ This is a fresh session. You do NOT have access to previous conversations. All i
 
 ## 1. PROJECT OVERVIEW
 
-**Mnemosyne** is a local-first memory system for AI agents. It stores memories as Markdown files (Obsidian-compatible) with YAML frontmatter, uses PostgreSQL + pgvector for fast search, and exposes an MCP server for Claude/Cursor integration.
+**Gomaa** is a local-first memory system for AI agents. It stores memories as Markdown files (Obsidian-compatible) with YAML frontmatter, uses PostgreSQL + pgvector for fast search, and exposes an MCP server for Claude/Cursor integration.
 
 **Current state:** All code is in a single file `scripts/mo_graphify_memory.py` (984 lines). Your job is to restructure it into a proper Python package, fix 8 critical bugs, add tests, CI/CD, Docker support, and all the infrastructure needed for an open-source project.
 
@@ -46,7 +46,7 @@ You have access to these tools. Use them as needed:
 Split `scripts/mo_graphify_memory.py` into these files:
 
 ```
-mnemosyne/
+gomaa/
 ├── __init__.py              # Package init: version, exports, backward compat
 ├── core.py                  # UnifiedMemorySystem (main API class)
 ├── stores/
@@ -66,7 +66,7 @@ mnemosyne/
 - One class per file (except `security.py` which has two related classes)
 - Preserve ALL existing functionality - no features removed
 - All imports must work after restructuring
-- `from mnemosyne import UnifiedMemorySystem, MemoryMCPServer` must work
+- `from gomaa import UnifiedMemorySystem, MemoryMCPServer` must work
 
 ---
 
@@ -158,7 +158,7 @@ def __init__(self, vault_path: str = VAULT_PATH, dsn: str = DB_DSN, auto_sync: b
 ### Bug 5: Auto-init on module import [CRITICAL]
 
 **Location:** Bottom of `mo_graphify_memory.py` (lines ~969-984)  
-**Problem:** Global singleton `_global_memory` is created on every `import mnemosyne`. Crashes without DB.
+**Problem:** Global singleton `_global_memory` is created on every `import gomaa`. Crashes without DB.
 
 **Fix:** REMOVE the auto-initialization block entirely. Replace with lazy initialization:
 ```python
@@ -224,7 +224,7 @@ requires = ["setuptools>=61.0", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "mnemosyne"
+name = "gomaa"
 version = "0.1.0"
 description = "Local-first memory system for AI agents"
 readme = "README.md"
@@ -262,11 +262,11 @@ dev = [
 ]
 
 [project.scripts]
-mnemosyne = "mnemosyne.cli:main"
+gomaa = "gomaa.cli:main"
 
 [tool.setuptools.packages.find]
 where = ["."]
-include = ["mnemosyne*"]
+include = ["gomaa*"]
 
 [tool.black]
 line-length = 100
@@ -306,11 +306,11 @@ test-integration: ## Run integration tests (requires PostgreSQL)
 	pytest tests/ -v -m integration
 
 lint:           ## Run linting
-	flake8 mnemosyne/ tests/
-	mypy mnemosyne/
+	flake8 gomaa/ tests/
+	mypy gomaa/
 
 format:         ## Format code
-	black mnemosyne/ tests/
+	black gomaa/ tests/
 
 check:          ## Run all checks (test + lint)
 	make test
@@ -369,11 +369,11 @@ htmlcov/
 .DS_Store
 Thumbs.db
 
-# Mnemosyne
+# Gomaa
 *.db
 *.db-journal
 .obsidian/
-.mnemosyne/
+.gomaa/
 
 # Environment
 .env
@@ -398,7 +398,7 @@ COPY requirements.txt requirements-dev.txt ./
 RUN pip install --no-cache-dir -r requirements.txt
 
 # Copy source code
-COPY mnemosyne/ ./mnemosyne/
+COPY gomaa/ ./gomaa/
 COPY tests/ ./tests/
 COPY pyproject.toml ./
 
@@ -426,21 +426,21 @@ services:
     volumes:
       - postgres_data:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U mnemosyne"]
+      test: ["CMD-SHELL", "pg_isready -U gomaa"]
       interval: 5s
       timeout: 5s
       retries: 5
 
-  mnemosyne:
+  gomaa:
     build: .
     environment:
-      MEMORY_DB_DSN: "postgresql://mnemosyne:***@postgres:5432/mnemosyne"
+      MEMORY_DB_DSN: "postgresql://gomaa:***@postgres:5432/gomaa"
     volumes:
-      - ./mnemosyne-data:/app/data
+      - ./gomaa-data:/app/data
     depends_on:
       postgres:
         condition: service_healthy
-    command: ["python", "-c", "from mnemosyne import UnifiedMemorySystem; print('Mnemosyne ready')"]
+    command: ["python", "-c", "from gomaa import UnifiedMemorySystem; print('Gomaa ready')"]
 
 volumes:
   postgres_data:
@@ -489,7 +489,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### 5.8 `CONTRIBUTING.md`
 
 ```markdown
-# Contributing to Mnemosyne
+# Contributing to Gomaa
 
 Thank you for your interest in contributing!
 
@@ -591,15 +591,15 @@ jobs:
 
       - name: Run linting
         run: |
-          flake8 mnemosyne/ tests/
-          mypy mnemosyne/
+          flake8 gomaa/ tests/
+          mypy gomaa/
 
       - name: Run unit tests
-        run: pytest tests/ -v -m "not integration" --cov=mnemosyne --cov-report=xml
+        run: pytest tests/ -v -m "not integration" --cov=gomaa --cov-report=xml
 
       - name: Run integration tests
         env:
-          MEMORY_DB_DSN: "postgresql://mnemosyne:***@localhost:5432/mnemosyne"
+          MEMORY_DB_DSN: "postgresql://gomaa:***@localhost:5432/gomaa"
         run: pytest tests/ -v -m integration
 
       - name: Upload coverage
@@ -634,7 +634,7 @@ What you expected to happen.
 **Environment:**
  - OS: [e.g. macOS, Linux, Windows]
  - Python version: [e.g. 3.11]
- - Mnemosyne version: [e.g. 0.1.0]
+ - Gomaa version: [e.g. 0.1.0]
  - PostgreSQL version: [if applicable]
 
 **Additional context**
@@ -698,7 +698,7 @@ Create `tests/test_vault.py`:
 import pytest
 import tempfile
 import os
-from mnemosyne.vault import VaultManager
+from gomaa.vault import VaultManager
 
 class TestVaultManager:
     @pytest.fixture
@@ -713,7 +713,7 @@ class TestVaultManager:
         assert note["content"] == "This is a test"
     
     def test_safe_filename_unicode(self, vault):
-        from mnemosyne.vault import safe_filename
+        from gomaa.vault import safe_filename
         assert safe_filename("Hello World") == "Hello World.md"
         assert safe_filename("会议记录") == "会议记录.md"
         assert safe_filename("Запись") == "Запись.md"
@@ -727,7 +727,7 @@ class TestVaultManager:
 Create `tests/test_embedder.py`:
 ```python
 import pytest
-from mnemosyne.embedder import Embedder
+from gomaa.embedder import Embedder
 
 class TestEmbedder:
     def test_embed_single_text(self):
@@ -750,7 +750,7 @@ class TestEmbedder:
 Create `tests/test_security.py`:
 ```python
 import pytest
-from mnemosyne.security import AdmissionControl
+from gomaa.security import AdmissionControl
 
 class TestAdmissionControl:
     def test_valid_note_passes(self):
@@ -773,7 +773,7 @@ Create `tests/test_mcp.py`:
 ```python
 import pytest
 import json
-from mnemosyne.mcp_server import MemoryMCPServer
+from gomaa.mcp_server import MemoryMCPServer
 
 class TestMCPServer:
     def test_initialize_request(self):
@@ -813,10 +813,10 @@ class TestIntegration:
     @pytest.fixture
     def memory(self):
         with tempfile.TemporaryDirectory() as tmpdir:
-            from mnemosyne import UnifiedMemorySystem
+            from gomaa import UnifiedMemorySystem
             mem = UnifiedMemorySystem(
                 vault_path=tmpdir,
-                dsn=os.environ.get("MEMORY_DB_DSN", "postgresql://mnemosyne:***@localhost:5432/mnemosyne"),
+                dsn=os.environ.get("MEMORY_DB_DSN", "postgresql://gomaa:***@localhost:5432/gomaa"),
                 auto_sync=False
             )
             yield mem
@@ -845,7 +845,7 @@ import os
 def postgres_dsn():
     return os.environ.get(
         "MEMORY_DB_DSN",
-        "postgresql://mnemosyne:***@localhost:5432/mnemosyne"
+        "postgresql://gomaa:***@localhost:5432/gomaa"
     )
 ```
 
@@ -868,7 +868,7 @@ git checkout -b feature/phase-0-foundation
 
 ### Step 3: Create directory structure
 ```bash
-mkdir -p mnemosyne/stores tests .github/workflows .github/ISSUE_TEMPLATE
+mkdir -p gomaa/stores tests .github/workflows .github/ISSUE_TEMPLATE
 ```
 
 ### Step 4: Split code into modules
@@ -901,7 +901,7 @@ mkdir -p mnemosyne/stores tests .github/workflows .github/ISSUE_TEMPLATE
 - Write `tests/conftest.py` (Section 6.3)
 
 ### Step 8: Update existing docs
-- Update `SKILL.md`: Remove `test_report.md` reference, fix paths from `scripts/` to `mnemosyne/`
+- Update `SKILL.md`: Remove `test_report.md` reference, fix paths from `scripts/` to `gomaa/`
 - Update `README.md`: Add installation instructions (`pip install -e .`), fix paths
 - Keep `README.md` in repo root (GitHub landing page)
 

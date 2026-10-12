@@ -1,4 +1,4 @@
-# Mnemosyne Technical Specification (v3.4.0) 🔬
+# Gomaa Technical Specification (v3.4.0) 🔬
 
 ---
 

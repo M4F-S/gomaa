@@ -30,7 +30,7 @@ We use TWO persistence mechanisms:
 
 ### 2. Memory Vault (Decisions and Session Logs)
 
-- Location: `~/Documents/Kimi/Workspaces/Mnemosyne/obsidian-vault/`
+- Location: `~/Documents/Kimi/Workspaces/Gomaa/obsidian-vault/`
 - Format: Markdown files with YAML frontmatter
 - Structure:
   ```
@@ -50,9 +50,9 @@ After each phase, sync decisions from vault to repo:
 
 ```bash
 # Copy new decisions from vault to repo
-cp ~/Documents/Kimi/Workspaces/Mnemosyne/obsidian-vault/decisions/* docs/decisions/
-cp ~/Documents/Kimi/Workspaces/Mnemosyne/obsidian-vault/sessions/* docs/sessions/
-cp ~/Documents/Kimi/Workspaces/Mnemosyne/obsidian-vault/reviews/* docs/reviews/
+cp ~/Documents/Kimi/Workspaces/Gomaa/obsidian-vault/decisions/* docs/decisions/
+cp ~/Documents/Kimi/Workspaces/Gomaa/obsidian-vault/sessions/* docs/sessions/
+cp ~/Documents/Kimi/Workspaces/Gomaa/obsidian-vault/reviews/* docs/reviews/
 
 # Commit and push
 git add docs/decisions/ docs/sessions/ docs/reviews/
@@ -66,7 +66,7 @@ git push origin develop
 
 - GitHub: For code, collaboration, version control, CI/CD
 - Memory Vault: For decisions that need to survive context compression and be searchable
-- The vault is also the product (Mnemosyne uses its own vault for its own memory)
+- The vault is also the product (Gomaa uses its own vault for its own memory)
 
 ## Rationale
 

@@ -48,15 +48,16 @@ def test_embed_service_callable():
     assert callable(create_app)
 
 
-def test_mnemosyne_legacy_import_compatibility(tmp_path):
-    from mnemosyne import UnifiedMemorySystem as LegacyUnifiedMemorySystem
-    from mnemosyne.adapters import MnemosyneMemory, MnemosyneMemoryHandler
+def test_gomaa_package_exports(tmp_path):
+    from gomaa import UnifiedMemorySystem, HippoRAGEngine
+    from gomaa.adapters import GomaaMemory, GomaaMemoryHandler
 
-    mem = LegacyUnifiedMemorySystem(vault_path=str(tmp_path), auto_sync=False)
-    res = mem.remember("Legacy Note", "Saved via mnemosyne legacy import", tags=["legacy"])
+    mem = UnifiedMemorySystem(vault_path=str(tmp_path), auto_sync=False)
+    res = mem.remember("Gomaa Export Note", "Saved via gomaa top-level import", tags=["gomaa"])
     assert res.get("success") is True
 
-    lc = MnemosyneMemory(memory=mem)
+    lc = GomaaMemory(memory=mem)
     assert lc is not None
-    crew = MnemosyneMemoryHandler(memory=mem)
+    crew = GomaaMemoryHandler(memory=mem)
     assert crew is not None
+    assert HippoRAGEngine is not None

@@ -7,7 +7,7 @@
 [![Code style: ruff](https://img.shields.io/badge/code%20style-ruff-000000.svg)](https://github.com/astral-sh/ruff)
 [![License: Apache-2.0](https://img.shields.io/badge/License-Apache--2.0-blue.svg)](https://opensource.org/licenses/Apache-2.0)
 
-**Production-grade, local-first hierarchical & neuro-inspired cognitive memory engine for autonomous AI agents (v4.0.0 — "Mnemosyne Neo").**
+**Production-grade, local-first hierarchical & neuro-inspired cognitive memory engine for autonomous AI agents (v4.0.0 — "Gomaa Neo").**
 
 Gomaa equips AI agents (Hermes, OpenClaw, Claude Desktop, Cursor, Windsurf, CrewAI, LangChain) with permanent, human-like and transhuman long-term memory. It unites human-readable **Obsidian Markdown Vaults** with high-speed **PostgreSQL + pgvector (HNSW)** or zero-config **SQLite WAL**, powering a **4-Quadrant Cognitive Architecture** (Episodic, Semantic, Procedural, Working Memory), **HippoRAG 2 Personalized PageRank (PPR)** associative retrieval, **3-Phase Biological Sleep Consolidation** (SWS + REM + Synaptic Homeostasis), **ACT-R Base-Level Activation**, hybrid Reciprocal Rank Fusion (RRF) search, Ebbinghaus temporal decay, cross-agent fleet sharing, and asynchronous Google Drive cloud synchronization.
 
@@ -24,7 +24,7 @@ Most AI memory systems suffer from three fundamental flaws:
 2. **Context Pollution & Flat Storage:** Raw chat logs, factual knowledge, and procedural skills are dumped into a single flat vector index without forgetting mechanisms or cognitive separation.
 3. **Multi-Hop Blindness & Domain Cross-Contamination:** Standard vector similarity fails when connecting facts across multiple hops, while un-scoped stores leak context across domains.
 
-**Gomaa v4.0 ("Mnemosyne Neo") solves this:**
+**Gomaa v4.0 ("Gomaa Neo") solves this:**
 * 🧠 **4-Quadrant Cognitive Architecture:** Explicit separation of **Episodic** (`episodic_events` turn ledger), **Semantic** (`notes` + weighted `links`), **Procedural** (`procedural_playbooks` with Bayesian Laplace utility), and **Working Memory** (`working_memory` bounded by Miller's Law $7 \pm 2$).
 * 🕸️ **HippoRAG 2 Associative PPR Retrieval:** Single-step multi-hop retrieval using Personalized PageRank ($K=20, \alpha=0.15$) over bi-directional weighted graph links, fused with dense vectors, BM25 FTS, and **ACT-R base-level activation** ($\ln(1 + \text{access\_count})$).
 * 🌙 **3-Phase Biological Sleep Consolidation (`gomaa sleep`):** Slow-Wave Sleep (SWS) crystallizes high-surprise episodes into semantic notes and extracts procedural playbooks; REM sleep shares proven playbooks across the agent fleet and discovers latent tag-bridge links; Synaptic Homeostasis resolves epistemic conflicts via an Assumption-based Truth Maintenance System (ATMS).
@@ -196,7 +196,7 @@ flowchart TD
         Swarm["CrewAI / LangGraph Swarms"]
     end
 
-    subgraph Core["🧠 Gomaa Core Engine (v4.0.0 - Mnemosyne Neo)"]
+    subgraph Core["🧠 Gomaa Core Engine (v4.0.0 - Gomaa Neo)"]
         direction TB
         MCP["MCP JSON-RPC Server\n(13 Tools · Stdio)"]
         Security["Admission & Security Guard\n(Credential Regex · Control Token Sanitizer)"]

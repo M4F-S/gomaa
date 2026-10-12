@@ -1,4 +1,4 @@
-# Mnemosyne Project Master Plan
+# Gomaa Project Master Plan
 ## Version: 1.1 | Date: July 7, 2026 | Status: Ready for Phase 0
 
 ---
@@ -7,7 +7,7 @@
 
 ### 1.1 What We're Building
 
-**Mnemosyne** — an open-core, local-first memory system for AI agents. It stores memories as plain Markdown files (Obsidian-compatible) with YAML frontmatter, uses PostgreSQL + pgvector for fast search, and exposes an MCP server for Claude/Cursor integration.
+**Gomaa** — an open-core, local-first memory system for AI agents. It stores memories as plain Markdown files (Obsidian-compatible) with YAML frontmatter, uses PostgreSQL + pgvector for fast search, and exposes an MCP server for Claude/Cursor integration.
 
 **Core philosophy:**
 - Files are the source of truth (not the database)
@@ -122,11 +122,11 @@ The `mo-graphify-obsidian-memory` skill saves decisions to the vault. We use it 
 
 **Example usage:**
 ```python
-from mnemosyne import UnifiedMemorySystem
+from gomaa import UnifiedMemorySystem
 mem = UnifiedMemorySystem()
 mem.remember(
     title="Decision: Use SQLite fallback for zero-config installs",
-    content="We decided to add SQLite as a fallback database so users can try Mnemosyne without installing PostgreSQL. This reduces the barrier to entry. PostgreSQL remains the production choice.",
+    content="We decided to add SQLite as a fallback database so users can try Gomaa without installing PostgreSQL. This reduces the barrier to entry. PostgreSQL remains the production choice.",
     tags=["decision", "architecture", "database"],
     salience=0.9
 )
@@ -148,7 +148,7 @@ mo-graphify-obsidian-memory/     ← GitHub repo (github.com/M4F-S/mo-graphify-o
 │   │   ├── bug_report.md
 │   │   └── feature_request.md
 │   └── pull_request_template.md
-├── mnemosyne/                   ← Python package (was scripts/)
+├── gomaa/                   ← Python package (was scripts/)
 │   ├── __init__.py              ← Package init, version, exports
 │   ├── core.py                  ← UnifiedMemorySystem
 │   ├── stores/
@@ -182,7 +182,7 @@ mo-graphify-obsidian-memory/     ← GitHub repo (github.com/M4F-S/mo-graphify-o
 │   ├── basic_usage.py           ← Simple example
 │   ├── mcp_config.json          ← Claude Desktop config
 │   └── docker-compose.yml       ← Docker setup
-├── Dockerfile                   ← Mnemosyne app container
+├── Dockerfile                   ← Gomaa app container
 ├── docker-compose.yml           ← Full stack (app + PostgreSQL)
 ├── requirements.txt             ← Dependencies
 ├── requirements-dev.txt         ← Dev dependencies (pytest, black, mypy)
@@ -240,8 +240,8 @@ After each phase, sync decisions from vault to repo:
 
 ```bash
 # Copy new decisions from vault to repo
-cp ~/Documents/Kimi/Workspaces/Mnemosyne/obsidian-vault/decisions/* docs/decisions/
-cp ~/Documents/Kimi/Workspaces/Mnemosyne/obsidian-vault/sessions/* docs/sessions/
+cp ~/Documents/Kimi/Workspaces/Gomaa/obsidian-vault/decisions/* docs/decisions/
+cp ~/Documents/Kimi/Workspaces/Gomaa/obsidian-vault/sessions/* docs/sessions/
 
 # Commit and push
 git add docs/decisions/ docs/sessions/
@@ -258,7 +258,7 @@ git push origin develop
 **Deliverable:** `pip install -e .` works. Tests pass. CI is green.
 
 **Tasks:**
-1. Restructure repo (move `scripts/` to `mnemosyne/` package)
+1. Restructure repo (move `scripts/` to `gomaa/` package)
 2. Add `__init__.py`, `requirements.txt`, `pyproject.toml` (PEP 621, ONLY packaging file)
 3. Fix all 8 code bugs (race condition, NameError, Unicode, auto-init, etc.)
 4. Add `Dockerfile` and `docker-compose.yml`
@@ -293,7 +293,7 @@ git push origin develop
 ---
 
 ### Phase 1: SQLite Fallback (Week 2-3)
-**Goal:** Mnemosyne works without PostgreSQL for quick trials.
+**Goal:** Gomaa works without PostgreSQL for quick trials.
 **Deliverable:** Zero-config install. PostgreSQL optional for production.
 
 **Tasks:**
@@ -323,7 +323,7 @@ git push origin develop
 **Tasks:**
 1. Update `MemoryMCPServer` to 2026-07-28 stateless spec (no `initialize` handshake)
 2. Add Streamable HTTP transport option (for remote MCP)
-3. Add `mnemosyne-mcp` CLI entry point
+3. Add `gomaa-mcp` CLI entry point
 4. Add `mcp_config.json` example for Claude Desktop
 5. Add `mcp_config_cursor.json` example for Cursor
 6. Test end-to-end with Claude Desktop (real end-to-end test)
@@ -346,14 +346,14 @@ git push origin develop
 
 ### Phase 3: CLI Tool (Week 4-5)
 **Goal:** Command-line interface for daily use.
-**Deliverable:** `mnemosyne remember`, `mnemosyne recall`, `mnemosyne status`
+**Deliverable:** `gomaa remember`, `gomaa recall`, `gomaa status`
 
 **Tasks:**
-1. Add `mnemosyne` CLI with argparse
+1. Add `gomaa` CLI with argparse
 2. Commands: `remember`, `recall`, `remind-me`, `consolidate`, `sync`, `status`, `mcp`
 3. Add shell completion (bash, zsh)
-4. Add `mnemosyne --version`
-5. Add `mnemosyne --config` (show current config)
+4. Add `gomaa --version`
+5. Add `gomaa --config` (show current config)
 6. Add tests for CLI
 7. Git commit: `feat: add CLI tool for memory management`
 
@@ -362,10 +362,10 @@ git push origin develop
 **Test needed:** Test session tests CLI commands
 
 **Exit criteria:**
-- [ ] `mnemosyne remember "title" "content"` works
-- [ ] `mnemosyne recall "query"` returns results
-- [ ] `mnemosyne status` shows system health
-- [ ] `mnemosyne --version` shows version
+- [ ] `gomaa remember "title" "content"` works
+- [ ] `gomaa recall "query"` returns results
+- [ ] `gomaa status` shows system health
+- [ ] `gomaa --version` shows version
 - [ ] All CLI tests pass
 
 ---
@@ -404,7 +404,7 @@ git push origin develop
 
 **Tasks:**
 1. Record 2-minute demo video
-2. Write Hacker News post ("Show HN: Mnemosyne — local memory for AI assistants")
+2. Write Hacker News post ("Show HN: Gomaa — local memory for AI assistants")
 3. Post on 42 Berlin Slack
 4. Post on r/selfhosted, r/ClaudeAI, r/ObsidianMD
 5. Create simple website (GitHub Pages) with install guide
@@ -431,7 +431,7 @@ git push origin develop
 
 **Tasks:**
 1. GitHub connector: webhook for commit messages
-2. Slack connector: bot command `@mnemosyne remember this`
+2. Slack connector: bot command `@gomaa remember this`
 3. File import: bulk import from Markdown files
 4. Add connector framework (plugin interface)
 5. Document each connector
@@ -478,11 +478,11 @@ Each builder session will receive a prompt with:
 # BUILD SESSION: [Phase Name] - [Task Name]
 
 ## Context
-You are a builder session working on the Mnemosyne project. The architect session
+You are a builder session working on the Gomaa project. The architect session
 has planned this work. You have a fresh context window. Focus on implementation only.
 
 ## Project Overview
-Mnemosyne is a local-first memory system for AI agents. It stores memories as
+Gomaa is a local-first memory system for AI agents. It stores memories as
 Markdown files, uses PostgreSQL + pgvector for search, and exposes an MCP server.
 Repository: github.com/M4F-S/mo-graphify-obsidian-memory
 
@@ -605,7 +605,7 @@ Builder sessions report back with:
 After each session, save key decisions to the vault:
 
 ```python
-from mnemosyne import UnifiedMemorySystem
+from gomaa import UnifiedMemorySystem
 mem = UnifiedMemorySystem()
 
 # Save architectural decision
@@ -711,7 +711,7 @@ Agent: description="Audit: Security review", prompt="[Audit prompt]"
 
 All decisions are saved to:
 ```
-~/Documents/Kimi/Workspaces/Mnemosyne/obsidian-vault/
+~/Documents/Kimi/Workspaces/Gomaa/obsidian-vault/
 ├── decisions/        # Architectural decisions
 ├── sessions/         # Session summaries
 ├── issues/           # Bugs and issues
@@ -724,7 +724,7 @@ Sync protocol: Copy `decisions/` and `sessions/` to `docs/` in repo after each p
 
 ---
 
-*Document: Mnemosyne Project Master Plan v1.1*
+*Document: Gomaa Project Master Plan v1.1*
 *Updated by: Architect Session*
 *Date: July 7, 2026*
 *Status: Planning Complete — Ready for Phase 0*

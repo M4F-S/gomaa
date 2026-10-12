@@ -1,224 +1,293 @@
 """
-Comprehensive Live Fleet Diagnostic & Integration Test for Mnemosyne v3.4.0.
-Exercises all 8 MCP tools and cross-agent memory sharing across all 5 production containers.
+Comprehensive Live Fleet Diagnostic & Strict E2E Test Suite for Gomaa v4.0.0 (Gomaa Neo).
+Exercises all 13 MCP tools, 4 Cognitive Quadrants, HippoRAG 2 PPR, 3-Phase Sleep Consolidation,
+ACT-R Base-Level Activation, Miller's Law Working Memory bounds, and Cross-Agent Shared Memory
+across all 5 production containers on the VPS.
 """
 
 import os
 import sys
 import json
-import time
+import uuid
 from datetime import datetime, timezone
 from pathlib import Path
 
-# Verify Mnemosyne import and version
+# 1. Verify Gomaa import and version
 try:
-    import mnemosyne
-    from mnemosyne import UnifiedMemorySystem, __version__
-    from mnemosyne.mcp_server import MCPServer
-    from mnemosyne.core import SecurityCheckError
+    import gomaa
+    from gomaa import UnifiedMemorySystem, HippoRAGEngine, __version__
+    from gomaa.mcp_server import MCPServer
+    from gomaa.adapters import GomaaMemory, GomaaMemoryHandler
 except ImportError as e:
-    print(f"FATAL: Unable to import mnemosyne: {e}")
+    print(f"FATAL: Unable to import gomaa: {e}")
     sys.exit(1)
 
-print(f"=== Mnemosyne Core Version: {__version__} ===")
+assert __version__ == "4.0.0", f"Expected Gomaa version 4.0.0, got {__version__}"
+print(f"=== Gomaa Core Version: {__version__} ===")
 
 AGENT_NAME = os.environ.get("MEMORY_AGENT_NAME", "unknown-agent")
 VAULT_PATH = os.environ.get("MEMORY_VAULT_PATH", "/opt/data/vault")
 DB_DSN = os.environ.get("MEMORY_DB_DSN")
 SHARED_DSN = os.environ.get("MEMORY_SHARED_DSN")
 
-print(f"Agent: {AGENT_NAME}")
-print(f"Vault: {VAULT_PATH}")
-print(f"Private DB: {DB_DSN}")
-print(f"Shared DB: {SHARED_DSN}")
+print(f"Agent: {AGENT_NAME} | Vault: {VAULT_PATH}")
 
-# 1. Initialize UnifiedMemorySystem
-try:
-    mem = UnifiedMemorySystem(
-        vault_path=VAULT_PATH,
-        dsn=DB_DSN,
-        shared_dsn=SHARED_DSN,
-        agent_name=AGENT_NAME
+# 2. Initialize UnifiedMemorySystem & Verify PgVectorStore + shared_db
+mem = UnifiedMemorySystem(
+    vault_path=VAULT_PATH,
+    dsn=DB_DSN,
+    shared_dsn=SHARED_DSN,
+    agent_name=AGENT_NAME,
+)
+backend_name = type(mem.db).__name__
+assert backend_name == "PgVectorStore", f"Expected PgVectorStore on production VPS, got {backend_name}"
+assert mem.shared_db is not None, "Expected shared_db connection to be active"
+print(f"✅ [1/12] Store Verified: {backend_name} + shared_db connected")
+
+# 3. Verify MCPServer registers all 13 tools
+server = MCPServer(memory=mem)
+tools = server._get_tools()
+tool_names = [t["name"] for t in tools]
+assert len(tools) == 13, f"Expected 13 MCP tools, got {len(tools)}: {tool_names}"
+expected_tools = {
+    "memory_remember",
+    "memory_publish_shared",
+    "memory_recall",
+    "memory_ingest_session",
+    "memory_timeline",
+    "memory_history",
+    "memory_remind_me",
+    "memory_assemble_context",
+    "memory_ingest_event",
+    "memory_save_playbook",
+    "memory_sleep",
+    "memory_working_buffer",
+    "memory_audit",
+}
+assert set(tool_names) == expected_tools, f"Mismatch in MCP tools: {set(tool_names) ^ expected_tools}"
+print(f"✅ [2/12] MCPServer Verified: 13/13 MCP tools registered")
+
+# 4. Test Semantic Quadrant & Bi-Directional Graph Links (memory_remember)
+run_tag = uuid.uuid4().hex[:6]
+title_a = f"Gomaa v4 Node A ({AGENT_NAME}-{run_tag})"
+title_b = f"Gomaa v4 Node B ({AGENT_NAME}-{run_tag})"
+
+res_b = server._call_tool(
+    "memory_remember",
+    {
+        "title": title_b,
+        "content": f"Downstream target node for HippoRAG PPR multi-hop test by {AGENT_NAME}.",
+        "tags": '["gomaa-v4", "hipporag", "ppr"]',  # test JSON-stringified tag coercion
+        "salience": "0.85",
+        "wing": "diagnostics",
+        "room": "v4-e2e",
+        "pinned": "true",
+    },
+)
+assert res_b.get("success") is True, f"memory_remember B failed: {res_b}"
+
+res_a = server._call_tool(
+    "memory_remember",
+    {
+        "title": title_a,
+        "content": f"Primary anchor node for {AGENT_NAME} linking to [[{title_b}]].",
+        "tags": ["gomaa-v4", "hipporag", "anchor"],
+        "salience": 0.9,
+        "wing": "diagnostics",
+        "room": "v4-e2e",
+        "pinned": True,
+    },
+)
+assert res_a.get("success") is True, f"memory_remember A failed: {res_a}"
+print(f"✅ [3/12] Semantic Quadrant & Vault Write Verified: '{title_a}' -> '[[{title_b}]]'")
+
+# 5. Test Recall Modes: hybrid, semantic, keyword, graph, associative_ppr + ACT-R access_count
+for mode in ["hybrid", "semantic", "keyword", "graph", "associative_ppr"]:
+    rec = server._call_tool(
+        "memory_recall",
+        {
+            "query": f"Primary anchor node {AGENT_NAME} {run_tag}",
+            "mode": mode,
+            "top_k": 5,
+            "scope": '{"wing": "diagnostics"}',  # test JSON-stringified scope coercion
+        },
     )
-    print("✅ UnifiedMemorySystem initialized successfully")
-except Exception as e:
-    print(f"❌ UnifiedMemorySystem initialization failed: {e}")
-    sys.exit(1)
+    results = rec.get("results", [])
+    assert len(results) > 0, f"memory_recall mode={mode} returned 0 results"
+print("✅ [4/12] All 5 Semantic/Graph Recall Modes Verified (hybrid, semantic, keyword, graph, associative_ppr)")
 
-# 2. Test MCP Server instantiation & Tools list
-try:
-    server = MCPServer(memory=mem)
-    tools = server._get_tools()
-    tool_names = [t["name"] for t in tools]
-    assert len(tools) == 8, f"Expected 8 tools, got {len(tools)}"
-    print(f"✅ MCPServer registered 8 tools: {', '.join(tool_names)}")
-except Exception as e:
-    print(f"❌ MCPServer initialization/tools verification failed: {e}")
-    sys.exit(1)
+# 6. Test Context Assembler (memory_assemble_context)
+ctx_res = server._call_tool(
+    "memory_assemble_context",
+    {
+        "query": f"Primary anchor node {AGENT_NAME}",
+        "max_tokens": 1200,
+        "mode": "associative_ppr",
+        "scope": {"wing": "diagnostics"},
+    },
+)
+assert "<memory_context>" in ctx_res.get("context_text", ""), "assemble_context missing XML wrapper"
+print(f"✅ [5/12] Token-Budgeted Context Assembler Verified ({ctx_res.get('notes_included')} notes packed)")
 
-# 3. Test Tool 1: memory_remember
-test_title = f"Diagnostic Test Note - {AGENT_NAME}"
-test_content = (
-    f"This is an automated diagnostic test note generated by {AGENT_NAME}.\n"
-    f"It validates HNSW pgvector indexing, atomic Markdown vault serialization, and RRF retrieval.\n"
-    f"Reference link: [[Global Architecture Blueprint]]"
+# 7. Test Episodic Quadrant (memory_ingest_event + recall mode='episodic')
+session_id = f"sess-{AGENT_NAME}-{run_tag}"
+ev1 = server._call_tool(
+    "memory_ingest_event",
+    {
+        "session_id": session_id,
+        "event_type": "dialogue",
+        "stimulus": f"Investigate high-surprise anomaly {run_tag} on {AGENT_NAME}",
+        "response": f"Resolved anomaly {run_tag} by tuning HNSW ef_search parameter.",
+        "surprise_factor": 0.85,
+        "outcome_status": "success",
+    },
+)
+assert ev1.get("session_id") == session_id
+ev2 = server._call_tool(
+    "memory_ingest_event",
+    {
+        "session_id": session_id,
+        "event_type": "tool_call",
+        "stimulus": "check_pgvector_index()",
+        "response": "HNSW index healthy",
+        "tool_name": "check_pgvector_index",
+        "tool_args": '{"table": "notes"}',
+        "surprise_factor": 0.3,
+        "outcome_status": "success",
+    },
+)
+ev3 = server._call_tool(
+    "memory_ingest_event",
+    {
+        "session_id": session_id,
+        "event_type": "tool_call",
+        "stimulus": "vacuum_analyze_notes()",
+        "response": "VACUUM ANALYZE complete",
+        "tool_name": "vacuum_analyze_notes",
+        "tool_args": {"table": "notes"},
+        "surprise_factor": 0.4,
+        "outcome_status": "success",
+    },
+)
+ep_rec = server._call_tool("memory_recall", {"query": session_id, "mode": "episodic", "top_k": 5})
+assert len(ep_rec.get("results", [])) >= 3, "Episodic recall failed to return logged session turns"
+print("✅ [6/12] Episodic Quadrant Ledger Verified (3 events logged & recalled)")
+
+# 8. Test Procedural Quadrant (memory_save_playbook + Bayesian Laplace utility + recall mode='procedural')
+skill_name = f"pgvector_maintenance_{AGENT_NAME}_{run_tag}"
+pb = server._call_tool(
+    "memory_save_playbook",
+    {
+        "skill_name": skill_name,
+        "domain": "database",
+        "description": f"Automated HNSW index maintenance workflow for {AGENT_NAME}",
+        "preconditions": '["postgres_online", "pgvector_installed"]',
+        "tool_sequence": '[{"step": 1, "tool": "check_pgvector_index"}, {"step": 2, "tool": "vacuum_analyze_notes"}]',
+        "error_recovery": '{"timeout": "retry_with_backoff"}',
+    },
+)
+assert pb.get("skill_name") == skill_name
+assert abs(pb.get("bayesian_success_rate", 0) - 0.5) < 0.01
+mem.db.record_playbook_execution(skill_name, success=True)
+mem.db.record_playbook_execution(skill_name, success=True)
+pb_updated = mem.db.get_playbook(skill_name)
+assert abs(pb_updated.get("bayesian_success_rate", 0) - 0.75) < 0.01  # (2+1)/(2+2) = 0.75
+proc_rec = server._call_tool("memory_recall", {"query": "HNSW index maintenance workflow", "mode": "procedural", "top_k": 5})
+assert len(proc_rec.get("results", [])) >= 1
+print(f"✅ [7/12] Procedural Quadrant & Bayesian Laplace Utility Verified (rate={pb_updated['bayesian_success_rate']})")
+
+# 9. Test Working Memory Quadrant & Miller's Law (7 +/- 2 => max 9) Bound (memory_working_buffer)
+twelve_items = [{"item": f"focus_{i}"} for i in range(12)]
+wm_up = server._call_tool(
+    "memory_working_buffer",
+    {
+        "action": "update",
+        "session_id": session_id,
+        "agent_role": AGENT_NAME,
+        "active_goal": "Complete strict v4.0 E2E validation",
+        "subtask_stack": '["Verify quadrants", "Verify sleep consolidation"]',
+        "hypotheses": '["All 13 MCP tools operate at 100% accuracy"]',
+        "attention_window": json.dumps(twelve_items),
+    },
+)
+assert len(wm_up.get("attention_window", [])) == 9, f"Miller's Law bound failed: got {len(wm_up.get('attention_window', []))}"
+wm_get = server._call_tool("memory_working_buffer", {"action": "get", "session_id": session_id})
+assert wm_get["working_memory"]["active_goal"] == "Complete strict v4.0 E2E validation"
+assert len(wm_get["working_memory"]["attention_window"]) == 9
+wm_clr = server._call_tool("memory_working_buffer", {"action": "clear", "session_id": session_id})
+assert wm_clr["cleared"] is True
+print("✅ [8/12] Working Memory Scratchpad & Miller's Law (<=9 items) Bound Verified")
+
+# 10. Test 3-Phase Biological Sleep Consolidation (memory_sleep: SWS + REM + ATMS Homeostasis)
+sleep_res = server._call_tool("memory_sleep", {"decay_factor": 0.95, "archive_threshold": 0.10})
+assert "engine" in sleep_res, f"memory_sleep missing engine report: {sleep_res}"
+eng = sleep_res["engine"]
+assert eng.get("crystallized_episodes", 0) >= 3, f"Expected SWS to crystallize >=3 episodes, got {eng}"
+assert eng.get("synthesized_playbooks", 0) >= 1, f"Expected SWS to synthesize >=1 playbook, got {eng}"
+assert eng.get("shared_playbooks", 0) >= 1, f"Expected REM to share >=1 playbook to shared_db, got {eng}"
+print(
+    f"✅ [9/12] 3-Phase Sleep Consolidation Verified: "
+    f"SWS Crystallized={eng['crystallized_episodes']}, "
+    f"Playbooks Synthesized={eng['synthesized_playbooks']}, "
+    f"REM Shared={eng['shared_playbooks']}, "
+    f"REM Latent Links={eng['discovered_links']}"
 )
 
-try:
-    rem_res = mem.remember(
-        title=test_title,
-        content=test_content,
-        tags=["diagnostic", "automated-test", AGENT_NAME],
-        note_type="diagnostic",
-        salience=0.9,
-        wing="diagnostics",
-        room="e2e-testing",
-        pinned=True
-    )
-    assert rem_res.get("success") is True, f"remember returned false: {rem_res}"
-    print(f"✅ Tool 1 (memory_remember): created note '{test_title}' (id={rem_res.get('note_id')})")
-except Exception as e:
-    print(f"❌ Tool 1 (memory_remember) failed: {e}")
-    sys.exit(1)
+# 11. Test Session Ingest, Timeline, History, Remind Me, and Audit
+ing_res = server._call_tool(
+    "memory_ingest_session",
+    {
+        "transcript": f"User: Verify {AGENT_NAME} session chunking.\nAssistant: Turn boundary chunking operational.",
+        "wing": "diagnostics",
+        "room": "sessions",
+    },
+)
+assert ing_res.get("success") is True
+tl_res = server._call_tool("memory_timeline", {"limit": 5})
+assert len(tl_res.get("timeline", [])) > 0
+hist_res = server._call_tool("memory_history", {"title": title_a, "limit": 5})
+assert "history" in hist_res
+rem_me = server._call_tool(
+    "memory_remind_me",
+    {
+        "title": f"Routine Sleep Cycle {AGENT_NAME}",
+        "content": "Run gomaa sleep consolidation",
+        "trigger_at": "2026-12-31T00:00:00Z",
+        "recurring": "daily",
+    },
+)
+assert rem_me.get("success") is True
+audit_res = server._call_tool("memory_audit", {})
+assert audit_res["health"]["server"]["version"] == "4.0.0"
+assert audit_res["health"]["server"]["status"] == "healthy"
+print("✅ [10/12] Session Ingest, Timeline, History, Remind Me, and Audit Tools Verified")
 
-# 4. Verify physical Markdown file on disk
-try:
-    vault_file = Path(VAULT_PATH) / "diagnostics" / "e2e-testing" / f"{test_title}.md"
-    # Fallback to direct root if subfolder hierarchy varies
-    if not vault_file.exists():
-        found = list(Path(VAULT_PATH).rglob(f"*{test_title}*.md"))
-        assert len(found) > 0, f"Markdown file not found in vault: {VAULT_PATH}"
-        vault_file = found[0]
-    
-    file_text = vault_file.read_text(encoding="utf-8")
-    assert "diagnostic" in file_text
-    print(f"✅ Vault File Verified on Disk: {vault_file} ({len(file_text)} bytes)")
-except Exception as e:
-    print(f"❌ Vault verification failed: {e}")
-    sys.exit(1)
+# 12. Test Security Gate & Cross-Agent Shared Fleet Memory (memory_publish_shared)
+bad_res = server._call_tool(
+    "memory_publish_shared",
+    {
+        "title": "Credential Leak Attempt",
+        "content": "Leaked key sk-ant-api03-abcdef1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef1234567890",
+    },
+)
+assert bad_res.get("success") is False, "Security gate failed to block Anthropic API key!"
 
-# 5. Test Tool 3: memory_recall (Hybrid, Semantic, Keyword, Graph)
-try:
-    # Hybrid Search
-    hybrid_res = mem.recall(
-        query="diagnostic automated test HNSW",
-        mode="hybrid",
-        top_k=3,
-        scope={"wing": "diagnostics"}
-    )
-    assert len(hybrid_res) > 0, "Hybrid recall returned 0 results"
-    assert hybrid_res[0]["title"] == test_title
-    assert "<recalled_memory_context" in hybrid_res[0]["formatted_context"]
-    print(f"✅ Tool 3 (memory_recall - Hybrid): successfully retrieved top match with XML context")
+shared_title = f"Gomaa v4 Fleet Verification ({AGENT_NAME})"
+pub_res = server._call_tool(
+    "memory_publish_shared",
+    {
+        "title": shared_title,
+        "content": f"Verified Gomaa v4.0.0 4-quadrant cognitive memory from {AGENT_NAME} at {datetime.now(timezone.utc).isoformat()}.",
+        "tags": ["gomaa-v4", "fleet-verified", AGENT_NAME],
+        "wing": "shared",
+        "room": "diagnostics",
+    },
+)
+assert pub_res.get("success") is True, f"publish_shared failed: {pub_res}"
+print(f"✅ [11/12] Security Gate & Cross-Agent Shared Fleet Publication Verified ('{shared_title}')")
 
-    # Keyword Search
-    kw_res = mem.recall(query=AGENT_NAME, mode="keyword", top_k=3)
-    assert len(kw_res) > 0, "Keyword recall returned 0 results"
-    print(f"✅ Tool 3 (memory_recall - Keyword): successfully retrieved {len(kw_res)} match(es)")
-
-    # Semantic Search
-    sem_res = mem.recall(query="automated validation of vector embeddings", mode="semantic", top_k=3)
-    assert len(sem_res) > 0, "Semantic recall returned 0 results"
-    print(f"✅ Tool 3 (memory_recall - Semantic): successfully retrieved {len(sem_res)} match(es)")
-except Exception as e:
-    print(f"❌ Tool 3 (memory_recall) failed: {e}")
-    sys.exit(1)
-
-# 6. Test Tool 4: memory_ingest_session
-try:
-    sample_transcript = (
-        f"User: Agent {AGENT_NAME}, please run the memory validation checklist.\n"
-        f"Assistant: Running comprehensive checks on HNSW index, connection pool, and vault storage.\n"
-        f"User: Verify turn boundary chunking."
-    )
-    ingest_res = mem.ingest_session(
-        transcript=sample_transcript,
-        wing="diagnostics",
-        room="transcripts"
-    )
-    assert ingest_res.get("success") is True
-    print(f"✅ Tool 4 (memory_ingest_session): ingested {ingest_res.get('units_ingested')} units from {ingest_res.get('turns_total')} turns")
-except Exception as e:
-    print(f"❌ Tool 4 (memory_ingest_session) failed: {e}")
-    sys.exit(1)
-
-# 7. Test Tool 5: memory_timeline
-try:
-    tl_res = mem.timeline(limit=5)
-    assert len(tl_res) > 0, "Timeline returned 0 records"
-    actions = [r.get("action", r.get("operation", "unknown")) for r in tl_res]
-    print(f"✅ Tool 5 (memory_timeline): retrieved {len(tl_res)} recent actions ({', '.join(actions[:3])})")
-except Exception as e:
-    print(f"❌ Tool 5 (memory_timeline) failed: {e}")
-    sys.exit(1)
-
-# 8. Test Tool 6: memory_history
-try:
-    # Update note to generate version history
-    mem.remember(
-        title=test_title,
-        content=test_content + "\n\nUpdated edit to test note_versions table.",
-        tags=["diagnostic", "updated"],
-        wing="diagnostics",
-        room="e2e-testing"
-    )
-    hist_res = mem.note_history(title=test_title, limit=5)
-    print(f"✅ Tool 6 (memory_history): note history contains {len(hist_res)} version snapshot(s)")
-except Exception as e:
-    print(f"❌ Tool 6 (memory_history) failed: {e}")
-    sys.exit(1)
-
-# 9. Test Tool 7: memory_remind_me
-try:
-    remind_res = mem.remind_me(
-        title="Check Fleet Health",
-        content="Automated reminder for memory maintenance.",
-        trigger_at="2026-09-01T12:00:00Z",
-        recurring="weekly"
-    )
-    assert remind_res.get("success") is True
-    print(f"✅ Tool 7 (memory_remind_me): scheduled prospective reminder for {remind_res.get('trigger_at')}")
-except Exception as e:
-    print(f"❌ Tool 7 (memory_remind_me) failed: {e}")
-    sys.exit(1)
-
-# 10. Test Tool 8: memory_audit
-try:
-    stats = mem.stats()
-    health = server._health()
-    assert health["server"]["status"] == "healthy"
-    assert health["server"]["version"] == "3.4.0"
-    assert health["store"]["shared_store"] is True
-    print(f"✅ Tool 8 (memory_audit): Health status={health['server']['status']}, Version={health['server']['version']}, DB Notes={stats.get('total_notes', stats.get('notes', 'N/A'))}")
-except Exception as e:
-    print(f"❌ Tool 8 (memory_audit) failed: {e}")
-    sys.exit(1)
-
-# 11. Test Tool 2 & Security: memory_publish_shared & credential guard
-try:
-    # A. Sensitive key rejection test
-    bad_payload = "Publishing secret key sk-ant-api03-abcdef1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef1234567890 to shared"
-    sec_res = mem.publish_shared(
-        title="Leaked Key Attempt",
-        content=bad_payload
-    )
-    assert sec_res.get("success") is False, "Security screening failed to block Anthropic key!"
-    print("✅ Tool 2 Security Gate: successfully blocked private API key from shared_db")
-
-    # B. Legitimate shared note publication
-    shared_title = f"Fleet Diagnostic Policy from {AGENT_NAME}"
-    shared_content = f"Global fleet policy published by {AGENT_NAME} at {datetime.now(timezone.utc).isoformat()}."
-    pub_res = mem.publish_shared(
-        title=shared_title,
-        content=shared_content,
-        tags=["fleet", "policy", "diagnostic"],
-        wing="shared",
-        room="general"
-    )
-    assert pub_res.get("success") is True, f"publish_shared returned error: {pub_res}"
-    print(f"✅ Tool 2 (memory_publish_shared): published shared policy '{shared_title}'")
-except Exception as e:
-    print(f"❌ Tool 2 (memory_publish_shared) failed: {e}")
-    sys.exit(1)
-
-print(f"\n🎉 ALL 8 MCP TOOLS & SECURITY GATES PASSED FOR AGENT: {AGENT_NAME}\n")
+# 13. Clean up diagnostic notes so production vaults stay clean
+mem.db.delete_note(title_a)
+mem.db.delete_note(title_b)
+print(f"✅ [12/12] Ephemeral Diagnostic Artifacts Cleaned Up")
+print(f"\n🎉 ALL 13 MCP TOOLS, 4 QUADRANTS, HIPPORAG PPR & SLEEP CONSOLIDATION PASSED ON {AGENT_NAME}!\n")

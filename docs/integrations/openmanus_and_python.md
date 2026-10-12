@@ -1,20 +1,20 @@
-# Integrating Mnemosyne with Open-Manus & Python Agent Frameworks
+# Integrating Gomaa with Open-Manus & Python Agent Frameworks
 
-[Open-Manus](https://github.com/mannaandpoem/OpenManus), CrewAI, LangChain, AutoGen, and Smolagents can use Mnemosyne as a persistent hierarchical memory engine.
+[Open-Manus](https://github.com/mannaandpoem/OpenManus), CrewAI, LangChain, AutoGen, and Smolagents can use Gomaa as a persistent hierarchical memory engine.
 
 ---
 
 ## 1. Open-Manus Tool Integration
 
-In Open-Manus, tools inherit from `BaseTool`. You can add `MnemosyneTool` into `app/tool/`:
+In Open-Manus, tools inherit from `BaseTool`. You can add `GomaaTool` into `app/tool/`:
 
 ```python
 # app/tool/memory_tool.py
 from app.tool.base import BaseTool
-from mnemosyne import UnifiedMemorySystem
+from gomaa import UnifiedMemorySystem
 import os
 
-class MnemosyneRecallTool(BaseTool):
+class GomaaRecallTool(BaseTool):
     name: str = "memory_recall"
     description: str = (
         "Search through persistent long-term memory for past tasks, user preferences, "
@@ -38,7 +38,7 @@ class MnemosyneRecallTool(BaseTool):
             output.append(f"#### {r['title']} (Score: {r.get('rrf_score', 0):.2f})\n{r['content']}\n")
         return "\n".join(output)
 
-class MnemosyneRememberTool(BaseTool):
+class GomaaRememberTool(BaseTool):
     name: str = "memory_remember"
     description: str = "Save crucial facts, code snippets, or solutions into long-term memory."
 
@@ -60,7 +60,7 @@ class MnemosyneRememberTool(BaseTool):
 
 ```python
 from crewai.tools import tool
-from mnemosyne import UnifiedMemorySystem
+from gomaa import UnifiedMemorySystem
 
 mem = UnifiedMemorySystem()
 
@@ -84,7 +84,7 @@ def remember_finding(title: str, content: str, domain: str = "research") -> str:
 ```python
 from langchain.tools import StructuredTool
 from pydantic import BaseModel, Field
-from mnemosyne import UnifiedMemorySystem
+from gomaa import UnifiedMemorySystem
 
 mem = UnifiedMemorySystem()
 

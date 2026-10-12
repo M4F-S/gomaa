@@ -44,7 +44,7 @@ docker exec hermes-agent /opt/data/mcp-servers/venv/bin/python -m gomaa consolid
 
 ```bash
 # Dump all agent databases to compressed SQL
-docker exec mo-graphify-obsidian-memory-postgres-1 pg_dumpall -U mnemosyne > /root/backups/gomaa_all_$(date +%Y%m%d).sql
+docker exec mo-graphify-obsidian-memory-postgres-1 pg_dumpall -U gomaa > /root/backups/gomaa_all_$(date +%Y%m%d).sql
 ```
 
 ---

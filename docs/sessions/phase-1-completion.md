@@ -12,11 +12,11 @@ The Phase 1 builder session successfully created PR #3 with:
 
 | Deliverable | Status |
 |-------------|--------|
-| `mnemosyne/stores/base.py` — `MemoryStore` ABC | ✅ |
-| `mnemosyne/stores/sqlite.py` — `SQLiteStore` | ✅ |
-| `mnemosyne/stores/__init__.py` — `create_store()` factory | ✅ |
-| `mnemosyne/stores/postgres.py` — inherits `MemoryStore` | ✅ |
-| `mnemosyne/core.py` — uses `create_store()` | ✅ |
+| `gomaa/stores/base.py` — `MemoryStore` ABC | ✅ |
+| `gomaa/stores/sqlite.py` — `SQLiteStore` | ✅ |
+| `gomaa/stores/__init__.py` — `create_store()` factory | ✅ |
+| `gomaa/stores/postgres.py` — inherits `MemoryStore` | ✅ |
+| `gomaa/core.py` — uses `create_store()` | ✅ |
 | `tests/test_sqlite.py` — 5 SQLite tests | ✅ |
 | `tests/test_store_factory.py` — 2 auto-detection tests | ✅ |
 | README updated — "Try Without PostgreSQL!" section | ✅ |
@@ -49,7 +49,7 @@ The Phase 1 builder session successfully created PR #3 with:
 
 | Issue | File | Fix |
 |-------|------|-----|
-| Mock path wrong | `test_store_factory.py` | Changed `mnemosyne.stores.postgres.PgVectorStore` → `mnemosyne.stores.PgVectorStore` |
+| Mock path wrong | `test_store_factory.py` | Changed `gomaa.stores.postgres.PgVectorStore` → `gomaa.stores.PgVectorStore` |
 
 ### Config Fixes
 
@@ -80,7 +80,7 @@ The Phase 1 builder session successfully created PR #3 with:
 - **SQLite brute-force cosine** — acceptable for <10K notes (early users)
 - **PostgreSQL-first auto-detection** — `create_store()` tries PG first, falls back to SQLite
 - **Same interface** — `UnifiedMemorySystem` works with either store without changes
-- **Zero-config installs** — no env vars = SQLite at `~/.mnemosyne/mnemosyne.db`
+- **Zero-config installs** — no env vars = SQLite at `~/.gomaa/gomaa.db`
 
 ---
 

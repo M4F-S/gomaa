@@ -1,8 +1,8 @@
-# Integrating Mnemosyne with OpenClaw
+# Integrating Gomaa with OpenClaw
 
 [OpenClaw](https://github.com/openclaw/openclaw) is an open-source, self-hosted autonomous AI agent framework designed for 24/7 multi-channel operation (Discord, Telegram, Slack, WhatsApp, Signal).
 
-By connecting Mnemosyne to OpenClaw, your agent gains persistent hierarchical memory, cross-session recall, semantic search over markdown notes, and Ebbinghaus temporal decay.
+By connecting Gomaa to OpenClaw, your agent gains persistent hierarchical memory, cross-session recall, semantic search over markdown notes, and Ebbinghaus temporal decay.
 
 ---
 
@@ -16,7 +16,7 @@ By connecting Mnemosyne to OpenClaw, your agent gains persistent hierarchical me
                             │ MCP stdio / Tool Call
                             ▼
 ┌────────────────────────────────────────────────────────┐
-│             Mnemosyne MCP Memory Engine                │
+│             Gomaa MCP Memory Engine                │
 │    (Semantic Search + Graph Crawl + Obsidian Vault)    │
 └───────────────────────────┬────────────────────────────┘
                             │
@@ -34,17 +34,17 @@ By connecting Mnemosyne to OpenClaw, your agent gains persistent hierarchical me
 
 ### Method 1: OpenClaw MCP Configuration (Recommended)
 
-In your OpenClaw agent configuration (`config.yaml` or `openclaw.json`), add the `mnemosyne` MCP server:
+In your OpenClaw agent configuration (`config.yaml` or `openclaw.json`), add the `gomaa` MCP server:
 
 ```yaml
 # openclaw-config.yaml
 plugins:
   mcp_servers:
-    mnemosyne:
+    gomaa:
       command: "python3"
       args:
         - "-m"
-        - "mnemosyne"
+        - "gomaa"
         - "server"
       env:
         MEMORY_DB_DSN: "postgresql://user:password@localhost:5432/openclaw_memory"
@@ -52,15 +52,15 @@ plugins:
         MEMORY_DEFAULT_WING: "openclaw"
 ```
 
-If running without PostgreSQL, Mnemosyne automatically falls back to local SQLite with zero configuration:
+If running without PostgreSQL, Gomaa automatically falls back to local SQLite with zero configuration:
 ```yaml
 plugins:
   mcp_servers:
-    mnemosyne:
+    gomaa:
       command: "python3"
       args:
         - "-m"
-        - "mnemosyne"
+        - "gomaa"
         - "server"
       env:
         MEMORY_VAULT_PATH: "~/.openclaw/vault"
@@ -74,10 +74,10 @@ If you are extending OpenClaw with custom Python hooks or event handlers, use th
 
 ```python
 from openclaw.plugins import BasePlugin, hook
-from mnemosyne import UnifiedMemorySystem
+from gomaa import UnifiedMemorySystem
 
-class MnemosyneMemoryPlugin(BasePlugin):
-    name = "mnemosyne_memory"
+class GomaaMemoryPlugin(BasePlugin):
+    name = "gomaa_memory"
 
     def __init__(self, config):
         super().__init__(config)

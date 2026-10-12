@@ -11,7 +11,7 @@ links: []
 
 ## Context
 
-Phase 0 is complete. The `mnemosyne/` package works with PostgreSQL + pgvector. Phase 1 needs a zero-config fallback so users can try Mnemosyne without installing PostgreSQL.
+Phase 0 is complete. The `gomaa/` package works with PostgreSQL + pgvector. Phase 1 needs a zero-config fallback so users can try Gomaa without installing PostgreSQL.
 
 ## Decision
 
@@ -45,7 +45,7 @@ def create_store(dsn: Optional[str] = None):
     # Fallback to SQLite
     sqlite_path = os.environ.get(
         "MEMORY_SQLITE_PATH", 
-        os.path.expanduser("~/.mnemosyne/mnemosyne.db")
+        os.path.expanduser("~/.gomaa/gomaa.db")
     )
     return SQLiteStore(sqlite_path)
 ```
@@ -78,14 +78,14 @@ class MemoryStore(ABC):
 ## Files to Create/Modify
 
 **New files:**
-- `mnemosyne/stores/base.py` — Abstract `MemoryStore` interface
-- `mnemosyne/stores/sqlite.py` — `SQLiteStore` implementation
+- `gomaa/stores/base.py` — Abstract `MemoryStore` interface
+- `gomaa/stores/sqlite.py` — `SQLiteStore` implementation
 
 **Modified files:**
-- `mnemosyne/stores/__init__.py` — Add `create_store()` factory
-- `mnemosyne/stores/postgres.py` — Inherit from `MemoryStore`
-- `mnemosyne/core.py` — Use `create_store()` instead of direct `PgVectorStore`
-- `mnemosyne/__init__.py` — Ensure exports work
+- `gomaa/stores/__init__.py` — Add `create_store()` factory
+- `gomaa/stores/postgres.py` — Inherit from `MemoryStore`
+- `gomaa/core.py` — Use `create_store()` instead of direct `PgVectorStore`
+- `gomaa/__init__.py` — Ensure exports work
 
 ## Exit Criteria
 - [ ] `pip install -e .` works without PostgreSQL

@@ -44,11 +44,11 @@ htmlcov/
 .DS_Store
 Thumbs.db
 
-# Mnemosyne
+# Gomaa
 *.db
 *.db-journal
 .obsidian/
-.mnemosyne/
+.gomaa/
 
 # Environment
 .env

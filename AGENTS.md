@@ -1,7 +1,7 @@
 # 🧠 Gomaa Autonomous Agent Ecosystem & VPS Operations Guide
 
 > **Notice for all AI Coding Assistants (Antigravity, Cursor, Claude Code, Codex, Windsurf):**
-> This repository is the source code and orchestration center for **Gomaa v4.0.0 ("Mnemosyne Neo")** and the 5-agent Hermes fleet deployed on a production VPS.
+> This repository is the source code and orchestration center for **Gomaa v4.0.0 ("Gomaa Neo")** and the 5-agent Hermes fleet deployed on a production VPS.
 > Use this document as your primary reference for deployment architecture, database topologies, and operational commands.
 > **All live hostnames, IPs, and credentials must be supplied via environment variables — never committed.**
 
@@ -107,7 +107,7 @@ All agents expose these MCP tools (under the `mcp__obsidian_memory__` prefix):
 
 ---
 
-## 🛡️ Core Engine Hardening & Architectural Guarantees (v4.0.0 - Mnemosyne Neo)
+## 🛡️ Core Engine Hardening & Architectural Guarantees (v4.0.0 - Gomaa Neo)
 
 1. **4-Quadrant Cognitive Architecture:** Explicit separation of Episodic (`episodic_events`), Semantic (`notes` + `links`), Procedural (`procedural_playbooks`), and Working Memory (`working_memory`) stores across both SQLite and PostgreSQL.
 2. **HippoRAG 2 Personalized PageRank (PPR):** Single-step multi-hop associative retrieval via power-iteration PPR ($K=20, \alpha=0.15$) with bi-directional forward/backlink traversal and ACT-R base-level activation boosting.
@@ -127,7 +127,7 @@ Architecture, security policies, and runbooks live in [`docs/handover/`](docs/ha
 - `03_AGENT_INTEGRATIONS_CATALOG.md` — skill catalogs & MCP definitions
 - `04_GITHUB_STARS_AND_DISTRIBUTION_PLAN.md` — growth plan
 - `05_OPERATIONS_AND_RUNBOOK.md` — VPS runbook & recovery
-- `07_GOMAA_V4_NEO_SPECIFICATION.md` — Gomaa v4.0 ("Mnemosyne Neo") specification
+- `07_GOMAA_V4_NEO_SPECIFICATION.md` — Gomaa v4.0 ("Gomaa Neo") specification
 
 ---
 

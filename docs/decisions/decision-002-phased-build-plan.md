@@ -22,7 +22,7 @@ We will build in 7 phases, each delivering a shippable increment:
 | **Phase 0** | 1-2 | Foundation | `pip install -e .` works, tests pass, CI green |
 | **Phase 1** | 2-3 | SQLite Fallback | Zero-config installs, no PostgreSQL required |
 | **Phase 2** | 3-4 | MCP v2 | Stateless MCP spec, works with Claude/Cursor |
-| **Phase 3** | 4-5 | CLI | `mnemosyne remember`, `mnemosyne recall` commands |
+| **Phase 3** | 4-5 | CLI | `gomaa remember`, `gomaa recall` commands |
 | **Phase 4** | 5-6 | VPS Deploy | Docker Compose, HTTPS, remote MCP access |
 | **Phase 5** | 7-8 | Launch | Hacker News, 42 Berlin, 100 stars |
 | **Phase 6** | Month 3 | Connectors | GitHub, Slack, file import |

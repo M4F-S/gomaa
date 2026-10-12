@@ -1,17 +1,17 @@
-# 🚀 Mnemosyne v3.0 — Open Source Launch Kit
+# 🚀 Gomaa v3.0 — Open Source Launch Kit
 
 ---
 
 ## 1. 📰 Hacker News: "Show HN" Submission (2,292 chars / < 4,000 limit)
 
-* **URL / Link:** `https://github.com/M4F-S/mnemosyne`
-* **Title:** `Show HN: Mnemosyne – Local-first hierarchical memory engine for AI agents (MCP Native)`
+* **URL / Link:** `https://github.com/M4F-S/gomaa`
+* **Title:** `Show HN: Gomaa – Local-first hierarchical memory engine for AI agents (MCP Native)`
 
 ### Text (Copy & Paste):
 
 Hey HN,
 
-I built Mnemosyne because my multi-agent fleet on a self-hosted VPS kept hitting the same wall: context window bloat and memory contamination.
+I built Gomaa because my multi-agent fleet on a self-hosted VPS kept hitting the same wall: context window bloat and memory contamination.
 
 When running autonomous agents (like Claude Code, Hermes, or Cursor-driven agents) for hours or days:
 1. Short-term chat history balloons to 100k+ tokens, leading to HTTP 429 rate limits, slow latency, and massive API costs.
@@ -19,7 +19,7 @@ When running autonomous agents (like Claude Code, Hermes, or Cursor-driven agent
 3. Most agent memory tools aggressively summarize past conversations with LLMs, losing exact code syntax, port numbers, and edge-case flags.
 4. Stale memories from months ago rank equally with fresh context because older tools lack temporal forgetting curves.
 
-Mnemosyne is a local-first memory operating system designed specifically for autonomous agent fleets.
+Gomaa is a local-first memory operating system designed specifically for autonomous agent fleets.
 
 Key Architecture Highlights:
 
@@ -36,7 +36,7 @@ Key Architecture Highlights:
 • Native MCP Server: Exposes 7 standard JSON-RPC tools compatible out-of-the-box with Claude Desktop, Claude Code, Cursor IDE, OpenCode, and Hermes Agent.
 
 The core engine is 100% open-source (Apache 2.0):
-GitHub: https://github.com/M4F-S/mnemosyne
+GitHub: https://github.com/M4F-S/gomaa
 
 I would love feedback on the hierarchical scoping model and the RRF graph traversal. What memory patterns are you using in your agent stacks?
 
@@ -49,27 +49,27 @@ AI agents get "dementia" or blow past 100k tokens after a few hours of autonomou
 
 Summarizing loses exact code syntax. Flat vector DBs cause context contamination.
 
-Today I’m open-sourcing Mnemosyne v3.0: A local-first, hierarchical memory OS for AI agents with $0 API spend. 🧠👇
-https://github.com/M4F-S/mnemosyne
+Today I’m open-sourcing Gomaa v3.0: A local-first, hierarchical memory OS for AI agents with $0 API spend. 🧠👇
+https://github.com/M4F-S/gomaa
 
 ### Tweet 2 (Hierarchical Scoping)
 Most memory DBs are flat. If your agent works on DevOps and E-commerce, the vector space gets polluted.
 
-Mnemosyne introduces Wings (Projects) and Rooms (Topics).
+Gomaa introduces Wings (Projects) and Rooms (Topics).
 
 An agent can scope its search: memory_recall("webhook secret", scope={"wing": "ecommerce"}) — 100% precision, zero noise.
 
 ### Tweet 3 (Verbatim Recall vs Lossy Summaries)
 LLM-generated summaries are lossy. They drop exact flags, port numbers, and edge-case syntax.
 
-Mnemosyne stores memories and session transcripts verbatim using local sentence-transformers + pgvector.
+Gomaa stores memories and session transcripts verbatim using local sentence-transformers + pgvector.
 
 Retrieval merges Semantic Vector + Keyword tsvector + [[Wiki-link]] Graphs using Reciprocal Rank Fusion (RRF).
 
 ### Tweet 4 (Ebbinghaus Forgetting Curve)
 Stale memories rot your index.
 
-Mnemosyne implements dynamic temporal decay: memories you recall stay sharp; unaccessed memories decay exponentially and archive safely during nightly consolidation.
+Gomaa implements dynamic temporal decay: memories you recall stay sharp; unaccessed memories decay exponentially and archive safely during nightly consolidation.
 
 ### Tweet 5 (MCP & 1-Click Install)
 Native Model Context Protocol (MCP) support. Works instantly with:
@@ -80,4 +80,4 @@ Native Model Context Protocol (MCP) support. Works instantly with:
 
 100% open-source (Apache 2.0). Plain Markdown vault you own.
 
-⭐ Star on GitHub: https://github.com/M4F-S/mnemosyne
+⭐ Star on GitHub: https://github.com/M4F-S/gomaa

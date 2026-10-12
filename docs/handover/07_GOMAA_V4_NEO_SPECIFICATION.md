@@ -1,6 +1,6 @@
-# Gomaa v4.0.0 (Mnemosyne Neo) Specification 🧠⚡
+# Gomaa v4.0.0 (Gomaa Neo) Specification 🧠⚡
 
-**Release:** v4.0.0 (Mnemosyne Neo)  
+**Release:** v4.0.0 (Gomaa Neo)  
 **Status:** Production Ready  
 **Verification:** 115 / 115 Tests Passing (100% Success Rate across 32 Test Modules)  
 

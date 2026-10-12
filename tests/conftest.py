@@ -4,7 +4,7 @@ import os
 
 @pytest.fixture(scope="session")
 def postgres_dsn():
-    return os.environ.get("MEMORY_DB_DSN", "postgresql://mnemosyne:***@localhost:5432/mnemosyne")
+    return os.environ.get("MEMORY_DB_DSN", "postgresql://gomaa:***@localhost:5432/gomaa")
 
 
 def pytest_sessionfinish(session, exitstatus):

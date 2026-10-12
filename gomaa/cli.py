@@ -1,5 +1,5 @@
 """
-Gomaa CLI Interface (v4.0.0 - Mnemosyne Neo)
+Gomaa CLI Interface (v4.0.0 - Gomaa Neo)
 """
 
 import argparse
@@ -17,7 +17,7 @@ GOMAA_BANNER = """\033[1;35m
   ██║   ██║██║   ██║██║╚██╔╝██║██╔══██║██╔══██║
   ╚██████╔╝╚██████╔╝██║ ╚═╝ ██║██║  ██║██║  ██║
    ╚═════╝  ╚═════╝ ╚═╝     ╚═╝╚═╝  ╚═╝╚═╝  ╚═╝\033[0m
-\033[0;36m   🧠 Autonomous AI Agent Long-Term Memory OS (v4.0.0 - Mnemosyne Neo)\033[0m
+\033[0;36m   🧠 Autonomous AI Agent Long-Term Memory OS (v4.0.0 - Gomaa Neo)\033[0m
 """
 
 

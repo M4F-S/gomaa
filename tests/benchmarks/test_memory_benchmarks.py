@@ -1,5 +1,5 @@
 """
-Cognitive Memory Benchmarks for Gomaa v4.0 (Mnemosyne Neo).
+Cognitive Memory Benchmarks for Gomaa v4.0 (Gomaa Neo).
 Evaluates:
 1. LoCoMo Multi-Hop Associative PPR Graph Retrieval (diffusion vs keyword/isolated dense)
 2. Epistemic Truth Maintenance (ATMS) Contradiction Resolution & Supercession

@@ -18,7 +18,7 @@ links: []
 ## What Was Built
 
 ### Package Restructure
-- Split `scripts/mo_graphify_memory.py` (984 lines) into `mnemosyne/` package (12 files)
+- Split `scripts/mo_graphify_memory.py` (984 lines) into `gomaa/` package (12 files)
 - All classes properly separated into individual modules
 - Imports updated and working
 

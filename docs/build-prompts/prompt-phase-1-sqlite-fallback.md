@@ -15,15 +15,15 @@ This is a fresh session. All info is in this prompt. Read carefully before start
 
 ## 1. PROJECT OVERVIEW
 
-**Mnemosyne** is a local-first memory system for AI agents. All code is in the `mnemosyne/` package.
+**Gomaa** is a local-first memory system for AI agents. All code is in the `gomaa/` package.
 
 **Current state (Phase 0 complete):**
-- `mnemosyne/stores/postgres.py` — `PgVectorStore` works with PostgreSQL + pgvector
-- `mnemosyne/core.py` — `UnifiedMemorySystem` directly instantiates `PgVectorStore`
-- `mnemosyne/embedder.py` — `Embedder` creates 384-dim vectors
-- `mnemosyne/vault.py` — `VaultManager` handles Markdown files
+- `gomaa/stores/postgres.py` — `PgVectorStore` works with PostgreSQL + pgvector
+- `gomaa/core.py` — `UnifiedMemorySystem` directly instantiates `PgVectorStore`
+- `gomaa/embedder.py` — `Embedder` creates 384-dim vectors
+- `gomaa/vault.py` — `VaultManager` handles Markdown files
 
-**Your job:** Add SQLite as a fallback so users can try Mnemosyne WITHOUT installing PostgreSQL.
+**Your job:** Add SQLite as a fallback so users can try Gomaa WITHOUT installing PostgreSQL.
 
 ---
 
@@ -36,11 +36,11 @@ owner: M4F-S
 repo: mo-graphify-obsidian-memory
 branch: develop
 files:
-  - mnemosyne/stores/__init__.py
-  - mnemosyne/stores/postgres.py
-  - mnemosyne/core.py
-  - mnemosyne/embedder.py
-  - mnemosyne/vault.py
+  - gomaa/stores/__init__.py
+  - gomaa/stores/postgres.py
+  - gomaa/core.py
+  - gomaa/embedder.py
+  - gomaa/vault.py
 ```
 
 ---
@@ -57,7 +57,7 @@ git checkout -b feature/phase-1-sqlite-fallback
 
 ## 4. STEP 3: CREATE ABSTRACT BASE CLASS
 
-Create `mnemosyne/stores/base.py`:
+Create `gomaa/stores/base.py`:
 
 ```python
 """Abstract base class for memory stores."""
@@ -128,7 +128,7 @@ class MemoryStore(ABC):
 
 ## 5. STEP 4: CREATE SQLiteStore
 
-Create `mnemosyne/stores/sqlite.py`:
+Create `gomaa/stores/sqlite.py`:
 
 ```python
 """SQLite store with pure-Python vector similarity."""
@@ -140,12 +140,12 @@ import logging
 import sqlite3
 from typing import List, Dict, Optional
 
-from mnemosyne.stores.base import MemoryStore
+from gomaa.stores.base import MemoryStore
 
 logger = logging.getLogger("unified-memory")
 
 SQLITE_PATH = os.environ.get(
-    "MEMORY_SQLITE_PATH", os.path.expanduser("~/.mnemosyne/mnemosyne.db")
+    "MEMORY_SQLITE_PATH", os.path.expanduser("~/.gomaa/gomaa.db")
 )
 
 
@@ -445,7 +445,7 @@ class SQLiteStore(MemoryStore):
 
 ## 6. STEP 5: MODIFY EXISTING FILES
 
-### 6.1 Modify `mnemosyne/stores/__init__.py`
+### 6.1 Modify `gomaa/stores/__init__.py`
 
 ```python
 """Store backends with auto-detection."""
@@ -454,9 +454,9 @@ import os
 import logging
 from typing import Optional
 
-from mnemosyne.stores.base import MemoryStore
-from mnemosyne.stores.postgres import PgVectorStore
-from mnemosyne.stores.sqlite import SQLiteStore
+from gomaa.stores.base import MemoryStore
+from gomaa.stores.postgres import PgVectorStore
+from gomaa.stores.sqlite import SQLiteStore
 
 logger = logging.getLogger("unified-memory")
 
@@ -483,17 +483,17 @@ def create_store(dsn: Optional[str] = None) -> MemoryStore:
     
     sqlite_path = os.environ.get(
         "MEMORY_SQLITE_PATH",
-        os.path.expanduser("~/.mnemosyne/mnemosyne.db")
+        os.path.expanduser("~/.gomaa/gomaa.db")
     )
     logger.info(f"Using SQLite store: {sqlite_path}")
     return SQLiteStore(sqlite_path)
 ```
 
-### 6.2 Modify `mnemosyne/stores/postgres.py`
+### 6.2 Modify `gomaa/stores/postgres.py`
 
 Add import at top:
 ```python
-from mnemosyne.stores.base import MemoryStore
+from gomaa.stores.base import MemoryStore
 ```
 
 Change class declaration:
@@ -501,16 +501,16 @@ Change class declaration:
 class PgVectorStore(MemoryStore):
 ```
 
-### 6.3 Modify `mnemosyne/core.py`
+### 6.3 Modify `gomaa/core.py`
 
 Replace:
 ```python
-from mnemosyne.stores.postgres import PgVectorStore, DB_DSN
+from gomaa.stores.postgres import PgVectorStore, DB_DSN
 ```
 With:
 ```python
-from mnemosyne.stores import create_store
-from mnemosyne.stores.postgres import DB_DSN
+from gomaa.stores import create_store
+from gomaa.stores.postgres import DB_DSN
 ```
 
 Replace in `__init__`:
@@ -532,7 +532,7 @@ Create `tests/test_sqlite.py`:
 import pytest
 import tempfile
 import os
-from mnemosyne.stores.sqlite import SQLiteStore
+from gomaa.stores.sqlite import SQLiteStore
 
 
 class TestSQLiteStore:
@@ -599,20 +599,20 @@ Create `tests/test_store_factory.py`:
 import pytest
 import os
 from unittest.mock import patch, MagicMock
-from mnemosyne.stores import create_store
+from gomaa.stores import create_store
 
 
 class TestCreateStore:
     def test_prefers_postgresql_when_available(self):
-        with patch("mnemosyne.stores.postgres.PgVectorStore") as mock_pg:
+        with patch("gomaa.stores.postgres.PgVectorStore") as mock_pg:
             mock_pg.return_value = MagicMock()
             store = create_store("postgresql://localhost/test")
             mock_pg.assert_called_once()
 
     def test_falls_back_to_sqlite(self):
-        with patch("mnemosyne.stores.postgres.PgVectorStore") as mock_pg:
+        with patch("gomaa.stores.postgres.PgVectorStore") as mock_pg:
             mock_pg.side_effect = Exception("No PG")
-            with patch("mnemosyne.stores.sqlite.SQLiteStore") as mock_sqlite:
+            with patch("gomaa.stores.sqlite.SQLiteStore") as mock_sqlite:
                 mock_sqlite.return_value = MagicMock()
                 store = create_store("postgresql://localhost/test")
                 mock_sqlite.assert_called_once()
@@ -627,15 +627,15 @@ Add to `README.md` after the Installation section:
 ```markdown
 ## Try Without PostgreSQL!
 
-Mnemosyne now works with SQLite — no database setup required:
+Gomaa now works with SQLite — no database setup required:
 
 ```bash
 pip install -e .
-python -c "from mnemosyne import UnifiedMemorySystem; m = UnifiedMemorySystem()"
+python -c "from gomaa import UnifiedMemorySystem; m = UnifiedMemorySystem()"
 ```
 
-By default, if PostgreSQL is not available, Mnemosyne automatically uses SQLite
-stored at `~/.mnemosyne/mnemosyne.db`. Markdown vault files still work the same way.
+By default, if PostgreSQL is not available, Gomaa automatically uses SQLite
+stored at `~/.gomaa/gomaa.db`. Markdown vault files still work the same way.
 
 To force PostgreSQL, set `MEMORY_DB_DSN`:
 ```bash
@@ -644,7 +644,7 @@ export MEMORY_DB_DSN="postgresql://..."
 
 To force SQLite, set `MEMORY_SQLITE_PATH`:
 ```bash
-export MEMORY_SQLITE_PATH="/path/to/mnemosyne.db"
+export MEMORY_SQLITE_PATH="/path/to/gomaa.db"
 ```
 ```
 
@@ -654,12 +654,12 @@ export MEMORY_SQLITE_PATH="/path/to/mnemosyne.db"
 
 ```bash
 # Test 1: Import works
-python -c "from mnemosyne.stores import create_store; print('OK')"
+python -c "from gomaa.stores import create_store; print('OK')"
 
 # Test 2: SQLite store works standalone
 python -c "
-from mnemosyne.stores.sqlite import SQLiteStore
-s = SQLiteStore('/tmp/test_mnemosyne.db')
+from gomaa.stores.sqlite import SQLiteStore
+s = SQLiteStore('/tmp/test_gomaa.db')
 id = s.upsert_note('Test', 'content', ['tag'], 'concept', 'active', 0.5, [0.1]*384, '/tmp')
 print('Upserted:', id)
 results = s.search_keyword('content')
@@ -671,7 +671,7 @@ print('Found:', len(results))
 python -c "
 import os
 os.environ.pop('MEMORY_DB_DSN', None)
-from mnemosyne import UnifiedMemorySystem
+from gomaa import UnifiedMemorySystem
 m = UnifiedMemorySystem(auto_sync=False)
 print('Store type:', type(m.db).__name__)
 "
@@ -702,10 +702,10 @@ Use GitHub MCP:
 ```
 ## Phase 1: SQLite Fallback
 
-This PR adds SQLite as a fallback storage backend so users can try Mnemosyne without installing PostgreSQL.
+This PR adds SQLite as a fallback storage backend so users can try Gomaa without installing PostgreSQL.
 
 ### Changes
-- **Abstract interface:** Added `MemoryStore` ABC in `mnemosyne/stores/base.py`
+- **Abstract interface:** Added `MemoryStore` ABC in `gomaa/stores/base.py`
 - **SQLite store:** Added `SQLiteStore` with brute-force cosine similarity for semantic search
 - **Auto-detection:** `create_store()` tries PostgreSQL first, falls back to SQLite
 - **Tests:** Added `test_sqlite.py` and `test_store_factory.py`
@@ -739,11 +739,11 @@ This PR adds SQLite as a fallback storage backend so users can try Mnemosyne wit
 
 ## DEFINITION OF DONE
 
-- [ ] `mnemosyne/stores/base.py` created with `MemoryStore` ABC
-- [ ] `mnemosyne/stores/sqlite.py` created with full implementation
-- [ ] `mnemosyne/stores/__init__.py` updated with `create_store()` factory
-- [ ] `mnemosyne/stores/postgres.py` inherits from `MemoryStore`
-- [ ] `mnemosyne/core.py` uses `create_store()` instead of `PgVectorStore`
+- [ ] `gomaa/stores/base.py` created with `MemoryStore` ABC
+- [ ] `gomaa/stores/sqlite.py` created with full implementation
+- [ ] `gomaa/stores/__init__.py` updated with `create_store()` factory
+- [ ] `gomaa/stores/postgres.py` inherits from `MemoryStore`
+- [ ] `gomaa/core.py` uses `create_store()` instead of `PgVectorStore`
 - [ ] `tests/test_sqlite.py` passes
 - [ ] `tests/test_store_factory.py` passes
 - [ ] README updated with SQLite instructions

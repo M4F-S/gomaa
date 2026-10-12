@@ -8,7 +8,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [3.5.0] - 2026-08-29
 
 ### Added
-- **Gomaa Autonomous Memory Platform (v3.5.0)**: Renamed and consolidated engine to `gomaa` with zero-duplication backward compatibility shims in `mnemosyne/` issuing deprecation warnings.
+- **Gomaa Autonomous Memory Platform (v3.5.0)**: Renamed and consolidated engine to `gomaa` with zero-duplication backward compatibility shims in `gomaa/` issuing deprecation warnings.
 - **Embedded Web Knowledge Graph Dashboard (`gomaa dashboard`)**: Zero-dependency standard library HTTP dashboard visualizing real-time knowledge graphs, 5-layer cognitive memory distributions, and live search testing sandbox.
 - **Token-Budgeted Prompt Context Assembler (`memory_assemble_context`)**: Retrieves, ranks, and packs high-salience memories into exact LLM token limits wrapped in escaped XML context blocks (`<recalled_memory_context>`).
 - **5 Cognitive Memory Layers**: Scientific memory taxonomy (Episodic, Semantic, Procedural, Social, Preferential).
@@ -24,8 +24,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [3.4.0] - 2026-08-24
 
 ### Added
-- **Asynchronous Google Drive Synchronization (`mnemosyne.sync.gdrive`)**: Local-first sync engine supporting Service Account and OAuth2 credentials with bidirectional MD5-verified push/pull and automatic conflict branch preservation (`.conflict-TIMESTAMP.md`).
-- **CLI Sync Command (`mnemosyne sync-gdrive`)**: Run one-off or continuous background daemon synchronization (`--daemon --interval 60`).
+- **Asynchronous Google Drive Synchronization (`gomaa.sync.gdrive`)**: Local-first sync engine supporting Service Account and OAuth2 credentials with bidirectional MD5-verified push/pull and automatic conflict branch preservation (`.conflict-TIMESTAMP.md`).
+- **CLI Sync Command (`gomaa sync-gdrive`)**: Run one-off or continuous background daemon synchronization (`--daemon --interval 60`).
 - **High-Recall HNSW Vector Indexing**: Upgraded PostgreSQL `pgvector` indexing to `HNSW (vector_cosine_ops) WITH (m=16, ef_construction=64)` with automated fallback to IVFFlat for legacy versions.
 - **FastEmbed ONNX Runtime Support**: Optional lightweight ONNX embedding engine (~30MB RAM footprint, zero PyTorch dependency).
 - **Expanded Credential Screening**: `_sanitize_for_shared()` strengthened with regex guards for Anthropic (`sk-ant-`), Google Gemini (`AIza...`), HuggingFace (`hf_...`), OpenAI project keys (`sk-proj-...`), Slack, AWS, and GitHub PATs.
@@ -50,7 +50,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 - `memory_recall` updated to support `scope` parameter (`wing`, `room`) across semantic, keyword, and hybrid RRF search modes.
-- `serverInfo` in MCP `initialize` updated to report `{"name": "mnemosyne", "version": "3.0.0"}`.
+- `serverInfo` in MCP `initialize` updated to report `{"name": "gomaa", "version": "3.0.0"}`.
 - Refactored `PgVectorStore` to automatically manage schema migrations and table indexes.
 
 ## [2.0.0] - 2026-08-22
@@ -62,7 +62,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [3.2.0] - 2026-08-24
 ### Added
-- **Centralized Embedding Microservice (`mnemosyne.embed_service`):** High-efficiency FastAPI microservice running ONNX/SentenceTransformers in ~75MB RAM.
+- **Centralized Embedding Microservice (`gomaa.embed_service`):** High-efficiency FastAPI microservice running ONNX/SentenceTransformers in ~75MB RAM.
 - **Circuit Breaker & Zero-RAM Fallback:** Embedder client includes connection reuse with `httpx`, circuit breaker, and keyword-search graceful degradation.
 - **Thread-Safe Self-Healing Database Pooling:** `PgVectorStore` uses `ThreadedConnectionPool` with liveness checks and auto-reconnect on dead sockets.
 - **Cross-Agent Shared Memory Layer (`shared_db`):** Multi-tenant fleet memory with `memory_publish_shared`, regex credential sanitization, and fail-soft recall.

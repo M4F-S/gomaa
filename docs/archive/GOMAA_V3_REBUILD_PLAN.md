@@ -1,4 +1,4 @@
-# Mnemosyne v3.0 — Complete Rebuild Plan
+# Gomaa v3.0 — Complete Rebuild Plan
 
 > **Synthesized from 6 parallel research streams, 15+ source documents, 200+ research findings**
 > **Status:** Comprehensive rebuild plan with concrete implementations
@@ -19,10 +19,10 @@ The v2.0 brief was solid but missed critical 2026 developments. This v3.0 plan i
 | **Vector Extension** | pgvector | **pgvector + pgvectorscale** (mandatory at >10M vectors) | pgvectorscale (Timescale) makes PostgreSQL 28× faster than Pinecone at 50M vectors. Not optional. |
 | **Cold Storage** | S3 | **S3 + R2** (zero egress for retrieval) | R2 is $0.015/GB with zero egress. Perfect for memory retrieval spikes. |
 | **MCP Transport** | stdio + SSE | **stdio + Streamable HTTP** (2026-07-28 spec) | SSE is deprecated. Streamable HTTP is the new standard. Works with Claude.ai natively. |
-| **MCP Auth** | Not specified | **OAuth 2.1 + PKCE + RFC 8707** | NIST mandates this by 2027. 44% of MCP servers are unauthenticated. Mnemosyne is NIST-ready. |
+| **MCP Auth** | Not specified | **OAuth 2.1 + PKCE + RFC 8707** | NIST mandates this by 2027. 44% of MCP servers are unauthenticated. Gomaa is NIST-ready. |
 | **Graph Threshold** | <1B edges in Postgres | **<100M edges in Postgres** (100M–1B evaluate split) | Recursive CTEs degrade after 100M edges. Realistic threshold, not fantasy. |
 | **Security Defense** | Admission control (basic) | **SMSR-certified (HMAC-SHA256 + randomized ablation)** | MINJA achieves 20–40% ASR in realistic conditions. ADAM achieves 100%. SMSR is the only certified defense. |
-| **Compliance** | GDPR mentioned | **EU AI Act (live Aug 2, 2026) + NIST-ready + ISO 42001** | EU AI Act penalties: €35M / 7% turnover. NIST designated MCP as "leading open standard." Mnemosyne is enterprise-ready. |
+| **Compliance** | GDPR mentioned | **EU AI Act (live Aug 2, 2026) + NIST-ready + ISO 42001** | EU AI Act penalties: €35M / 7% turnover. NIST designated MCP as "leading open standard." Gomaa is enterprise-ready. |
 | **Architecture** | Monolithic stack | **Microkernel + Plugin Architecture** | "Ultimate OS" = extensible core + plugin marketplace. No monolithic memory system wins. |
 | **Multi-Agent** | Not mentioned | **Multi-agent namespaces + versioning + branching + federation** | 36.9% of multi-agent failures are from memory misalignment. Table stakes for 2026. |
 | **SDKs** | Not mentioned | **Python + TypeScript SDKs (auto-generated from OpenAPI)** | Developer experience is the moat. SDKs are not optional. |
@@ -31,7 +31,7 @@ The v2.0 brief was solid but missed critical 2026 developments. This v3.0 plan i
 | **Plugin Marketplace** | Not mentioned | **Plugin marketplace (alpha in Month 3)** | Ecosystem = moat. Data gravity + plugin marketplace = the winning platform. |
 | **Drop-in Proxy** | Not mentioned | **OpenAI-compatible proxy mode (Month 1)** | Zero-code memory. Drop-in wrapper for any LLM. The aha moment. |
 | **Memory Versioning** | Not mentioned | **Git-style versioning + branching (Month 2)** | Users need to experiment with memory without breaking production. Branch, merge, commit. |
-| **CLI** | Not mentioned | **Full CLI with debug/trace modes (Month 1)** | One-command setup: `mnemosyne init`. Debug mode: `mnemosyne --trace recall "api rate limit"`. |
+| **CLI** | Not mentioned | **Full CLI with debug/trace modes (Month 1)** | One-command setup: `gomaa init`. Debug mode: `gomaa --trace recall "api rate limit"`. |
 
 ---
 
@@ -48,7 +48,7 @@ An operating system is not a storage backend. An operating system is:
 5. **A developer experience** that makes building on it delightful
 6. **An ecosystem** that makes switching impossible (data gravity + plugins)
 
-Mnemosyne v3.0 is built on these six principles. Every feature, every API, every schema decision maps to one of these.
+Gomaa v3.0 is built on these six principles. Every feature, every API, every schema decision maps to one of these.
 
 ### 1.2 The Memory Taxonomy (What We Actually Store)
 
@@ -67,7 +67,7 @@ The "Ultimate Memory OS" does not store "memories." It stores **typed, structure
 
 ### 1.3 The Differentiation Stack (What No Competitor Has)
 
-| Differentiator | Mnemosyne | Cognee | Mem0 | Zep | Letta | Evermind |
+| Differentiator | Gomaa | Cognee | Mem0 | Zep | Letta | Evermind |
 |----------------|-----------|--------|------|-----|-------|----------|
 | **Emotional salience** | ✅ Full multi-factor | ⚠️ Partial | ❌ No | ❌ No | ❌ No | ⚠️ Basic |
 | **Prospective memory** | ✅ Native scheduler | ❌ No | ⚠️ Expiration only | ❌ No | ❌ No | ❌ No |
@@ -82,7 +82,7 @@ The "Ultimate Memory OS" does not store "memories." It stores **typed, structure
 | **Temporal validity** | ✅ `valid_at`/`invalid_at` | ❌ No | ❌ No | ✅ Temporal | ❌ No | ❌ No |
 | **Microkernel architecture** | ✅ Plugin-based | ❌ No | ❌ No | ❌ No | ❌ No | ⚠️ Partial |
 
-**Mnemosyne's competitive moat:** 12 features that no competitor has in combination. Evermind is the closest (6.7K stars, "Memory OS" branding), but lacks prospective memory, emotional salience, compliance, multi-agent, versioning, and plugins. The window is 3–4 months before competitors close gaps.
+**Gomaa's competitive moat:** 12 features that no competitor has in combination. Evermind is the closest (6.7K stars, "Memory OS" branding), but lacks prospective memory, emotional salience, compliance, multi-agent, versioning, and plugins. The window is 3–4 months before competitors close gaps.
 
 ---
 
@@ -92,7 +92,7 @@ The "Ultimate Memory OS" does not store "memories." It stores **typed, structure
 
 ```
 ┌─────────────────────────────────────────────────────────────────────────────┐
-│                              MNEMOSYNE MEMORY OS                             │
+│                              GOMAA MEMORY OS                             │
 │                     "The Operating System for AI Memory"                     │
 └─────────────────────────────────────────────────────────────────────────────┘
 
@@ -179,7 +179,7 @@ The "Ultimate Memory OS" does not store "memories." It stores **typed, structure
   │  ┌─────────────────────────────────────────────────────────────────┐   │
   │  │                    DROP-IN PROXY (OpenAI-Compatible)            │   │
   │  │  Wraps any LLM API. Adds memory to any agent with zero code.   │   │
-  │  │  `OPENAI_API_BASE=https://api.mnemosyne.ai/v1/proxy`            │   │
+  │  │  `OPENAI_API_BASE=https://api.gomaa.ai/v1/proxy`            │   │
   │  └─────────────────────────────────────────────────────────────────┘   │
   └─────────────────────────────────────────────────────────────────────────┘
                                     │
@@ -204,11 +204,11 @@ The "Ultimate Memory OS" does not store "memories." It stores **typed, structure
   │  ┌─────────────────┐  ┌─────────────────┐  ┌─────────────────────────┐  │
   │  │  Plugin         │  │  SDK (Python +  │  │  CLI (One-command)    │  │
   │  │  Marketplace    │  │  TypeScript)    │  │                       │  │
-  │  │                 │  │                 │  │  `mnemosyne init`      │  │
-  │  │  Connectors:    │  │  Auto-generated  │  │  `mnemosyne remember`  │  │
-  │  │  Slack, GitHub,  │  │  from OpenAPI    │  │  `mnemosyne recall`    │  │
-  │  │  Notion, Gmail,  │  │  Type-safe,      │  │  `mnemosyne audit`     │  │
-  │  │  Spotify, etc.   │  │  fully typed     │  │  `mnemosyne --trace`   │  │
+  │  │                 │  │                 │  │  `gomaa init`      │  │
+  │  │  Connectors:    │  │  Auto-generated  │  │  `gomaa remember`  │  │
+  │  │  Slack, GitHub,  │  │  from OpenAPI    │  │  `gomaa recall`    │  │
+  │  │  Notion, Gmail,  │  │  Type-safe,      │  │  `gomaa audit`     │  │
+  │  │  Spotify, etc.   │  │  fully typed     │  │  `gomaa --trace`   │  │
   │  │                 │  │                 │  │                       │  │
   │  │  Encoders:       │  │                 │  │  Debug mode: show     │  │
   │  │  Custom embedding│  │                 │  │  query routing,       │  │
@@ -220,12 +220,12 @@ The "Ultimate Memory OS" does not store "memories." It stores **typed, structure
 
 ### 2.2 The Microkernel + Plugin Architecture
 
-The "monolithic stack" approach (v2.0) is wrong. Every successful platform (WordPress, Shopify, VS Code, Obsidian) uses a microkernel + plugin architecture. Mnemosyne must too.
+The "monolithic stack" approach (v2.0) is wrong. Every successful platform (WordPress, Shopify, VS Code, Obsidian) uses a microkernel + plugin architecture. Gomaa must too.
 
 ### The Kernel (Never Changes)
 
 ```python
-# mnemosyne/kernel.py
+# gomaa/kernel.py
 class Kernel:
     """The microkernel. Manages plugins, routes queries, enforces security."""
     
@@ -281,7 +281,7 @@ class Kernel:
 ### The Plugin Interface (Extensible)
 
 ```python
-# mnemosyne/plugin.py
+# gomaa/plugin.py
 class MemoryPlugin(ABC):
     """Every memory subsystem is a plugin."""
     
@@ -309,7 +309,7 @@ class MemoryPlugin(ABC):
 ### The Plugin Marketplace (Month 3)
 
 ```
-marketplace.mnemosyne.ai/
+marketplace.gomaa.ai/
 ├── connectors/
 │   ├── slack-connector/ (1.2.0, 12K downloads)
 │   ├── github-connector/ (1.0.5, 8K downloads)
@@ -337,7 +337,7 @@ marketplace.mnemosyne.ai/
 
 ```sql
 -- ============================================================
--- MNEMOSYNE v3.0 — COMPLETE DATABASE SCHEMA
+-- GOMAA v3.0 — COMPLETE DATABASE SCHEMA
 -- PostgreSQL 16 + pgvector + pgvectorscale
 -- ============================================================
 
@@ -564,24 +564,24 @@ See `PLATFORM_BUILDER_BRIEF.md` for the full pricing model.
 
 ### 8.1 The 10-Word Anchor
 
-> **"Supabase is to Postgres what Mnemosyne is to AI Memory."**
+> **"Supabase is to Postgres what Gomaa is to AI Memory."**
 
 Or more precisely:
 
-> **"Mnemosyne is the operating system for AI memory — the scheduler that orchestrates what your AI remembers, forgets, and learns."**
+> **"Gomaa is the operating system for AI memory — the scheduler that orchestrates what your AI remembers, forgets, and learns."**
 
 ### 8.2 Brand Identity
 
 | Element | Value |
 |---------|-------|
-| **Name** | Mnemosyne (Greek goddess of memory, mother of the Muses) |
+| **Name** | Gomaa (Greek goddess of memory, mother of the Muses) |
 | **Tagline** | "The Memory OS" |
 | **Positioning** | Not a database. Not a framework. An operating system. |
 | **Target** | AI developers, agent builders, knowledge workers |
 | **Tone** | Technical, trustworthy, visionary, slightly mythological |
 | **Colors** | Deep purple (memory, wisdom), gold (knowledge, value), dark blue (trust, depth) |
 | **Logo** | Stylized M + neural network pattern + scroll (knowledge) |
-| **Mascot** | Mnemosyne (classical figure with modern neural network halo) |
+| **Mascot** | Gomaa (classical figure with modern neural network halo) |
 
 ### 8.3 The Narrative Arc
 
@@ -592,17 +592,17 @@ Or more precisely:
 
 **Phase 2 (Month 4-6): "The Memory OS"**
 - Content: Technical deep-dives, architecture comparisons, benchmark results
-- Message: "Mnemosyne is not a database. It's an operating system for AI memory. Here's why that matters."
+- Message: "Gomaa is not a database. It's an operating system for AI memory. Here's why that matters."
 - Metrics: 50K GitHub stars, 20K Discord members, 10 conference talks
 
 **Phase 3 (Month 7-9): "The Ecosystem"**
 - Content: Plugin marketplace, community showcases, partner integrations
-- Message: "The Mnemosyne ecosystem has 100+ plugins. Here's what the community built."
+- Message: "The Gomaa ecosystem has 100+ plugins. Here's what the community built."
 - Metrics: 100K GitHub stars, 50K Discord members, 50 plugins
 
 **Phase 4 (Month 10-12): "The Standard"**
 - Content: Standards proposals, RFCs, academic papers
-- Message: "Mnemosyne is becoming the standard for AI memory. Here's the specification."
+- Message: "Gomaa is becoming the standard for AI memory. Here's the specification."
 - Metrics: 200K GitHub stars, 100K Discord members, 100+ plugins, 5 academic papers
 
 ---
@@ -662,7 +662,7 @@ Or more precisely:
 
 ## ONE-SENTENCE SUMMARY
 
-> **Build Mnemosyne as a microkernel-based Memory OS with a plugin architecture, orchestrating semantic + episodic + procedural + prospective + emotional + meta memory across PostgreSQL+pgvector+pgvectorscale (hot→queryable→cold), secured by SMSR-certified admission control, exposed through stateless MCP (stdio + Streamable HTTP) and OpenAI-compatible proxy, with emotional salience, prospective scheduling, contradiction detection, memory versioning, multi-agent namespaces, and compliance-grade observability — the only platform that combines all 12 differentiators no competitor has.**
+> **Build Gomaa as a microkernel-based Memory OS with a plugin architecture, orchestrating semantic + episodic + procedural + prospective + emotional + meta memory across PostgreSQL+pgvector+pgvectorscale (hot→queryable→cold), secured by SMSR-certified admission control, exposed through stateless MCP (stdio + Streamable HTTP) and OpenAI-compatible proxy, with emotional salience, prospective scheduling, contradiction detection, memory versioning, multi-agent namespaces, and compliance-grade observability — the only platform that combines all 12 differentiators no competitor has.**
 
 ---
 

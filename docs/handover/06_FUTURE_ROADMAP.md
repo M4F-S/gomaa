@@ -1,4 +1,4 @@
-# Mnemosyne Future Roadmap 🗺️
+# Gomaa Future Roadmap 🗺️
 
 ---
 
@@ -9,7 +9,7 @@
 ---
 
 ## 🌟 Milestone 2: Obsidian Plugin & Web Visualizer (v3.3)
-* Native Obsidian Community Plugin that embeds the Mnemosyne query bar directly into Obsidian.
+* Native Obsidian Community Plugin that embeds the Gomaa query bar directly into Obsidian.
 * Web-based 3D graph visualizer with live memory node clustering.
 
 ---

@@ -60,7 +60,7 @@ jobs:
         env:
           POSTGRES_USER: test_user
           POSTGRES_PASSWORD: ci_ephemeral_test_password_2026
-          POSTGRES_DB: test_mnemosyne
+          POSTGRES_DB: test_gomaa
         ports:
           - 5432:5432
         options: >-
@@ -85,7 +85,7 @@ jobs:
 
     - name: Run integration tests with live PostgreSQL
       env:
-        MEMORY_DB_DSN: "postgresql://test_user:ci_ephemeral_test_password_2026@localhost:5432/test_mnemosyne"
+        MEMORY_DB_DSN: "postgresql://test_user:ci_ephemeral_test_password_2026@localhost:5432/test_gomaa"
         MEMORY_REQUIRE_POSTGRES: "true"
       run: |
         pytest tests/test_integration.py -v

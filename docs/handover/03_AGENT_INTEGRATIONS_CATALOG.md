@@ -1,6 +1,6 @@
 # Agent Integrations Catalog 🔌
 
-Mnemosyne can be plugged into any agent framework in under 2 minutes.
+Gomaa can be plugged into any agent framework in under 2 minutes.
 
 ---
 
@@ -9,9 +9,9 @@ In `openclaw-config.yaml`:
 ```yaml
 plugins:
   mcp_servers:
-    mnemosyne:
+    gomaa:
       command: "python3"
-      args: ["-m", "mnemosyne", "server"]
+      args: ["-m", "gomaa", "server"]
       env:
         MEMORY_DB_DSN: "postgresql://user:password@localhost:5432/openclaw_memory"
         MEMORY_VAULT_PATH: "~/.openclaw/vault"
@@ -29,7 +29,7 @@ mcp_servers:
     args:
       - /opt/data/mcp-servers/obsidian_memory_mcp.py
     env:
-      MEMORY_DB_DSN: postgresql://mnemosyne:***@${DB_HOST}:5432/toy_db
+      MEMORY_DB_DSN: postgresql://gomaa:***@${DB_HOST}:5432/toy_db
       MEMORY_VAULT_PATH: ${VAULT_PATH}
 ```
 
@@ -40,9 +40,9 @@ mcp_servers:
 ```json
 {
   "mcpServers": {
-    "mnemosyne": {
+    "gomaa": {
       "command": "python3",
-      "args": ["-m", "mnemosyne", "server"],
+      "args": ["-m", "gomaa", "server"],
       "env": {
         "MEMORY_VAULT_PATH": "~/Documents/Obsidian/ClaudeVault",
         "MEMORY_DEFAULT_WING": "claude"
@@ -59,9 +59,9 @@ mcp_servers:
 ```json
 {
   "mcpServers": {
-    "mnemosyne": {
+    "gomaa": {
       "command": "python3",
-      "args": ["-m", "mnemosyne", "server"],
+      "args": ["-m", "gomaa", "server"],
       "env": {
         "MEMORY_VAULT_PATH": "./.vault",
         "MEMORY_DEFAULT_WING": "codebase"
@@ -75,7 +75,7 @@ mcp_servers:
 
 ## 5. Open-Manus, CrewAI & LangChain (Python SDK)
 ```python
-from mnemosyne import UnifiedMemorySystem
+from gomaa import UnifiedMemorySystem
 
 mem = UnifiedMemorySystem(vault_path="~/.agent/vault")
 

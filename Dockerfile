@@ -14,7 +14,6 @@ RUN groupadd -g 10001 gomaa && \
 
 # Copy source code and configuration
 COPY gomaa/ ./gomaa/
-COPY mnemosyne/ ./mnemosyne/
 COPY pyproject.toml README.md ./
 
 # Install package with production extras

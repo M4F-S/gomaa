@@ -1,4 +1,4 @@
-# Mnemosyne Technical Specification (v3.1) 📐
+# Gomaa Technical Specification (v3.1) 📐
 
 ---
 

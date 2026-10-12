@@ -1,4 +1,4 @@
-# Integrating Mnemosyne with OpenAI Codex, Operator & Custom Agents
+# Integrating Gomaa with OpenAI Codex, Operator & Custom Agents
 
 For custom AI CLI tools or OpenAI Function Calling pipelines:
 
@@ -6,7 +6,7 @@ For custom AI CLI tools or OpenAI Function Calling pipelines:
 
 ```python
 import openai
-from mnemosyne import UnifiedMemorySystem
+from gomaa import UnifiedMemorySystem
 
 mem = UnifiedMemorySystem()
 

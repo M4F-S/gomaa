@@ -11,7 +11,7 @@ class TestGDriveSync:
 
     def test_calculate_md5(self, tmp_path):
         test_file = tmp_path / "test.md"
-        test_file.write_text("Hello Mnemosyne GDrive", encoding="utf-8")
+        test_file.write_text("Hello Gomaa GDrive", encoding="utf-8")
         md5 = calculate_md5(test_file)
         assert len(md5) == 32
         assert isinstance(md5, str)

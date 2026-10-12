@@ -1,6 +1,6 @@
 from gomaa.core import UnifiedMemorySystem
-from gomaa.adapters.langchain import MnemosyneMemory
-from gomaa.adapters.crewai import MnemosyneMemoryHandler
+from gomaa.adapters.langchain import GomaaMemory
+from gomaa.adapters.crewai import GomaaMemoryHandler
 
 
 class TestAdapters:
@@ -9,7 +9,7 @@ class TestAdapters:
         vault_path = str(tmp_path / "vault")
         mem = UnifiedMemorySystem(vault_path=vault_path, dsn=db_path, auto_sync=False)
 
-        lc_mem = MnemosyneMemory(memory=mem, wing="support", room="tickets")
+        lc_mem = GomaaMemory(memory=mem, wing="support", room="tickets")
 
         # Save turn
         lc_mem.save_context(
@@ -28,7 +28,7 @@ class TestAdapters:
         vault_path = str(tmp_path / "vault")
         mem = UnifiedMemorySystem(vault_path=vault_path, dsn=db_path, auto_sync=False)
 
-        handler = MnemosyneMemoryHandler(memory=mem, crew_name="security_swarm")
+        handler = GomaaMemoryHandler(memory=mem, crew_name="security_swarm")
 
         # Save finding
         res = handler.save(

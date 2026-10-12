@@ -70,7 +70,3 @@ class GomaaMemoryHandler:
         if score_threshold is None:
             return results
         return [r for r in results if r.get("rrf_score", r.get("score", 0.0)) >= score_threshold]
-
-
-# Backwards compatibility alias
-MnemosyneMemoryHandler = GomaaMemoryHandler

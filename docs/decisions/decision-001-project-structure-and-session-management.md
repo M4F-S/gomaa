@@ -11,7 +11,7 @@ links: []
 
 ## Context
 
-We are building Mnemosyne, an open-core local-first memory system for AI agents. The project has grown from a single script (`mo_graphify_memory.py`, 984 lines) to a vision for a full platform. We need a structured approach to avoid:
+We are building Gomaa, an open-core local-first memory system for AI agents. The project has grown from a single script (`mo_graphify_memory.py`, 984 lines) to a vision for a full platform. We need a structured approach to avoid:
 
 1. Context compression (losing decisions after 20-30 tool calls)
 2. Overwhelming a single session with all tasks

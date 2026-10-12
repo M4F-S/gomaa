@@ -9,7 +9,6 @@ RUN pip install --no-cache-dir \
     httpx
 
 COPY gomaa /app/gomaa
-COPY mnemosyne /app/mnemosyne
 COPY pyproject.toml README.md /app/
 
 RUN pip install --no-cache-dir -e .

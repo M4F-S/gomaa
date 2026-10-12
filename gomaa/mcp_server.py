@@ -1,5 +1,5 @@
 """
-MCP Server for Gomaa Unified Memory Platform (v4.0.0 - Mnemosyne Neo).
+MCP Server for Gomaa Unified Memory Platform (v4.0.0 - Gomaa Neo).
 Exposes memory tools over standard MCP JSON-RPC protocol via stdio.
 """
 

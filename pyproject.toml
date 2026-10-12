@@ -101,18 +101,14 @@ dev = [
 
 [project.scripts]
 gomaa = "gomaa.cli:main"
-mnemosyne = "gomaa.cli:main"
 
 [tool.hatch.build.targets.wheel]
-packages = ["gomaa", "mnemosyne"]
+packages = ["gomaa"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 markers = [
     "integration: PostgreSQL and live service integration tests",
-]
-filterwarnings = [
-    "ignore:The 'mnemosyne' package has been renamed:DeprecationWarning",
 ]
 
 [tool.ruff]

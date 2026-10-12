@@ -85,7 +85,3 @@ class GomaaMemory:
     def clear(self) -> None:
         """Clear memory is a no-op for durable persistent memory to avoid accidental data loss."""
         pass
-
-
-# Backwards compatibility alias
-MnemosyneMemory = GomaaMemory

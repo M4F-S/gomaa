@@ -2,7 +2,7 @@
 
 **Generated:** 2026-10-12  
 **Repository:** [https://github.com/M4F-S/gomaa](https://github.com/M4F-S/gomaa)  
-**Package:** `gomaa` (v4.0.0 — "Mnemosyne Neo")  
+**Package:** `gomaa` (v4.0.0 — "Gomaa Neo")  
 **License:** Apache-2.0  
 **Live Production Host:** VPS `${VPS_HOST}`  
 
@@ -10,9 +10,9 @@
 
 ## 📌 Executive Summary
 
-**Gomaa v4.0.0 ("Mnemosyne Neo")** is an MCP-native, local-first hierarchical and neuro-inspired cognitive long-term memory engine for autonomous AI agents. It unites **human-readable Obsidian Markdown Vaults** with high-performance **PostgreSQL + pgvector (HNSW)** and zero-dependency **SQLite**, providing agents with a **4-Quadrant Cognitive Architecture** (Episodic, Semantic, Procedural, Working Memory), **HippoRAG 2 Personalized PageRank (PPR)** associative retrieval, **3-Phase Biological Sleep Consolidation** (SWS + REM + ATMS Homeostasis), hybrid Reciprocal Rank Fusion (RRF) search, Ebbinghaus temporal decay, cross-agent fleet sharing, and asynchronous Google Drive cloud synchronization.
+**Gomaa v4.0.0 ("Gomaa Neo")** is an MCP-native, local-first hierarchical and neuro-inspired cognitive long-term memory engine for autonomous AI agents. It unites **human-readable Obsidian Markdown Vaults** with high-performance **PostgreSQL + pgvector (HNSW)** and zero-dependency **SQLite**, providing agents with a **4-Quadrant Cognitive Architecture** (Episodic, Semantic, Procedural, Working Memory), **HippoRAG 2 Personalized PageRank (PPR)** associative retrieval, **3-Phase Biological Sleep Consolidation** (SWS + REM + ATMS Homeostasis), hybrid Reciprocal Rank Fusion (RRF) search, Ebbinghaus temporal decay, cross-agent fleet sharing, and asynchronous Google Drive cloud synchronization.
 
-### Core Differentiators (v4.0.0 — "Mnemosyne Neo")
+### Core Differentiators (v4.0.0 — "Gomaa Neo")
 1. **Model Context Protocol (MCP v2024-11-05) Native:** Full 13-tool stdio JSON-RPC server with zero stdout pollution and JSON-stringified argument coercion, plug-and-play with Claude Desktop, Cursor, OpenClaw, Hermes, and OpenManus.
 2. **4-Quadrant Cognitive Architecture:** Explicit separation of Episodic (`episodic_events`), Semantic (`notes` + weighted `links`), Procedural (`procedural_playbooks` with Bayesian Laplace utility), and Working Memory (`working_memory` bounded by Miller's Law $7 \pm 2$).
 3. **HippoRAG 2 Personalized PageRank (`associative_ppr`):** Single-step multi-hop associative retrieval via power-iteration PPR ($K=20, \alpha=0.15$) over bi-directional forward and backlink edges.
@@ -37,5 +37,5 @@
 | [`04_GITHUB_STARS_AND_DISTRIBUTION_PLAN.md`](04_GITHUB_STARS_AND_DISTRIBUTION_PLAN.md) | Social launch kit, HN Show HN copy, Twitter threads, Reddit strategy, Awesome-MCP PR |
 | [`05_OPERATIONS_AND_RUNBOOK.md`](05_OPERATIONS_AND_RUNBOOK.md) | Maintenance scripts, test commands, backup procedures, and troubleshooting guide |
 | [`06_FUTURE_ROADMAP.md`](06_FUTURE_ROADMAP.md) | Upcoming features: SSE/HTTP transport, web UI visualizer, multi-tenant auth |
-| [`07_GOMAA_V4_NEO_SPECIFICATION.md`](07_GOMAA_V4_NEO_SPECIFICATION.md) | Gomaa v4.0 ("Mnemosyne Neo") 4-Quadrant architecture, HippoRAG 2 PPR, and 3-phase Sleep Consolidation specification |
+| [`07_GOMAA_V4_NEO_SPECIFICATION.md`](07_GOMAA_V4_NEO_SPECIFICATION.md) | Gomaa v4.0 ("Gomaa Neo") 4-Quadrant architecture, HippoRAG 2 PPR, and 3-phase Sleep Consolidation specification |
 
