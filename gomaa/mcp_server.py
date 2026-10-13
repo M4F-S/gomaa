@@ -130,10 +130,11 @@ class MCPServer:
                 req_id = req.get("id") if "req" in locals() and isinstance(req, dict) else None
                 logger.error(f"[{req_id}] Unexpected error: {e}")
                 resp = {"jsonrpc": "2.0", "error": {"code": -32603, "message": str(e)}, "id": req_id}
-            try:
-                print(json.dumps(resp), flush=True)
-            except (BrokenPipeError, IOError):
-                break
+            if resp is not None:
+                try:
+                    print(json.dumps(resp), flush=True)
+                except (BrokenPipeError, IOError):
+                    break
         logger.info("MCP Memory Server shutting down...")
 
     def _setup_signal_handlers(self):
@@ -143,7 +144,7 @@ class MCPServer:
     def _handle_signal(self, signum, frame):
         self._running = False
 
-    def _handle(self, req: Any) -> Dict:
+    def _handle(self, req: Any) -> Optional[Dict]:
         self._request_count += 1
         if not isinstance(req, dict):
             return {
@@ -166,7 +167,7 @@ class MCPServer:
                 },
                 "id": req_id,
             }
-        elif method == "notifications/initialized":
+        elif method == "notifications/initialized" or (isinstance(method, str) and method.startswith("notifications/")):
             return None
         elif method == "ping":
             return {"jsonrpc": "2.0", "result": {}, "id": req_id}

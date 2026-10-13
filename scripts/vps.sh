@@ -88,7 +88,7 @@ case "${1:-}" in
         echo "=== [3/3] MCP Memory Server Status in Agent Logs ==="
         for c in "${CONTAINERS[@]}"; do
             echo -n "$c: "
-            $SSH_CMD "docker exec $c grep -i 'registered.*obsidian_memory' /opt/data/logs/agent.log 2>/dev/null | tail -n 1" || echo "No log found"
+            $SSH_CMD "docker exec $c grep -E \"MCP server 'obsidian_memory'.*registered\" /opt/data/logs/agent.log /opt/data/logs/gateways/default/current 2>/dev/null | tail -n 1" || echo "No log found"
         done
         ;;
 
@@ -167,8 +167,12 @@ print(\"  Tools count:\", len(server._get_tools()))
     shell)
         AGENT="${2:-hermes-agent}"
         shift 2 || true
-        CMD="${*:-bash}"
-        $SSH_CMD "docker exec \$([ -t 0 ] && echo '-it' || echo '-i') ${AGENT} ${CMD}"
+        if [ $# -eq 0 ]; then
+            $SSH_CMD "docker exec -it ${AGENT} bash"
+        else
+            CMD="$*"
+            $SSH_CMD "docker exec -i ${AGENT} bash -c $(printf '%q' "${CMD}")"
+        fi
         ;;
 
     *)
