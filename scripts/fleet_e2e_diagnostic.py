@@ -9,15 +9,14 @@ import os
 import sys
 import json
 import uuid
+import shutil
 from datetime import datetime, timezone
 from pathlib import Path
 
 # 1. Verify Gomaa import and version
 try:
-    import gomaa
-    from gomaa import UnifiedMemorySystem, HippoRAGEngine, __version__
+    from gomaa import UnifiedMemorySystem, __version__
     from gomaa.mcp_server import MCPServer
-    from gomaa.adapters import GomaaMemory, GomaaMemoryHandler
 except ImportError as e:
     print(f"FATAL: Unable to import gomaa: {e}")
     sys.exit(1)
@@ -65,7 +64,7 @@ expected_tools = {
     "memory_audit",
 }
 assert set(tool_names) == expected_tools, f"Mismatch in MCP tools: {set(tool_names) ^ expected_tools}"
-print(f"✅ [2/12] MCPServer Verified: 13/13 MCP tools registered")
+print("✅ [2/12] MCPServer Verified: 13/13 MCP tools registered")
 
 # 4. Test Semantic Quadrant & Bi-Directional Graph Links (memory_remember)
 run_tag = f"r{uuid.uuid4().hex[:6]}"
@@ -288,8 +287,6 @@ assert pub_res.get("success") is True, f"publish_shared failed: {pub_res}"
 print(f"✅ [11/12] Security Gate & Cross-Agent Shared Fleet Publication Verified ('{shared_title}')")
 
 # 13. Clean up ephemeral diagnostic artifacts so production vaults & DBs stay pristine
-import shutil
-
 mem.db.delete_note(title_a)
 mem.db.delete_note(title_b)
 try:
@@ -316,5 +313,5 @@ try:
 except Exception as cleanup_exc:
     print(f"Cleanup notice: {cleanup_exc}")
 
-print(f"✅ [12/12] Ephemeral Diagnostic Artifacts Cleaned Up")
+print("✅ [12/12] Ephemeral Diagnostic Artifacts Cleaned Up")
 print(f"\n🎉 ALL 13 MCP TOOLS, 4 QUADRANTS, HIPPORAG PPR & SLEEP CONSOLIDATION PASSED ON {AGENT_NAME}!\n")

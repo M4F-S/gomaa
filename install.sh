@@ -26,7 +26,7 @@ cat << "EOF"
   ╚██████╔╝╚██████╔╝██║ ╚═╝ ██║██║  ██║██║  ██║
    ╚═════╝  ╚═════╝ ╚═╝     ╚═╝╚═╝  ╚═╝╚═╝  ╚═╝
 EOF
-echo -e "${CYAN}   🧠 Autonomous AI Agent Long-Term Memory OS (v3.5.0)${NC}\n"
+echo -e "${CYAN}   🧠 Autonomous AI Agent Long-Term Memory OS (v4.0.0 - Gomaa Neo)${NC}\n"
 
 echo -e "${CYAN}⚡ [1/4] Checking Python environment...${NC}"
 if command -v python3 >/dev/null 2>&1; then
@@ -62,7 +62,7 @@ from gomaa.core import UnifiedMemorySystem
 mem = UnifiedMemorySystem(vault_path='$VAULT_DIR')
 mem.remember(
     title='Welcome to Gomaa',
-    content='# Welcome to Gomaa Memory OS\n\nYour local-first hierarchical knowledge graph memory engine is ready.\n\n- [[5 Cognitive Layers]]\n- [[Hybrid Search]]\n- [[Obsidian Vault Sync]]',
+    content='# Welcome to Gomaa Memory OS\n\nYour local-first hierarchical knowledge graph memory engine is ready.\n\n- [[4 Cognitive Quadrants]]\n- [[HippoRAG 2 Associative Search]]\n- [[Obsidian Vault Sync]]',
     tags=['system', 'init', 'gomaa'],
     wing='general',
     room='welcome',

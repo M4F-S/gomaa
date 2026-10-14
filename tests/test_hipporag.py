@@ -6,7 +6,6 @@ Verifies:
 - Single-step multi-hop associative retrieval in SQLiteStore
 """
 
-import pytest
 from gomaa.hipporag import HippoRAGEngine
 from gomaa.stores.sqlite import SQLiteStore
 

@@ -6,10 +6,7 @@ Evaluates:
 3. Selective Forgetting & Pinned Ebbinghaus Temporal Decay Resistance
 """
 
-import pytest
 from gomaa.core import UnifiedMemorySystem
-from gomaa.stores.sqlite import SQLiteStore
-from gomaa.vault import VaultManager
 
 
 class TestMemoryBenchmarks:

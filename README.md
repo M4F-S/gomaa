@@ -148,7 +148,7 @@ gomaa dashboard --port 8765
   - [6. Ebbinghaus Temporal Decay, ACT-R Activation & Pinned Immunity](#6-ebbinghaus-temporal-decay-act-r-activation--pinned-immunity)
   - [7. Obsidian Markdown Vault & Bi-Directional Graph](#7-obsidian-markdown-vault--bi-directional-graph)
   - [8. Turn-Aware Verbatim Session Ingestor](#8-turn-aware-verbatim-session-ingestor)
-  - [9. Asynchronous Google Drive Cloud Synchronization](#9-asynchronous-google-drive-cloud-synchronization)
+  - [9. Cloud & Local Vault Backup (Google Drive, Local Sync, One-Click Archives)](#9-cloud--local-vault-backup-google-drive-local-sync-one-click-archives)
   - [10. Flexible Embedding Backends (FastEmbed / Microservice / Local)](#10-flexible-embedding-backends-fastembed--microservice--local)
   - [11. Defense-in-Depth Security & Data Integrity](#11-defense-in-depth-security--data-integrity)
 - [🛠️ MCP Tool Reference (13 Tools)](#️-mcp-tool-reference-13-tools)
@@ -173,7 +173,7 @@ gomaa dashboard --port 8765
 | **⚖️ Hybrid RRF + ACT-R Ranking** | Fuses Dense (1.0) + FTS (0.8) + Graph (0.6) + HippoRAG PPR (0.9) + Salience/ACT-R | Captures exact technical keywords, multi-hop graph bridges & frequently accessed facts |
 | **🏛️ Wing & Room Scoping** | 2-level taxonomy (`wing` = domain/project, `room` = channel/topic) | Eliminates context window bloating & cross-domain hallucination |
 | **🌐 Cross-Agent Shared Memory** | Central `shared_db` queryable across multi-agent fleets with credential screening | Collective fleet intelligence without compromising private databases |
-| **☁️ Async Google Drive Sync** | Local-first bidirectional sync engine with MD5 diffing and `.conflict.md` branch resolution | Sub-millisecond agent I/O locally + automatic cloud backup & team sharing |
+| **☁️ Cloud & Local Vault Backup** | Async Google Drive sync, local cloud drive sync (iCloud, Dropbox) & one-click archives | Sub-millisecond local speed + automated cloud backup & conflict branching |
 | **⏳ Ebbinghaus Temporal Decay** | Exponential decay $Salience_t = Salience_0 \times (0.95)^{\Delta t}$ with 90-day auto-archive | Auto-prunes transient noise while keeping active memories sharp |
 | **📌 Pinned Memory Immunity** | Permanent immunity to decay via `pinned=True` or `#pinned` tags | Guarantees foundational instructions and core rules never fade |
 | **📖 Obsidian Zettelkasten** | Writes human-readable Markdown notes with YAML frontmatter & `[[Wiki Links]]` | Direct visual inspection, editing, and graph visualization in Obsidian |
@@ -192,7 +192,7 @@ gomaa dashboard --port 8765
 flowchart TD
     subgraph Clients["🤖 AI Agents & LLM Clients"]
         Claude["Claude Desktop / Cursor"]
-        Hermes["Hermes 5-Agent Fleet"]
+        Hermes["Autonomous Multi-Agent Swarms"]
         Swarm["CrewAI / LangGraph Swarms"]
     end
 
@@ -267,7 +267,7 @@ Memory cross-contamination is a major failure mode in multi-agent fleets. Gomaa 
 Queries can be scoped tightly to a specific wing or room, preventing marketing prompts from recalling penetration testing findings.
 
 ### 5. Cross-Agent Shared Memory Layer (`shared_db`)
-In autonomous multi-agent environments, agents maintain isolated private databases (`toy_db`, `old_db`, `candy_db`, etc.) to prevent state corruption. However, collective intelligence requires sharing global policies and verified facts.
+In autonomous multi-agent environments, agents maintain isolated private databases (e.g. `agent_orchestrator`, `agent_researcher`, `agent_executor`, etc.) to prevent state corruption. However, collective intelligence requires sharing global policies and verified facts.
 * **Publishing:** Using `memory_publish_shared`, vetted notes are published to `shared_db`.
 * **Credential Screening:** Content is scanned against strict regex filters for Anthropic keys (`sk-ant-`), Google Gemini keys (`AIza...`), HuggingFace tokens (`hf_...`), OpenAI keys (`sk-proj-...`), AWS access keys (`AKIA...`), Slack tokens (`xox-`), and private keys.
 * **Fail-Soft Recall:** When an agent queries memory, `memory_recall` queries both the private store and `shared_db`. If the shared database is temporarily unreachable, it degrades gracefully without interrupting the agent.
@@ -290,12 +290,47 @@ Conversational transcripts often contain crucial nuances lost in lossy summariza
 * For turns longer than 1,500 characters, applies a **linear sliding window** (1,500 chars with 200-char overlap).
 * Chains sequential chunks using `[[Session ... Turn 01 Part 02]]` wikilinks, preserving code blocks, execution traces, and conversational flow.
 
-### 9. Asynchronous Google Drive Cloud Synchronization
-Keep your agent vaults securely backed up and synchronized across multiple machines or mobile devices:
-* **Local-First Speed:** Agent tool calls execute at local SSD speeds (<1ms) without blocking on Google Drive network latency.
-* **Background Daemon / Cron Sync:** Scans vault files, computes MD5 checksums, and synchronizes deltas bidirectionally with Google Drive.
-* **Conflict Resolution:** If a file is modified on both Google Drive and the local agent vault simultaneously, Gomaa saves the incoming version as `NoteName.conflict-YYYYMMDD-HHMMSS.md`, preventing data loss.
-* **Authentication:** Supports Google Cloud Service Account JSON (`GOOGLE_APPLICATION_CREDENTIALS`, `GDRIVE_SERVICE_ACCOUNT_JSON`) and OAuth2 user tokens (`GDRIVE_TOKEN_JSON`).
+### 9. Cloud & Local Vault Backup (Google Drive, Local Sync, One-Click Archives)
+Ensure your agent vaults and memory stores are permanently preserved, version-controlled, and synchronized across cloud providers or local filesystems:
+
+#### A. Direct Google Drive Asynchronous Synchronization (`gomaa sync-gdrive`)
+* **Local-First Zero Latency:** Agents read and write directly to the local vault at SSD speeds (<1ms). Background synchronization interacts with the Google Drive v3 API asynchronously without blocking agent execution.
+* **Cryptographic MD5 Verification:** Automatically verifies checksums to prevent redundant uploads or downloads.
+* **Conflict Branch Preservation:** If a note is updated on Google Drive and modified locally simultaneously, Gomaa automatically preserves the local note as `NoteName.conflict-YYYYMMDD-HHMMSS.md` before updating, guaranteeing zero data loss.
+* **Authentication Options:**
+  - **Service Account File:** Pass `--credentials /path/to/service-account.json` or set `export GOOGLE_APPLICATION_CREDENTIALS="/path/to/service-account.json"`.
+  - **Service Account JSON String:** Set `export GDRIVE_SERVICE_ACCOUNT_JSON='{"type": "service_account", ...}'`.
+  - **User OAuth2 Token:** Set `export GDRIVE_TOKEN_JSON='{"token": "...", "refresh_token": "..."}'`.
+* **Execution Modes:**
+  ```bash
+  # Single one-off sync pass
+  gomaa sync-gdrive --folder "Agent-Vault" --credentials service-account.json
+
+  # Continuous background synchronization daemon (e.g. sync every 5 minutes)
+  gomaa sync-gdrive --daemon --interval 300
+  ```
+
+#### B. Local Cloud Drive & Desktop Folder Sync (`gomaa sync-folder`)
+If you use Google Drive for Desktop, Dropbox, iCloud Drive, OneDrive, or an external backup volume, Gomaa can synchronize directly with the synced desktop folder without requiring cloud API keys or developer console setup:
+```bash
+# Sync with Google Drive for Desktop
+gomaa sync-folder "~/Google Drive/My Drive/GomaaVault"
+
+# Sync with Dropbox or iCloud
+gomaa sync-folder "~/Dropbox/GomaaVault"
+gomaa sync-folder "~/Library/Mobile Documents/com~apple~CloudDocs/GomaaVault"
+```
+
+#### C. Universal One-Click Backup & Restore (`gomaa backup` / `gomaa restore`)
+Create atomic, timestamped compressed archives containing your entire Obsidian vault (all markdown notes, wikilinks, attachments) and the SQLite database:
+```bash
+# Create timestamped tar.gz or zip backup archive
+gomaa backup --dest ./backups
+gomaa backup --dest ~/Google\ Drive/My\ Drive/Backups --format zip
+
+# Restore vault and database from backup archive
+gomaa restore ./backups/gomaa-backup-20261014-120000.tar.gz --dest-vault ~/.gomaa/vault
+```
 
 ### 10. Flexible Embedding Backends (FastEmbed / Microservice / Local)
 Gomaa adapts to any deployment resource budget:
@@ -390,7 +425,7 @@ Schedule a future prospective reminder or recurring task.
 ```json
 {
   "title": "Rotate Database Credentials",
-  "content": "Verify that all 5 agent connection pools are refreshed with new passwords.",
+  "content": "Verify that all agent connection pools are refreshed with new credentials.",
   "trigger_at": "2026-09-01T00:00:00Z",
   "recurring": "monthly"
 }
@@ -474,46 +509,52 @@ Get real-time memory health metrics, store backend status, request counts, and a
 
 ## 🌐 Multi-Agent Fleet Production Architecture
 
-In multi-agent production setups (such as the 5-agent Hermes fleet), Gomaa isolates agent databases on an internal Docker network while providing shared intelligence:
+In enterprise multi-agent production deployments, Gomaa provides strict database isolation per agent container or worker process on an internal Docker network, paired with a central `shared_db` for collective intelligence and vetted fleet-wide policies:
 
 ```
                                   ┌─────────────────────────────────────────┐
-                                  │      Production VPS (${VPS_HOST})      │
+                                  │       Production Cloud / Cluster        │
                                   └────────────────────┬────────────────────┘
                                                        │
          ┌───────────────────┬──────────────────┼───────────────────┬──────────────────┐
          ▼                   ▼                  ▼                   ▼                  ▼
 ┌──────────────────┐┌──────────────────┐┌──────────────────┐┌──────────────────┐┌──────────────────┐
-│   hermes-agent   ││ hermes-assistant ││ hermes-marketing ││  hermes-pentest  ││  hermes-trader   │
-│      (Toy)       ││      (Old)       ││     (Candy)      ││     (Pencil)     ││      (Coin)      │
+│agent-orchestrator││  agent-research  ││  agent-executor  ││  agent-security  ││ agent-operations │
+│  (Coordinator)   ││   (Data/Search)  ││   (Code/Tasks)   ││   (Compliance)   ││     (DevOps)     │
 │   Database:      ││   Database:      ││   Database:      ││   Database:      ││   Database:      │
-│     toy_db       ││     old_db       ││     candy_db     ││     pencil_db    ││     trader_db    │
+│  orchestrator_db ││   research_db    ││   executor_db    ││   security_db    ││  operations_db   │
 └────────┬─────────┘└────────┬─────────┘└────────┬─────────┘└────────┬─────────┘└────────┬─────────┘
          │                   │                  │                   │                  │
          └───────────────────┴──────────────────┼───────────────────┴──────────────────┘
                                                 │
                                                 ▼
                                ┌───────────────────────────────────┐
-                               │   PostgreSQL + pgvector (HNSW)    │
-                               │   - Private DBs: toy_db, old_db.. │
-                               │   - Shared DB:   shared_db        │
+                               │   PostgreSQL 16 + pgvector (HNSW) │
+                               │   - Private Isolated Agent DBs    │
+                               │   - Shared Collective DB          │
                                └───────────────────────────────────┘
 ```
+
+### Architectural Guarantees:
+1. **Zero Domain Bleed:** Each agent maintains its own private `pgvector` or `SQLite` database. Queries generated by `agent-security` will never recall unrelated working context from `agent-operations`.
+2. **Sanitized Fleet Knowledge Sharing (`shared_db`):** High-utility procedural playbooks and verified domain policies can be published globally using `memory_publish_shared`. Content passes automated regex credential screening (neutralizing API keys, passwords, and private tokens) before reaching the shared layer.
+3. **Resilient Fail-Soft Federation:** When an agent invokes `memory_recall(include_shared=True)`, Gomaa queries both the agent's private store and the fleet `shared_db`. If the shared database is temporarily offline or undergoing maintenance, Gomaa gracefully returns private memory results without throwing an exception or interrupting agent execution.
 
 ---
 
 ## 🤖 Agent Framework Integration Recipes
 
-### 1. Hermes Agent Fleet (`~/.hermes/config.yaml`)
+### 1. Hermes Agent Swarm (`~/.hermes/config.yaml`)
 ```yaml
 mcp_servers:
   obsidian_memory:
     command: python3
     args: ["-m", "gomaa", "server"]
     env:
-      MEMORY_DB_DSN: "postgresql://${DB_USER}:${DB_PASSWORD}@${DB_HOST}:5432/toy_db"
-      MEMORY_SHARED_DSN: "postgresql://${DB_USER}:${DB_PASSWORD}@${DB_HOST}:5432/shared_db"
-      MEMORY_VAULT_PATH: "/opt/data/vault"
+      MEMORY_AGENT_NAME: "agent-orchestrator"
+      MEMORY_DB_DSN: "postgresql://${DB_USER}:${DB_PASSWORD}@${DB_HOST}:${DB_PORT}/orchestrator_db"
+      MEMORY_SHARED_DSN: "postgresql://${DB_USER}:${DB_PASSWORD}@${DB_HOST}:${DB_PORT}/shared_db"
+      MEMORY_VAULT_PATH: "~/.hermes/vault"
 ```
 
 ### 2. OpenClaw (`openclaw-config.yaml`)
@@ -637,11 +678,20 @@ gomaa consolidate --decay-rate 0.95 --archive-threshold 0.05
 # 10. Check system statistics & health
 gomaa stats
 
-# 11. Synchronize with Google Drive (One-off pass or daemon mode)
-gomaa sync-gdrive --folder "My-Agent-Vault" --credentials service-account.json
-gomaa sync-gdrive --daemon --interval 60
+# 11. Create a timestamped compressed backup archive (vault + database)
+gomaa backup --dest ./backups --format tar.gz
 
-# 12. Run standalone Centralized Embedding Microservice
+# 12. Restore vault and database from backup archive
+gomaa restore ./backups/gomaa-backup-20261014-120000.tar.gz --dest-vault ~/.gomaa/vault
+
+# 13. Sync vault with local cloud folder (Google Drive for Desktop, Dropbox, iCloud)
+gomaa sync-folder "~/Google Drive/My Drive/GomaaVault"
+
+# 14. Synchronize with Google Drive API (One-off pass or daemon mode)
+gomaa sync-gdrive --folder "My-Agent-Vault" --credentials service-account.json
+gomaa sync-gdrive --daemon --interval 300
+
+# 15. Run standalone Centralized Embedding Microservice
 gomaa embed-service --host 0.0.0.0 --port 8000 --model all-MiniLM-L6-v2
 ```
 
@@ -683,46 +733,47 @@ Benchmarked on Apple Silicon (M-series) / Ubuntu 24.04 LTS against a live knowle
 | **Graph Traversal** | Recursive CTE / In-Memory Wikilink Walk | **0.83 ms** | **0.97 ms** | ~1,200 walks/s |
 | **Context Assembler** | Top-K Recall + Token Budgeting + XML Packing | **6.12 ms** | **6.45 ms** | ~163 assemblies/s |
 
-### 🔬 Test Suite Coverage (120 / 120 Passed · 100%)
+### 🔬 Test Suite Coverage (126 / 126 Passed · 100%)
 
-Gomaa v4.0 maintains a comprehensive automated test suite spanning 32 test modules (including LoCoMo, LongMemEval, and HotpotQA multi-hop cognitive benchmark harnesses):
+Gomaa v4.0 maintains a comprehensive automated test suite spanning 33 test modules (including LoCoMo, LongMemEval, and HotpotQA multi-hop cognitive benchmark harnesses):
 
 ```
-collected 120 items
+collected 126 items
 tests/benchmarks/test_memory_benchmarks.py ...                           [  2%]
-tests/test_adapters.py ..                                                [  4%]
+tests/test_adapters.py ..                                                [  3%]
 tests/test_assemble_context.py ...                                       [  6%]
-tests/test_chunking.py .                                                 [  7%]
-tests/test_cli_init.py ..                                                [  9%]
-tests/test_compat.py ....                                                [ 12%]
-tests/test_consolidation.py ..                                           [ 14%]
-tests/test_dashboard.py ......                                           [ 19%]
-tests/test_dream_consolidation.py ....                                   [ 22%]
-tests/test_embedder.py ...                                               [ 25%]
-tests/test_embedder_offline.py .                                         [ 25%]
-tests/test_embedder_v32.py ..                                            [ 27%]
-tests/test_fts_websearch.py .                                            [ 28%]
-tests/test_gdrive_safe_path.py .....                                     [ 32%]
-tests/test_gdrive_sync.py ...                                            [ 35%]
-tests/test_graph_cycles.py .                                             [ 35%]
-tests/test_hipporag.py ...                                               [ 38%]
-tests/test_injection_defense.py ...                                      [ 40%]
-tests/test_integration.py ...                                            [ 43%]
-tests/test_mcp.py ..                                                     [ 45%]
-tests/test_mcp_edge_cases.py ....                                        [ 48%]
-tests/test_mcp_server.py ...................                             [ 64%]
-tests/test_quadrant_stores.py .......                                    [ 70%]
-tests/test_reconcile_links.py .                                          [ 70%]
-tests/test_remind_me_sqlite.py ....                                      [ 74%]
-tests/test_security.py ......                                            [ 79%]
-tests/test_security_expanded.py .....                                    [ 83%]
+tests/test_backup.py ....                                                [  9%]
+tests/test_chunking.py .                                                 [ 10%]
+tests/test_cli_init.py ..                                                [ 11%]
+tests/test_compat.py ....                                                [ 15%]
+tests/test_consolidation.py ..                                           [ 16%]
+tests/test_dashboard.py ......                                           [ 21%]
+tests/test_dream_consolidation.py ....                                   [ 24%]
+tests/test_embedder.py ...                                               [ 26%]
+tests/test_embedder_offline.py .                                         [ 27%]
+tests/test_embedder_v32.py ..                                            [ 29%]
+tests/test_fts_websearch.py .                                            [ 30%]
+tests/test_gdrive_safe_path.py .....                                     [ 34%]
+tests/test_gdrive_sync.py .....                                          [ 38%]
+tests/test_graph_cycles.py .                                             [ 38%]
+tests/test_hipporag.py ...                                               [ 41%]
+tests/test_injection_defense.py ...                                      [ 43%]
+tests/test_integration.py ...                                            [ 46%]
+tests/test_mcp.py ..                                                     [ 47%]
+tests/test_mcp_edge_cases.py ....                                        [ 50%]
+tests/test_mcp_server.py ...................                             [ 65%]
+tests/test_quadrant_stores.py .......                                    [ 71%]
+tests/test_reconcile_links.py .                                          [ 72%]
+tests/test_remind_me_sqlite.py ....                                      [ 75%]
+tests/test_security.py ......                                            [ 80%]
+tests/test_security_expanded.py .....                                    [ 84%]
 tests/test_shared_memory.py ..                                           [ 85%]
 tests/test_sqlite.py .....                                               [ 89%]
-tests/test_store_factory.py ...                                          [ 91%]
-tests/test_vault.py .....                                                [ 95%]
+tests/test_store_factory.py ...                                          [ 92%]
+tests/test_vault.py .....                                                [ 96%]
 tests/test_vault_security.py .....                                       [100%]
 
-======================= 120 passed in 9.85s =======================
+======================= 126 passed in 8.12s =======================
 ```
 
 ### 🛠️ How to Execute the Test Suite

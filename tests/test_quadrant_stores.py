@@ -8,8 +8,6 @@ Verifies 100% parity and functionality for:
 - Epistemic Conflicts & Truth Maintenance (ATMS)
 """
 
-import tempfile
-import pathlib
 import pytest
 from gomaa.stores.sqlite import SQLiteStore
 
@@ -143,7 +141,7 @@ def test_weighted_graph_links(sqlite_store):
     adj = sqlite_store.get_graph_adjacency()
     assert "PostgreSQL Architecture" in adj
     links = adj["PostgreSQL Architecture"]
-    assert any(l["target_title"] == "WAL Logging" and l["relation_type"] == "depends_on" and l["edge_weight"] == 1.8 for l in links)
+    assert any(link_item["target_title"] == "WAL Logging" and link_item["relation_type"] == "depends_on" and link_item["edge_weight"] == 1.8 for link_item in links)
 
 
 def test_epistemic_conflicts_and_atms(sqlite_store):
@@ -177,7 +175,11 @@ def test_epistemic_conflicts_and_atms(sqlite_store):
     assert resolved is True
 
     # Verify old note is marked deprecated
-    history = sqlite_store.get_note_history("API Rate Limit Policy v1")
+    with sqlite_store._conn() as conn:
+        row = conn.execute("SELECT status, superseded_by FROM notes WHERE id = ?", (id1,)).fetchone()
+        assert row["status"] == "deprecated"
+        assert row["superseded_by"] == str(id2)
+
     # Verify pending conflicts cleared
     pending_after = sqlite_store.get_pending_conflicts()
     assert not any(c["id"] == conflict_id for c in pending_after)

@@ -5,7 +5,7 @@ Enables single-step multi-hop retrieval across associative knowledge graphs.
 """
 
 import logging
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Tuple
 
 logger = logging.getLogger("gomaa-hipporag")
 

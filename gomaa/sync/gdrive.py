@@ -15,6 +15,7 @@ import io
 import json
 import logging
 import os
+import shutil
 import time
 from datetime import datetime, timezone
 from pathlib import Path
@@ -285,6 +286,18 @@ class GoogleDriveSyncManager:
                             stats["pushed"] += 1
                     else:
                         # Remote is newer: Pull remote to local
+                        # Preserve local note as conflict branch before overwriting
+                        ts = datetime.now(timezone.utc).strftime("%Y%m%d-%H%M%S")
+                        conflict_name = f"{local_path.stem}.conflict-{ts}{local_path.suffix}"
+                        conflict_path = local_path.with_name(conflict_name)
+                        try:
+                            shutil.copy2(local_path, conflict_path)
+                            stats["conflicts"] += 1
+                            logger.warning(
+                                f"GoogleDriveSync: conflict detected for '{rel_name}'. Local version preserved at '{conflict_path.name}'."
+                            )
+                        except Exception as c_err:
+                            logger.error(f"Failed to create conflict copy for {local_path}: {c_err}")
                         if self.pull_note(remote_file["id"], rel_name):
                             stats["pulled"] += 1
                 else:

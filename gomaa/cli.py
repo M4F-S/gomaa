@@ -128,6 +128,31 @@ def main():
     p_gdrive.add_argument("--daemon", action="store_true", help="Run sync continuously as a background daemon")
     p_gdrive.add_argument("--interval", type=int, default=300, help="Daemon sync interval in seconds")
 
+    # backup
+    p_backup = subparsers.add_parser(
+        "backup", help="Create a timestamped compressed backup of vault and database", parents=[common_parser]
+    )
+    p_backup.add_argument("--dest", default=None, help="Destination directory (e.g. ~/Google Drive/Backups)")
+    p_backup.add_argument("--format", choices=["tar.gz", "zip"], default="tar.gz", help="Archive format")
+    p_backup.add_argument("--db-path", default=None, help="Path to SQLite database")
+
+    # restore
+    p_restore = subparsers.add_parser(
+        "restore", help="Restore vault and database from backup archive", parents=[common_parser]
+    )
+    p_restore.add_argument("archive", help="Path to backup archive (.tar.gz or .zip)")
+    p_restore.add_argument("--dest-vault", default=None, help="Target vault destination")
+    p_restore.add_argument("--dest-db", default=None, help="Target database destination")
+
+    # sync-folder
+    p_sync_folder = subparsers.add_parser(
+        "sync-folder",
+        help="Sync vault with local cloud folder (Google Drive, Dropbox, iCloud)",
+        parents=[common_parser],
+    )
+    p_sync_folder.add_argument("dest", help="Target cloud folder (e.g. '~/Google Drive/My Drive/Gomaa')")
+    p_sync_folder.add_argument("--unidirectional", action="store_true", help="Only push local notes to dest folder")
+
     args = parser.parse_args()
 
     if not args.command or args.command == "server":
@@ -191,14 +216,60 @@ def main():
         )
         if not manager.is_available():
             print(
-                json.dumps({"error": "Google Drive client libraries missing. Install via: pip install 'gomaa[gdrive]'"})
+                json.dumps(
+                    {
+                        "success": False,
+                        "error": "Google Drive client libraries missing. Install via: pip install 'gomaa[gdrive]'",
+                        "instructions": (
+                            "To enable Google Drive sync:\n"
+                            "1. Run: pip install 'gomaa[gdrive]'\n"
+                            "2. Supply credentials: gomaa sync-gdrive --credentials service_account.json\n"
+                            "   OR set GOOGLE_APPLICATION_CREDENTIALS=/path/to/credentials.json\n"
+                            "   OR set GDRIVE_SERVICE_ACCOUNT_JSON='{...}'\n"
+                            "3. Alternatively, for zero-config sync with Google Drive for Desktop: gomaa sync-folder '~/Google Drive/My Drive/GomaaVault'"
+                        ),
+                    },
+                    indent=2,
+                )
             )
             sys.exit(1)
         if args.daemon:
             manager.run_daemon(interval_seconds=args.interval)
         else:
             res = manager.sync()
+            if not res.get("success"):
+                res["instructions"] = (
+                    "Make sure your Google Service Account or OAuth credentials are set:\n"
+                    "- Flag: --credentials /path/to/service-account.json\n"
+                    "- Env: export GOOGLE_APPLICATION_CREDENTIALS=/path/to/service-account.json\n"
+                    "- Env: export GDRIVE_SERVICE_ACCOUNT_JSON='{...}'\n"
+                    "- Or use local cloud drive sync: gomaa sync-folder '~/Google Drive/My Drive/GomaaVault'"
+                )
             print(json.dumps(res, indent=2))
+        return
+
+    if args.command == "backup":
+        from gomaa.backup import BackupManager
+
+        mgr = BackupManager(vault_path=args.vault_path, db_path=args.db_path)
+        res = mgr.create_backup(dest_dir=args.dest, archive_format=args.format)
+        print(json.dumps(res, indent=2))
+        return
+
+    if args.command == "restore":
+        from gomaa.backup import BackupManager
+
+        mgr = BackupManager(vault_path=args.dest_vault, db_path=args.dest_db)
+        res = mgr.restore_backup(archive_path=args.archive, dest_vault=args.dest_vault, dest_db=args.dest_db)
+        print(json.dumps(res, indent=2))
+        return
+
+    if args.command == "sync-folder":
+        from gomaa.backup import BackupManager
+
+        mgr = BackupManager(vault_path=args.vault_path)
+        res = mgr.sync_to_folder(dest_folder=args.dest, bidirectional=not args.unidirectional)
+        print(json.dumps(res, indent=2))
         return
 
     if args.command == "embed-service":

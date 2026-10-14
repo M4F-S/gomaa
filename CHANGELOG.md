@@ -5,6 +5,16 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [4.0.0] - 2026-10-14
+
+### Added
+- **4-Quadrant Cognitive Architecture**: Dedicated stores for Episodic (`episodic_events`), Semantic (`notes` + `links`), Procedural (`procedural_playbooks` with Laplace utility), and Working Memory (`working_memory` bounded by Miller's Law $7 \pm 2$).
+- **HippoRAG 2 Associative Memory Walker**: Single-step multi-hop retrieval using Personalized PageRank (`associative_ppr`) over bi-directional graph links with ACT-R base-level activation.
+- **3-Phase Biological Sleep Consolidation (`gomaa sleep`)**: Slow-Wave Sleep crystallization + REM swarm skill sharing & latent link discovery + Assumption-based Truth Maintenance (ATMS) synaptic homeostasis.
+- **Universal Cloud & Local Vault Backup Engine (`gomaa backup`, `gomaa restore`, `gomaa sync-folder`)**: Native support for creating timestamped compressed archives (.tar.gz, .zip) of vaults and databases, safe extraction with Tar-Slip/Zip-Slip protection, and folder sync with Google Drive for Desktop, Dropbox, and iCloud Drive.
+- **Google Drive Conflict Branch Preservation**: `.conflict-TIMESTAMP.md` conflict note preservation on bidirectional Google Drive synchronization.
+- **Expanded Test Suite**: 126 automated tests passing across 33 test modules with 100% test pass rate.
+
 ## [3.5.0] - 2026-08-29
 
 ### Added
@@ -46,7 +56,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Timeline Activity Logging**: Added `timeline` table and `memory_timeline` MCP tool to record all memory operations (`remember`, `recall`, `remind`, `consolidate`, `ingest_session`).
 - **Memory Versioning**: Added `note_versions` table and `memory_history` MCP tool. Updates archive previous snapshots before overwriting, preventing silent loss.
 - **Full JSON-RPC MCP Compliance**: Implemented `ping` keepalive handler and strict `serverInfo` metadata block (version `3.0.0`).
-- **Fleet Database Isolation**: Production deployment supporting isolated per-agent PostgreSQL vector databases (`toy_db`, `old_db`, `pencil_db`, `trader_db`, `candy_db`).
+- **Fleet Database Isolation**: Production deployment supporting isolated per-agent PostgreSQL vector databases (e.g. orchestrator, analyst, executor, operations, security).
 
 ### Changed
 - `memory_recall` updated to support `scope` parameter (`wing`, `room`) across semantic, keyword, and hybrid RRF search modes.
