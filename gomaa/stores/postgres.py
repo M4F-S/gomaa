@@ -329,6 +329,19 @@ class PgVectorStore(MemoryStore):
                 )
                 return [dict(row) for row in cur.fetchall()]
 
+    def scopes_for_title(self, title: str) -> List[Tuple[str, str]]:
+        """Distinct (wing, room) pairs already holding this title.
+
+        Sync uses this to adopt an existing note's scope instead of inventing
+        general/general for a file that sits at the vault root.
+        """
+        with self._conn() as conn:
+            with conn.cursor() as cur:
+                cur.execute(
+                    "SELECT DISTINCT wing, room FROM notes WHERE title = %s", (title,)
+                )
+                return [(r[0], r[1]) for r in cur.fetchall()]
+
     def upsert_note(
         self,
         title: str,

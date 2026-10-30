@@ -252,6 +252,12 @@ class SQLiteStore(MemoryStore):
                 results.append(d)
             return results
 
+    def scopes_for_title(self, title: str) -> List[Tuple[str, str]]:
+        with self._conn() as conn:
+            cur = conn.cursor()
+            cur.execute("SELECT DISTINCT wing, room FROM notes WHERE title = ?", (title,))
+            return [(r["wing"], r["room"]) for r in cur.fetchall()]
+
     def upsert_note(
         self,
         title: str,

@@ -108,13 +108,23 @@ class UnifiedMemorySystem:
                     skipped += 1
                     continue
                 raw = note.get("content", "")
+                wing = note.get("wing", "general")
+                room = note.get("room", "general")
+                # A file at the vault root has no wing/room in its path. If the
+                # database already holds that title in exactly one scope, adopt
+                # it — otherwise re-indexing would duplicate the note into
+                # general/general under a second identity.
+                if (wing, room) == ("general", "general") and hasattr(self.db, "scopes_for_title"):
+                    existing_scopes = self.db.scopes_for_title(note["title"])
+                    if len(existing_scopes) == 1:
+                        wing, room = existing_scopes[0]
                 note_id = self.db.upsert_note(
                     title=note["title"],
                     content=raw,
                     tags=note.get("frontmatter", {}).get("tags") or [],
                     vault_path=str(self.vault.vault_path),
-                    wing=note.get("wing", "general"),
-                    room=note.get("room", "general"),
+                    wing=wing,
+                    room=room,
                     origin_agent=self.agent_name,
                 )
                 links = self.vault.extract_wiki_links(raw)
