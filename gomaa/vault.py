@@ -155,6 +155,36 @@ class VaultManager:
             result["content"] = body
         return result
 
+    def read_note_path(self, filepath: Path) -> Optional[Dict]:
+        """Read a note by its on-disk path.
+
+        Sync must recover the canonical title from frontmatter, not from the
+        filename stem: get_safe_note_path() strips punctuation, so a title like
+        "Gomaa v4.0.0" lands on disk as "Gomaa v400" and a stem-based read would
+        index the note under a second, different title.
+        """
+        filepath = Path(filepath)
+        if not filepath.exists() or filepath.suffix != ".md":
+            return None
+        text = filepath.read_text(encoding="utf-8")
+        result = self._parse_note(text)
+        fm = result.get("frontmatter") or {}
+        title = fm.get("title") or filepath.stem
+        body = result.get("body", "")
+        heading = f"# {title}\n\n"
+        result["title"] = title
+        result["content"] = body[len(heading):] if body.startswith(heading) else body
+
+        try:
+            rel = filepath.relative_to(self.vault_path)
+            parts = rel.parts
+        except ValueError:
+            parts = ()
+        result["wing"] = fm.get("wing") or (parts[0] if len(parts) >= 3 else "general")
+        result["room"] = fm.get("room") or (parts[1] if len(parts) >= 3 else "general")
+        result["relpath"] = str(filepath.relative_to(self.vault_path))
+        return result
+
     def _parse_note(self, text: str) -> Dict:
         """Parse markdown with YAML frontmatter."""
         import yaml  # type: ignore[import-untyped]
