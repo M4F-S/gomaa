@@ -419,11 +419,28 @@ class SQLiteStore(MemoryStore):
 
             return note_id
 
-    def delete_note(self, title: str, vault_path: str = "") -> bool:
+    def delete_note(
+        self,
+        title: str,
+        vault_path: str = "",
+        wing: Optional[str] = None,
+        room: Optional[str] = None,
+    ) -> bool:
         vault_path = str(vault_path)
+        sql = "DELETE FROM notes WHERE title = ?"
+        params: List[Any] = [title]
+        if wing is not None:
+            sql += " AND wing = ?"
+            params.append(wing)
+        if room is not None:
+            sql += " AND room = ?"
+            params.append(room)
+        if wing is None and room is None:
+            sql += " AND vault_path = ?"
+            params.append(vault_path)
         with self._conn() as conn:
             cur = conn.cursor()
-            cur.execute("DELETE FROM notes WHERE title = ? AND vault_path = ?;", (title, vault_path))
+            cur.execute(sql, tuple(params))
             return cur.rowcount > 0
 
     def search_semantic(

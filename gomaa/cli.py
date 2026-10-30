@@ -75,6 +75,15 @@ def main():
     subparsers.add_parser("stats", help="Get memory store statistics", parents=[common_parser])
 
     # consolidate
+    p_forget = subparsers.add_parser(
+        "forget", help="Delete a memory note from the store and the vault", parents=[common_parser]
+    )
+    p_forget.add_argument("title", help="Exact note title")
+    p_forget.add_argument("--wing", default="general")
+    p_forget.add_argument("--room", default="general")
+    p_forget.add_argument("--keep-file", action="store_true", help="Delete the DB row, leave the markdown file")
+    p_forget.add_argument("--dry-run", action="store_true", help="Show what would be removed")
+
     p_consolidate = subparsers.add_parser(
         "consolidate", help="Apply link reconciliation and temporal decay", parents=[common_parser]
     )
@@ -327,6 +336,18 @@ def main():
     elif args.command == "timeline":
         res = mem.timeline(limit=args.limit)
         print(json.dumps(res, indent=2, default=str))
+
+    elif args.command == "forget":
+        res = mem.forget(
+            args.title,
+            wing=args.wing,
+            room=args.room,
+            delete_vault_file=not args.keep_file,
+            dry_run=args.dry_run,
+        )
+        print(json.dumps(res, indent=2))
+        if not res["dry_run"] and not (res["db_deleted"] or res["files_deleted"]):
+            return 1
 
     elif args.command == "stats":
         res = mem.stats()

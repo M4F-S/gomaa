@@ -136,6 +136,58 @@ class UnifiedMemorySystem:
                 logger.error(f"Error syncing {f}: {e}")
         return {"synced": count, "skipped": skipped}
 
+    def forget(
+        self,
+        title: str,
+        wing: str = "general",
+        room: str = "general",
+        delete_vault_file: bool = True,
+        dry_run: bool = False,
+    ) -> Dict[str, Any]:
+        """Remove a memory from the store *and* the vault.
+
+        Deletion has to reach both halves or the next sync resurrects the note:
+        delete_note alone leaves the markdown file, and the file is what sync
+        reads. Files are matched by frontmatter title, not by filename, because
+        the on-disk name is a sanitised version of the title.
+        """
+        scope = {"wing": wing, "room": room}
+        matches = []
+        for f in self.vault.list_notes():
+            note = self.vault.read_note_path(f)
+            if not note or note.get("title") != title:
+                continue
+            if (note.get("wing"), note.get("room")) == (wing, room):
+                matches.append(f)
+
+        row = None
+        for r in self.db.search_keyword(title, top_k=50):
+            if r.get("title") == title and (r.get("wing"), r.get("room")) == (wing, room):
+                row = r
+                break
+
+        result = {
+            "title": title,
+            "scope": scope,
+            "db_row_found": row is not None,
+            "vault_files": [str(p) for p in matches],
+            "db_deleted": False,
+            "files_deleted": [],
+            "dry_run": dry_run,
+        }
+        if dry_run:
+            return result
+
+        result["db_deleted"] = bool(self.db.delete_note(title, wing=wing, room=room))
+        if delete_vault_file:
+            for p in matches:
+                try:
+                    p.unlink()
+                    result["files_deleted"].append(str(p))
+                except OSError as e:
+                    logger.error("forget: could not delete %s: %s", p, e)
+        return result
+
     def _sanitize_for_shared(self, content: str) -> None:
         """Strict regex security guard to prevent private keys, auth tokens, or credentials from leaking to shared_db."""
         patterns = [

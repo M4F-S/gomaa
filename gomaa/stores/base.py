@@ -21,7 +21,13 @@ class MemoryStore(ABC):
         pass
 
     @abstractmethod
-    def delete_note(self, title: str, vault_path: str = "") -> bool:
+    def delete_note(
+        self,
+        title: str,
+        vault_path: str = "",
+        wing: Optional[str] = None,
+        room: Optional[str] = None,
+    ) -> bool:
         pass
 
     @abstractmethod

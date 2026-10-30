@@ -526,11 +526,32 @@ class PgVectorStore(MemoryStore):
 
                 return note_id
 
-    def delete_note(self, title: str, vault_path: str = "") -> bool:
+    def delete_note(
+        self,
+        title: str,
+        vault_path: str = "",
+        wing: Optional[str] = None,
+        room: Optional[str] = None,
+    ) -> bool:
+        """Delete a note by identity. Scope wins over vault_path when given.
+
+        note_versions and links row go with it (both FK ON DELETE CASCADE).
+        """
         vault_path = str(vault_path)
+        sql = "DELETE FROM notes WHERE title = %s"
+        params: List[Any] = [title]
+        if wing is not None:
+            sql += " AND wing = %s"
+            params.append(wing)
+        if room is not None:
+            sql += " AND room = %s"
+            params.append(room)
+        if wing is None and room is None:
+            sql += " AND vault_path = %s"
+            params.append(vault_path)
         with self._conn() as conn:
             with conn.cursor() as cur:
-                cur.execute("DELETE FROM notes WHERE title = %s AND vault_path = %s;", (title, vault_path))
+                cur.execute(sql, tuple(params))
                 return cur.rowcount > 0
 
     def search_semantic(
