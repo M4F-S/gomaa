@@ -233,6 +233,25 @@ class MCPServer:
                 },
             },
             {
+                "name": "memory_forget",
+                "description": "Delete a private memory from BOTH the store and the vault, scoped by wing/room. Leaves nothing for the next sync to resurrect. Use dry_run to preview.",
+                "inputSchema": {
+                    "type": "object",
+                    "properties": {
+                        "title": {"type": "string", "description": "Exact note title"},
+                        "wing": {"type": "string", "default": "general"},
+                        "room": {"type": "string", "default": "general"},
+                        "delete_vault_file": {
+                            "type": "boolean",
+                            "description": "Also delete the markdown file (default true). False leaves the note to be re-indexed by the next sync.",
+                            "default": True,
+                        },
+                        "dry_run": {"type": "boolean", "default": False},
+                    },
+                    "required": ["title"],
+                },
+            },
+            {
                 "name": "memory_publish_shared",
                 "description": "Publish a sanitized, curated finding or policy to the cross-agent shared fleet memory.",
                 "inputSchema": {
@@ -496,6 +515,16 @@ class MCPServer:
                 tags=_safe_tags(args.get("tags")),
                 wing=str(args.get("wing", "shared")),
                 room=str(args.get("room", "general")),
+            )
+        elif name == "memory_forget":
+            if "title" not in args:
+                raise ValueError("Missing required argument: 'title' is required for memory_forget.")
+            return self.memory.forget(
+                title=str(args["title"]),
+                wing=str(args.get("wing", "general")),
+                room=str(args.get("room", "general")),
+                delete_vault_file=_safe_bool(args.get("delete_vault_file"), True),
+                dry_run=_safe_bool(args.get("dry_run"), False),
             )
         elif name == "memory_recall":
             if "query" not in args:
