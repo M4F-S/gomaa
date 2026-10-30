@@ -531,8 +531,17 @@ class UnifiedMemorySystem:
             )
 
             block_chars = len(block) + 2
-            if current_chars + block_chars > char_budget and packed_notes:
-                break
+            remaining = char_budget - current_chars
+            if block_chars > remaining:
+                if not packed_notes and remaining > 200:
+                    # The first hit alone exceeds the whole budget. Truncate it
+                    # instead of packing it whole (measured: max_tokens=100
+                    # returned 12,541 tokens — a 125x overrun).
+                    cut = max(0, remaining - 40)
+                    block = block[:cut] + "\n[truncated]\n</recalled_memory>"
+                    block_chars = len(block) + 2
+                else:
+                    break
 
             packed_notes.append(note)
             context_blocks.append(block)
