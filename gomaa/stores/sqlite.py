@@ -579,15 +579,42 @@ class SQLiteStore(MemoryStore):
                 )
             return results
 
-    def search_graph(self, note_title: str, depth: int = 2, top_k: int = 10) -> List[Dict]:
+    def search_graph(
+        self,
+        note_title: str,
+        depth: int = 2,
+        top_k: int = 10,
+        scope: Optional[Dict] = None,
+    ) -> List[Dict]:
+        # Graph walking crosses wings by design; scope must be enforced on both
+        # the seed and the neighbours, or a beta note answers an alpha query.
+        seed_scope, seed_args = "", []
+        nbr_scope, nbr_args = "", []
+        if scope:
+            if scope.get("wing"):
+                seed_scope += " AND wing = ?"
+                nbr_scope += " AND n.wing = ?"
+                seed_args.append(scope["wing"])
+                nbr_args.append(scope["wing"])
+            if scope.get("room"):
+                seed_scope += " AND room = ?"
+                nbr_scope += " AND n.room = ?"
+                seed_args.append(scope["room"])
+                nbr_args.append(scope["room"])
+
         with self._conn() as conn:
             cur = conn.cursor()
-            cur.execute("SELECT id FROM notes WHERE title = ? AND status = 'active';", (note_title,))
+            cur.execute(
+                "SELECT id FROM notes WHERE title = ? AND status = 'active'" + seed_scope + ";",
+                (note_title, *seed_args),
+            )
             root = cur.fetchone()
             if not root:
                 cur.execute(
-                    "SELECT id FROM notes WHERE title LIKE ? AND status = 'active' ORDER BY salience DESC LIMIT 1;",
-                    (f"%{note_title}%",),
+                    "SELECT id FROM notes WHERE title LIKE ? AND status = 'active'"
+                    + seed_scope
+                    + " ORDER BY salience DESC LIMIT 1;",
+                    (f"%{note_title}%", *seed_args),
                 )
                 root = cur.fetchone()
             if not root:
@@ -610,9 +637,11 @@ class SQLiteStore(MemoryStore):
                         SELECT n.id, n.title, n.content, n.tags, n.salience, n.vault_path, n.wing, n.room
                         FROM links l
                         JOIN notes n ON (CASE WHEN l.source_note_id = ? THEN n.id = l.target_note_id ELSE n.id = l.source_note_id END)
-                        WHERE (l.source_note_id = ? OR l.target_note_id = ?) AND n.status = 'active';
-                    """,
-                        (nid, nid, nid),
+                        WHERE (l.source_note_id = ? OR l.target_note_id = ?) AND n.status = 'active'
+                        """
+                        + nbr_scope
+                        + ";",
+                        (nid, nid, nid, *nbr_args),
                     )
                     for row in cur.fetchall():
                         if row["id"] != root["id"] and row["id"] not in visited:

@@ -274,15 +274,15 @@ class PgVectorStore(MemoryStore):
                 if "edge_weight" not in link_cols:
                     cur.execute("ALTER TABLE links ADD COLUMN edge_weight REAL DEFAULT 1.0;")
 
-    def _scope_clause(self, scope: Optional[Dict]) -> Tuple[str, List[Any]]:
+    def _scope_clause(self, scope: Optional[Dict], prefix: str = "") -> Tuple[str, List[Any]]:
         if not scope:
             return "", []
         clauses, params = [], []
         if scope.get("wing"):
-            clauses.append("wing = %s")
+            clauses.append(f"{prefix}wing = %s")
             params.append(scope["wing"])
         if scope.get("room"):
-            clauses.append("room = %s")
+            clauses.append(f"{prefix}room = %s")
             params.append(scope["room"])
         return " AND ".join(clauses), params
 
@@ -680,17 +680,31 @@ class PgVectorStore(MemoryStore):
                     )
                 return results
 
-    def search_graph(self, note_title: str, depth: int = 2, top_k: int = 10) -> List[Dict]:
-        """Graph search with formal cycle detection (immune to infinite loops on circular links)."""
+    def search_graph(
+        self,
+        note_title: str,
+        depth: int = 2,
+        top_k: int = 10,
+        scope: Optional[Dict] = None,
+    ) -> List[Dict]:
+        """Graph search with formal cycle detection (immune to infinite loops on circular links).
+
+        Scope is applied to both the seed and the final fetch: walking the graph
+        crosses wings by design, so without it a beta note is returned to a
+        caller that asked for alpha.
+        """
+        scope_clause, scope_params = self._scope_clause(scope, prefix="n.")
+        seed_scope = f" AND {scope_clause}" if scope_clause else ""
+        final_scope = f" AND {scope_clause}" if scope_clause else ""
         with self._conn() as conn:
             with conn.cursor() as cur:
                 cur.execute(
-                    """
+                    f"""
                     WITH RECURSIVE graph_walk AS (
                         SELECT (CASE WHEN l.source_note_id = n.id THEN l.target_note_id ELSE l.source_note_id END) AS note_id, 1 AS depth, ARRAY[l.source_note_id, l.target_note_id] AS path
                         FROM links l
                         JOIN notes n ON (n.id = l.source_note_id OR n.id = l.target_note_id)
-                        WHERE (n.title = %s OR n.title ILIKE %s) AND n.status = 'active'
+                        WHERE (n.title = %s OR n.title ILIKE %s) AND n.status = 'active'{seed_scope}
                         UNION
                         SELECT (CASE WHEN l.source_note_id = gw.note_id THEN l.target_note_id ELSE l.source_note_id END), gw.depth + 1, gw.path || (CASE WHEN l.source_note_id = gw.note_id THEN l.target_note_id ELSE l.source_note_id END)
                         FROM links l
@@ -700,11 +714,11 @@ class PgVectorStore(MemoryStore):
                     SELECT DISTINCT ON (n.id) n.id, n.title, n.content, n.tags, n.salience, n.vault_path, n.wing, n.room, gw.depth
                     FROM graph_walk gw
                     JOIN notes n ON n.id = gw.note_id
-                    WHERE n.status = 'active'
+                    WHERE n.status = 'active'{final_scope}
                     ORDER BY n.id, gw.depth ASC
                     LIMIT %s;
                 """,
-                    (note_title, f"%{note_title}%", depth, top_k),
+                    (note_title, f"%{note_title}%", *scope_params, depth, *scope_params, top_k),
                 )
                 rows = cur.fetchall()
                 results = []
@@ -754,15 +768,24 @@ class PgVectorStore(MemoryStore):
         titles = [n[0] for n in sorted_nodes]
         score_map = dict(sorted_nodes)
 
+        # Scope must be enforced at fetch time: PPR diffuses across the whole
+        # adjacency graph, so without this a beta-wing note comes back when the
+        # caller asked for alpha. Seeds being scoped is not enough.
+        scope_clause, scope_params = self._scope_clause(scope)
+        where = f"title = ANY(%s) AND status = 'active'"
+        if scope_clause:
+            where += " AND " + scope_clause
+        params: List[Any] = [titles] + scope_params
+
         with self._conn() as conn:
             with conn.cursor() as cur:
                 cur.execute(
-                    """
+                    f"""
                     SELECT id, title, content, tags, note_type, salience, vault_path, wing, room, access_count, confidence
                     FROM notes
-                    WHERE title = ANY(%s) AND status = 'active';
+                    WHERE {where};
                 """,
-                    (titles,),
+                    tuple(params),
                 )
                 note_dict = {}
                 for row in cur.fetchall():

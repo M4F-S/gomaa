@@ -381,7 +381,7 @@ class UnifiedMemorySystem:
         elif mode == "keyword":
             private_results = self.db.search_keyword(query, top_k, scope=scope)
         elif mode == "graph":
-            private_results = self.db.search_graph(query, top_k=top_k)
+            private_results = self.db.search_graph(query, top_k=top_k, scope=scope)
         elif mode == "associative_ppr" and hasattr(self.db, "search_associative_ppr"):
             private_results = self.db.search_associative_ppr(query_embedding=emb, top_k=top_k, scope=scope)
         elif mode == "procedural" and hasattr(self.db, "search_playbooks"):
