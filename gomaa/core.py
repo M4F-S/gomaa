@@ -89,26 +89,41 @@ class UnifiedMemorySystem:
             self.sync_vault_to_db()
 
     def sync_vault_to_db(self) -> Dict[str, int]:
+        """Index every markdown file in the vault.
+
+        Two bugs fixed here:
+          * the old version called read_note(f.stem), which resolves a path under
+            general/general — every note in a scoped wing/room was silently skipped;
+          * it used the filename stem as the title, so any title the sanitiser
+            rewrote ("v4.0.0" -> "v400") was indexed under a second identity.
+        Titles now come from frontmatter, and the file's own path is read directly.
+        """
         files = self.vault.list_notes()
         count = 0
+        skipped = 0
         for f in files:
             try:
-                content = self.vault.read_note(f.stem)
-                if content:
-                    raw = content.get("content", "")
-                    note_id = self.db.upsert_note(
-                        title=f.stem,
-                        content=raw,
-                        tags=content.get("frontmatter", {}).get("tags", []),
-                        vault_path=str(self.vault.vault_path),
-                        origin_agent=self.agent_name,
-                    )
-                    links = self.vault.extract_wiki_links(raw)
-                    self.db.update_links(note_id, links)
-                    count += 1
+                note = self.vault.read_note_path(f)
+                if not note:
+                    skipped += 1
+                    continue
+                raw = note.get("content", "")
+                note_id = self.db.upsert_note(
+                    title=note["title"],
+                    content=raw,
+                    tags=note.get("frontmatter", {}).get("tags") or [],
+                    vault_path=str(self.vault.vault_path),
+                    wing=note.get("wing", "general"),
+                    room=note.get("room", "general"),
+                    origin_agent=self.agent_name,
+                )
+                links = self.vault.extract_wiki_links(raw)
+                self.db.update_links(note_id, links)
+                count += 1
             except Exception as e:
+                skipped += 1
                 logger.error(f"Error syncing {f}: {e}")
-        return {"synced": count}
+        return {"synced": count, "skipped": skipped}
 
     def _sanitize_for_shared(self, content: str) -> None:
         """Strict regex security guard to prevent private keys, auth tokens, or credentials from leaking to shared_db."""

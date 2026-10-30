@@ -93,8 +93,37 @@ class PgVectorStore(MemoryStore):
                             setweight(to_tsvector('english', coalesce(title, '')), 'A') ||
                             setweight(to_tsvector('english', coalesce(content, '')), 'B')
                         ) STORED,
-                        CONSTRAINT notes_title_vault_unique UNIQUE (title, vault_path)
+                        CONSTRAINT notes_scope_title_unique UNIQUE (wing, room, title)
                     );
+
+                    -- Idempotent key migration: older databases were keyed on
+                    -- (title, vault_path), where vault_path is the vault root and
+                    -- therefore identical for every note. That made two notes with
+                    -- the same title in different wings overwrite each other.
+                    -- Skipped (with a warning) if a collision exists, so it never
+                    -- silently merges data.
+                    DO $$
+                    DECLARE dup_count int; legacy text;
+                    BEGIN
+                        SELECT conname INTO legacy FROM pg_constraint
+                         WHERE conrelid = 'notes'::regclass AND contype = 'u'
+                           AND conname IN ('notes_title_vault_unique', 'notes_title_vault_path_key')
+                         LIMIT 1;
+                        IF legacy IS NOT NULL THEN
+                            SELECT count(*) INTO dup_count FROM (
+                                SELECT 1 FROM notes GROUP BY wing, room, title HAVING count(*) > 1
+                            ) d;
+                            IF dup_count = 0 THEN
+                                EXECUTE format('ALTER TABLE notes DROP CONSTRAINT %I', legacy);
+                                ALTER TABLE notes ADD CONSTRAINT notes_scope_title_unique
+                                    UNIQUE (wing, room, title);
+                                RAISE NOTICE 'notes: identity key migrated to (wing, room, title)';
+                            ELSE
+                                RAISE WARNING 'notes: % duplicate (wing,room,title) groups; key NOT migrated',
+                                    dup_count;
+                            END IF;
+                        END IF;
+                    END $$;
 
                     -- High-recall HNSW vector index (pgvector >= 0.5.0) with fallback
                     DO $$
@@ -322,8 +351,10 @@ class PgVectorStore(MemoryStore):
         with self._conn() as conn:
             with conn.cursor() as cur:
                 cur.execute(
-                    "SELECT id, title, content, tags, salience, access_count FROM notes WHERE title = %s AND vault_path = %s;",
-                    (title, vault_path),
+                    "SELECT id, title, content, tags, salience, access_count FROM notes "
+                    "WHERE title = %s AND wing = %s AND room = %s "
+                    "ORDER BY updated_at DESC LIMIT 1;",
+                    (title, wing, room),
                 )
                 existing = cur.fetchone()
                 if existing:
@@ -335,53 +366,117 @@ class PgVectorStore(MemoryStore):
                         (existing[0], existing[1], existing[2], existing[3], existing[4]),
                     )
 
-                cur.execute(
-                    """
-                    INSERT INTO notes (
-                        title, content, tags, note_type, status, salience, embedding,
-                        vault_path, wing, room, origin_agent, memory_type,
-                        episodic_parent_hash, superseded_by, confidence, access_count,
-                        last_accessed_at, updated_at
+                if existing:
+                    cur.execute(
+                        """
+                        UPDATE notes SET
+                            content = %s,
+                            tags = %s,
+                            note_type = %s,
+                            status = %s,
+                            salience = %s,
+                            embedding = COALESCE(%s, embedding),
+                            wing = %s,
+                            room = %s,
+                            origin_agent = %s,
+                            memory_type = %s,
+                            episodic_parent_hash = %s,
+                            superseded_by = %s,
+                            confidence = %s,
+                            access_count = notes.access_count + 1,
+                            last_accessed_at = NOW(),
+                            updated_at = NOW()
+                        WHERE id = %s
+                        RETURNING id;
+                        """,
+                        (
+                            content,
+                            tags,
+                            note_type,
+                            status,
+                            salience,
+                            embedding,
+                            wing,
+                            room,
+                            origin_agent,
+                            memory_type,
+                            episodic_parent_hash,
+                            superseded_by,
+                            confidence,
+                            existing[0],
+                        ),
                     )
-                    VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, 1, NOW(), NOW())
-                    ON CONFLICT (title, vault_path) DO UPDATE SET
-                        content = EXCLUDED.content,
-                        tags = EXCLUDED.tags,
-                        note_type = EXCLUDED.note_type,
-                        status = EXCLUDED.status,
-                        salience = EXCLUDED.salience,
-                        embedding = COALESCE(EXCLUDED.embedding, notes.embedding),
-                        wing = EXCLUDED.wing,
-                        room = EXCLUDED.room,
-                        origin_agent = EXCLUDED.origin_agent,
-                        memory_type = EXCLUDED.memory_type,
-                        episodic_parent_hash = EXCLUDED.episodic_parent_hash,
-                        superseded_by = EXCLUDED.superseded_by,
-                        confidence = EXCLUDED.confidence,
-                        access_count = notes.access_count + 1,
-                        last_accessed_at = NOW(),
-                        updated_at = NOW()
-                    RETURNING id;
-                """,
-                    (
-                        title,
-                        content,
-                        tags,
-                        note_type,
-                        status,
-                        salience,
-                        embedding,
-                        vault_path,
-                        wing,
-                        room,
-                        origin_agent,
-                        memory_type,
-                        episodic_parent_hash,
-                        superseded_by,
-                        confidence,
-                    ),
-                )
-                note_id = cur.fetchone()[0]
+                    note_id = cur.fetchone()[0]
+                else:
+                    # Identity is (wing, room, title). The vault path is the vault
+                    # root, constant for every note, so keying on it made two notes
+                    # with the same title in different scopes overwrite each other.
+                    cur.execute("SAVEPOINT upsert_note")
+                    try:
+                        cur.execute(
+                            """
+                            INSERT INTO notes (
+                                title, content, tags, note_type, status, salience, embedding,
+                                vault_path, wing, room, origin_agent, memory_type,
+                                episodic_parent_hash, superseded_by, confidence, access_count,
+                                last_accessed_at, updated_at
+                            )
+                            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, 1, NOW(), NOW())
+                            RETURNING id;
+                            """,
+                            (
+                                title,
+                                content,
+                                tags,
+                                note_type,
+                                status,
+                                salience,
+                                embedding,
+                                vault_path,
+                                wing,
+                                room,
+                                origin_agent,
+                                memory_type,
+                                episodic_parent_hash,
+                                superseded_by,
+                                confidence,
+                            ),
+                        )
+                        note_id = cur.fetchone()[0]
+                    except psycopg2.errors.UniqueViolation:
+                        # A concurrent writer inserted the same identity first.
+                        cur.execute("ROLLBACK TO SAVEPOINT upsert_note")
+                        cur.execute(
+                            """
+                            UPDATE notes SET
+                                content = %s, tags = %s, note_type = %s, status = %s,
+                                salience = %s, embedding = COALESCE(%s, embedding),
+                                origin_agent = %s, memory_type = %s,
+                                episodic_parent_hash = %s, superseded_by = %s,
+                                confidence = %s, access_count = notes.access_count + 1,
+                                last_accessed_at = NOW(), updated_at = NOW()
+                            WHERE title = %s AND wing = %s AND room = %s
+                            RETURNING id;
+                            """,
+                            (
+                                content, tags, note_type, status, salience, embedding,
+                                origin_agent, memory_type, episodic_parent_hash,
+                                superseded_by, confidence, title, wing, room,
+                            ),
+                        )
+                        row = cur.fetchone()
+                        if row is None:
+                            # Schema not migrated yet: the old (title, vault_path)
+                            # key is doing the rejecting. Surface it instead of
+                            # silently losing the new note.
+                            logger.error(
+                                "upsert_note: unique violation on %r but no row for "
+                                "(title, wing, room); notes table is still keyed on "
+                                "(title, vault_path) — run the scope-key migration",
+                                title,
+                            )
+                            raise
+                        note_id = row[0]
 
                 # Real-Time $O(1)$ Reverse Wikilink Resolution
                 cur.execute(

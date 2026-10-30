@@ -65,7 +65,7 @@ class SQLiteStore(MemoryStore):
                     last_accessed_at TEXT NOT NULL DEFAULT (datetime('now')),
                     created_at TEXT NOT NULL DEFAULT (datetime('now')),
                     updated_at TEXT NOT NULL DEFAULT (datetime('now')),
-                    UNIQUE(title, vault_path)
+                    UNIQUE(wing, room, title)
                 );
 
                 CREATE TABLE IF NOT EXISTS links (
@@ -274,8 +274,10 @@ class SQLiteStore(MemoryStore):
         with self._conn() as conn:
             cur = conn.cursor()
             cur.execute(
-                "SELECT id, title, content, tags, salience, access_count FROM notes WHERE title = ? AND vault_path = ?;",
-                (title, vault_path),
+                "SELECT id, title, content, tags, salience, access_count FROM notes "
+                "WHERE title = ? AND wing = ? AND room = ? "
+                "ORDER BY updated_at DESC LIMIT 1;",
+                (title, wing, room),
             )
             existing = cur.fetchone()
 
