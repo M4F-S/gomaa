@@ -126,6 +126,7 @@ class UnifiedMemorySystem:
                     wing=wing,
                     room=room,
                     origin_agent=self.agent_name,
+                    preserve_lifecycle=True,
                 )
                 links = self.vault.extract_wiki_links(raw)
                 self.db.update_links(note_id, links)

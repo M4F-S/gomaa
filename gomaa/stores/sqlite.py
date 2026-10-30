@@ -275,6 +275,7 @@ class SQLiteStore(MemoryStore):
         episodic_parent_hash: Optional[str] = None,
         superseded_by: Optional[str] = None,
         confidence: float = 1.0,
+        preserve_lifecycle: bool = False,
     ) -> str:
         vault_path = str(vault_path)
         with self._conn() as conn:
@@ -287,7 +288,24 @@ class SQLiteStore(MemoryStore):
             )
             existing = cur.fetchone()
 
-            if existing:
+            if existing and preserve_lifecycle:
+                conn.execute(
+                    """
+                    UPDATE notes SET content = ?, tags = ?, wing = ?, room = ?,
+                        embedding = COALESCE(?, embedding), updated_at = datetime('now')
+                    WHERE id = ?;
+                    """,
+                    (
+                        content,
+                        json.dumps(tags),
+                        wing,
+                        room,
+                        json.dumps(embedding) if embedding else None,
+                        existing["id"],
+                    ),
+                )
+                note_id = existing["id"]
+            elif existing:
                 note_id = existing["id"]
                 conn.execute(
                     """

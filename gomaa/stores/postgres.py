@@ -359,6 +359,7 @@ class PgVectorStore(MemoryStore):
         episodic_parent_hash: Optional[str] = None,
         superseded_by: Optional[int] = None,
         confidence: float = 1.0,
+        preserve_lifecycle: bool = False,
     ) -> int:
         vault_path = str(vault_path)
         with self._conn() as conn:
@@ -370,7 +371,7 @@ class PgVectorStore(MemoryStore):
                     (title, wing, room),
                 )
                 existing = cur.fetchone()
-                if existing:
+                if existing and not preserve_lifecycle:
                     cur.execute(
                         """
                         INSERT INTO note_versions (note_id, title, content, tags, salience)
@@ -379,7 +380,27 @@ class PgVectorStore(MemoryStore):
                         (existing[0], existing[1], existing[2], existing[3], existing[4]),
                     )
 
-                if existing:
+                if existing and preserve_lifecycle:
+                    # Vault re-index: refresh the text only. status/salience/
+                    # access_count belong to the consolidation and decay stages;
+                    # writing sync defaults over them silently un-archives every
+                    # decayed note (measured: 69 archived -> 1 after one sync).
+                    cur.execute(
+                        """
+                        UPDATE notes SET
+                            content = %s,
+                            tags = %s,
+                            wing = %s,
+                            room = %s,
+                            embedding = COALESCE(%s, embedding),
+                            updated_at = NOW()
+                        WHERE id = %s
+                        RETURNING id;
+                        """,
+                        (content, tags, wing, room, embedding, existing[0]),
+                    )
+                    note_id = cur.fetchone()[0]
+                elif existing:
                     cur.execute(
                         """
                         UPDATE notes SET
