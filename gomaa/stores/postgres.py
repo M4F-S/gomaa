@@ -395,7 +395,7 @@ class PgVectorStore(MemoryStore):
                             tags = %s,
                             wing = %s,
                             room = %s,
-                            embedding = COALESCE(%s, embedding),
+                            embedding = COALESCE(%s::vector, embedding),
                             updated_at = NOW()
                         WHERE id = %s
                         RETURNING id;
@@ -412,7 +412,7 @@ class PgVectorStore(MemoryStore):
                             note_type = %s,
                             status = %s,
                             salience = %s,
-                            embedding = COALESCE(%s, embedding),
+                            embedding = COALESCE(%s::vector, embedding),
                             wing = %s,
                             room = %s,
                             origin_agent = %s,
@@ -488,7 +488,7 @@ class PgVectorStore(MemoryStore):
                             """
                             UPDATE notes SET
                                 content = %s, tags = %s, note_type = %s, status = %s,
-                                salience = %s, embedding = COALESCE(%s, embedding),
+                                salience = %s, embedding = COALESCE(%s::vector, embedding),
                                 origin_agent = %s, memory_type = %s,
                                 episodic_parent_hash = %s, superseded_by = %s,
                                 confidence = %s, access_count = notes.access_count + 1,
