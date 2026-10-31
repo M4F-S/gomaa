@@ -17,6 +17,8 @@ class MemoryStore(ABC):
         wing: str = "general",
         room: str = "general",
         origin_agent: str = "local",
+        preserve_lifecycle: bool = False,
+        embedder_id: Optional[str] = None,
     ) -> Any:
         pass
 
@@ -37,6 +39,7 @@ class MemoryStore(ABC):
         top_k: int = 10,
         filters: Optional[Dict] = None,
         scope: Optional[Dict] = None,
+        embedder_id: Optional[str] = None,
     ) -> List[Dict]:
         pass
 
@@ -45,7 +48,13 @@ class MemoryStore(ABC):
         pass
 
     @abstractmethod
-    def search_graph(self, note_title: str, depth: int = 2, top_k: int = 10) -> List[Dict]:
+    def search_graph(
+        self,
+        note_title: str,
+        depth: int = 2,
+        top_k: int = 10,
+        scope: Optional[Dict] = None,
+    ) -> List[Dict]:
         pass
 
     @abstractmethod

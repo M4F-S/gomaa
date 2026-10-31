@@ -430,7 +430,7 @@ class UnifiedMemorySystem:
                 elif mode == "semantic":
                     shared_results = self.shared_db.search_semantic(emb, top_k, filters, scope=scope)
                 elif mode == "graph":
-                    shared_results = self.shared_db.search_graph(query, top_k=top_k)
+                    shared_results = self.shared_db.search_graph(query, top_k=top_k, scope=scope)
                 elif mode == "associative_ppr" and hasattr(self.shared_db, "search_associative_ppr"):
                     shared_results = self.shared_db.search_associative_ppr(query_embedding=emb, top_k=top_k, scope=scope)
                 elif mode == "procedural" and hasattr(self.shared_db, "search_playbooks"):

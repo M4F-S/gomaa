@@ -22,6 +22,15 @@ class SQLiteStore(MemoryStore):
         if db_dir:
             os.makedirs(db_dir, exist_ok=True)
         self._ensure_schema()
+        # Stores created before the encoder tag existed need the column added in
+        # place. SQLite has no ADD COLUMN IF NOT EXISTS, so a duplicate-column
+        # error is the expected "already migrated" path.
+        try:
+            with self._conn() as conn:
+                conn.execute("ALTER TABLE notes ADD COLUMN embedder_id TEXT")
+        except sqlite3.OperationalError as e:
+            if "duplicate column" not in str(e).lower():
+                raise
 
     @contextmanager
     def _conn(self):
@@ -59,6 +68,7 @@ class SQLiteStore(MemoryStore):
                     origin_agent TEXT NOT NULL DEFAULT 'local',
                     memory_type TEXT NOT NULL DEFAULT 'semantic',
                     episodic_parent_hash TEXT,
+                    embedder_id TEXT,
                     superseded_by TEXT,
                     access_count INTEGER DEFAULT 0,
                     confidence REAL DEFAULT 1.0,
@@ -351,9 +361,9 @@ class SQLiteStore(MemoryStore):
                             id, title, content, tags, note_type, status, salience,
                             embedding, vault_path, wing, room, origin_agent,
                             memory_type, episodic_parent_hash, superseded_by, confidence,
-                            access_count, last_accessed_at, created_at, updated_at
+                            embedder_id, access_count, last_accessed_at, created_at, updated_at
                         )
-                        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, datetime('now'), datetime('now'), datetime('now'));
+                        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, datetime('now'), datetime('now'), datetime('now'));
                     """,
                         (
                             note_id,
@@ -372,6 +382,7 @@ class SQLiteStore(MemoryStore):
                             episodic_parent_hash,
                             superseded_by,
                             confidence,
+                            embedder_id,
                         ),
                     )
                 except sqlite3.IntegrityError:
@@ -456,6 +467,11 @@ class SQLiteStore(MemoryStore):
             cur = conn.cursor()
             where = "WHERE status = 'active' AND embedding IS NOT NULL"
             params = []
+            if embedder_id:
+                # Same rule as the Postgres store: never rank hash-fallback noise
+                # against a real query vector. NULL rows stay visible.
+                where += " AND (embedder_id IS NULL OR embedder_id = ?)"
+                params.append(embedder_id)
 
             scope_clause, scope_params = self._scope_clause(scope)
             if scope_clause:
