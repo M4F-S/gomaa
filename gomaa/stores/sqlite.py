@@ -276,6 +276,7 @@ class SQLiteStore(MemoryStore):
         superseded_by: Optional[str] = None,
         confidence: float = 1.0,
         preserve_lifecycle: bool = False,
+        embedder_id: Optional[str] = None,
     ) -> str:
         vault_path = str(vault_path)
         with self._conn() as conn:
@@ -449,6 +450,7 @@ class SQLiteStore(MemoryStore):
         top_k: int = 10,
         filters: Optional[Dict] = None,
         scope: Optional[Dict] = None,
+        embedder_id: Optional[str] = None,
     ) -> List[Dict]:
         with self._conn() as conn:
             cur = conn.cursor()

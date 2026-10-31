@@ -279,6 +279,7 @@ class UnifiedMemorySystem:
                 status="active",
                 salience=salience,
                 embedding=emb,
+                embedder_id=getattr(self.embedder, "embedder_id", None),
                 vault_path=str(self.vault.vault_path),
                 wing=wing,
                 room=room,
@@ -377,7 +378,9 @@ class UnifiedMemorySystem:
 
         # 1. Query Private Store
         if mode == "semantic":
-            private_results = self.db.search_semantic(emb, top_k, filters, scope=scope)
+            private_results = self.db.search_semantic(
+                emb, top_k, filters, scope=scope, embedder_id=getattr(self.embedder, "embedder_id", None)
+            )
         elif mode == "keyword":
             private_results = self.db.search_keyword(query, top_k, scope=scope)
         elif mode == "graph":

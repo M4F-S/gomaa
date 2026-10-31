@@ -82,6 +82,7 @@ class PgVectorStore(MemoryStore):
                         room TEXT NOT NULL DEFAULT 'general',
                         origin_agent VARCHAR(64) DEFAULT 'local',
                         memory_type VARCHAR(32) NOT NULL DEFAULT 'semantic',
+                        embedder_id TEXT,
                         episodic_parent_hash VARCHAR(64),
                         superseded_by INT REFERENCES notes(id),
                         access_count INT DEFAULT 0,
@@ -271,6 +272,7 @@ class PgVectorStore(MemoryStore):
                 link_cols = {row[0] for row in cur.fetchall()}
                 if "relation_type" not in link_cols:
                     cur.execute("ALTER TABLE links ADD COLUMN relation_type VARCHAR(64) NOT NULL DEFAULT 'associative';")
+                cur.execute("ALTER TABLE notes ADD COLUMN IF NOT EXISTS embedder_id TEXT;")
                 if "edge_weight" not in link_cols:
                     cur.execute("ALTER TABLE links ADD COLUMN edge_weight REAL DEFAULT 1.0;")
 
@@ -360,6 +362,7 @@ class PgVectorStore(MemoryStore):
         superseded_by: Optional[int] = None,
         confidence: float = 1.0,
         preserve_lifecycle: bool = False,
+        embedder_id: Optional[str] = None,
     ) -> int:
         vault_path = str(vault_path)
         with self._conn() as conn:
@@ -452,10 +455,10 @@ class PgVectorStore(MemoryStore):
                             INSERT INTO notes (
                                 title, content, tags, note_type, status, salience, embedding,
                                 vault_path, wing, room, origin_agent, memory_type,
-                                episodic_parent_hash, superseded_by, confidence, access_count,
-                                last_accessed_at, updated_at
+                                episodic_parent_hash, superseded_by, confidence, embedder_id,
+                                access_count, last_accessed_at, updated_at
                             )
-                            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, 1, NOW(), NOW())
+                            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, 1, NOW(), NOW())
                             RETURNING id;
                             """,
                             (
@@ -474,6 +477,7 @@ class PgVectorStore(MemoryStore):
                                 episodic_parent_hash,
                                 superseded_by,
                                 confidence,
+                                embedder_id,
                             ),
                         )
                         note_id = cur.fetchone()[0]
@@ -560,11 +564,18 @@ class PgVectorStore(MemoryStore):
         top_k: int = 10,
         filters: Optional[Dict] = None,
         scope: Optional[Dict] = None,
+        embedder_id: Optional[str] = None,
     ) -> List[Dict]:
         with self._conn() as conn:
             with conn.cursor() as cur:
                 where = "WHERE status = 'active'"
                 where_params = []
+
+                if embedder_id:
+                    # Rows written by the hash fallback are SHA-256 noise; ranking
+                    # them against a real query vector contaminates results.
+                    where += " AND (embedder_id IS NULL OR embedder_id = %s)"
+                    where_params.append(embedder_id)
 
                 scope_clause, scope_params = self._scope_clause(scope)
                 if scope_clause:

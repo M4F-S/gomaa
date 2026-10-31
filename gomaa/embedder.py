@@ -28,6 +28,21 @@ class CircuitBreakerOpen(Exception):
 
 
 class Embedder:
+    @property
+    def embedder_id(self) -> str:
+        """Stable identifier of the encoder that produced a vector.
+
+        The deterministic hash fallback writes SHA-256 noise into the same
+        vector column as real embeddings (measured paraphrase cosine -0.0123).
+        Rows must carry this tag so they can be excluded from semantic ranking
+        instead of silently poisoning the index.
+        """
+        if self._provider == "hash-fallback":
+            return "hash-v1"
+        if self._provider == "remote-http":
+            return f"remote:{self.model_name}"
+        return f"st:{self.model_name}"
+
     def __init__(
         self, model_name: str = "all-MiniLM-L6-v2", embed_url: Optional[str] = None, prefer_remote: bool = True
     ):
