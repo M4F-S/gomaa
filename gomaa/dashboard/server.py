@@ -26,7 +26,8 @@ class DashboardRequestHandler(BaseHTTPRequestHandler):
         self.send_response(status)
         self.send_header("Content-Type", "application/json; charset=utf-8")
         self.send_header("Content-Length", str(len(body)))
-        self.send_header("Access-Control-Allow-Origin", "*")
+        if os.environ.get("GOMAA_DASHBOARD_ORIGIN"):
+            self.send_header("Access-Control-Allow-Origin", os.environ["GOMAA_DASHBOARD_ORIGIN"])
         self.send_header("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
         self.send_header("Access-Control-Allow-Headers", "Content-Type")
         self.end_headers()
@@ -34,7 +35,8 @@ class DashboardRequestHandler(BaseHTTPRequestHandler):
 
     def do_OPTIONS(self):
         self.send_response(200)
-        self.send_header("Access-Control-Allow-Origin", "*")
+        if os.environ.get("GOMAA_DASHBOARD_ORIGIN"):
+            self.send_header("Access-Control-Allow-Origin", os.environ["GOMAA_DASHBOARD_ORIGIN"])
         self.send_header("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
         self.send_header("Access-Control-Allow-Headers", "Content-Type")
         self.end_headers()
@@ -42,7 +44,21 @@ class DashboardRequestHandler(BaseHTTPRequestHandler):
     def do_HEAD(self):
         self.do_GET()
 
+    def _auth_ok(self) -> bool:
+        """Optional bearer auth. With GOMAA_DASHBOARD_TOKEN unset the dashboard
+        stays open — appropriate only when it is bound to loopback."""
+        token = os.environ.get("GOMAA_DASHBOARD_TOKEN")
+        if not token:
+            return True
+        supplied = (self.headers.get("Authorization") or "").replace("Bearer ", "").strip()
+        if supplied == token:
+            return True
+        self._send_json({"error": "unauthorized"}, status=401)
+        return False
+
     def do_GET(self):
+        if not self._auth_ok():
+            return
         parsed = urllib.parse.urlparse(self.path)
         path = parsed.path
 
@@ -134,6 +150,8 @@ class DashboardRequestHandler(BaseHTTPRequestHandler):
         self.send_error(404, "Endpoint not found")
 
     def do_POST(self):
+        if not self._auth_ok():
+            return
         parsed = urllib.parse.urlparse(self.path)
         path = parsed.path
         length = int(self.headers.get("Content-Length", 0))
