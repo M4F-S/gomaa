@@ -101,6 +101,15 @@ class UnifiedMemorySystem:
         files = self.vault.list_notes()
         count = 0
         skipped = 0
+        # A file indexed without a vector is keyword-only: invisible to semantic
+        # and PPR retrieval. Embed only the rows that have none, so a steady-state
+        # sync stays cheap.
+        have = {}
+        try:
+            for row in self.db.list_notes(limit=100000, status=None):
+                have[(row["title"], row.get("wing"), row.get("room"))] = bool(row.get("has_embedding"))
+        except NotImplementedError:
+            have = {}
         for f in files:
             try:
                 note = self.vault.read_note_path(f)
@@ -118,6 +127,12 @@ class UnifiedMemorySystem:
                     existing_scopes = self.db.scopes_for_title(note["title"])
                     if len(existing_scopes) == 1:
                         wing, room = existing_scopes[0]
+                embedding = None
+                if not have.get((note["title"], wing, room)):
+                    try:
+                        embedding = self.embedder.embed_documents([f"{note['title']} {raw[:2000]}"])[0]
+                    except Exception as e:  # embedding must not block indexing
+                        logger.warning("sync: embedding failed for %r: %s", note["title"], e)
                 note_id = self.db.upsert_note(
                     title=note["title"],
                     content=raw,
@@ -127,6 +142,8 @@ class UnifiedMemorySystem:
                     room=room,
                     origin_agent=self.agent_name,
                     preserve_lifecycle=True,
+                    embedding=embedding,
+                    embedder_id=getattr(self.embedder, "embedder_id", None) if embedding else None,
                 )
                 links = self.vault.extract_wiki_links(raw)
                 self.db.update_links(note_id, links)

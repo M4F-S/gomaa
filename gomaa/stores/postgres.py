@@ -594,7 +594,8 @@ class PgVectorStore(MemoryStore):
             with conn.cursor() as cur:
                 cur.execute(
                     "SELECT id, title, content, tags, note_type, salience, vault_path, wing, room, "
-                    "access_count, confidence, created_at, updated_at FROM notes "
+                    "access_count, confidence, created_at, updated_at, "
+                    "(embedding IS NOT NULL) AS has_embedding FROM notes "
                     f"{where} ORDER BY created_at DESC, id DESC LIMIT %s OFFSET %s",
                     (*params, int(limit), int(offset)),
                 )
