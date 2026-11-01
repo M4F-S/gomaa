@@ -22,6 +22,7 @@ class SQLiteStore(MemoryStore):
         if db_dir:
             os.makedirs(db_dir, exist_ok=True)
         self._ensure_schema()
+        self._migrate_identity_key()
         # Stores created before the encoder tag existed need the column added in
         # place. SQLite has no ADD COLUMN IF NOT EXISTS, so a duplicate-column
         # error is the expected "already migrated" path.
@@ -31,6 +32,45 @@ class SQLiteStore(MemoryStore):
         except sqlite3.OperationalError as e:
             if "duplicate column" not in str(e).lower():
                 raise
+
+    def _migrate_identity_key(self) -> bool:
+        """Rebuild the notes table when it still carries the legacy
+        UNIQUE(title, vault_path) key.
+
+        SQLite cannot ALTER a constraint, so the table is rebuilt around the same
+        rows. This is the counterpart of the Postgres DO block: without it a
+        4.0.0 database silently rewrites one wing's note when another wing writes
+        the same title. Refuses (raise) when the rebuild would merge rows.
+        """
+        with self._conn() as conn:
+            row = conn.execute(
+                "SELECT sql FROM sqlite_master WHERE type='table' AND name='notes'"
+            ).fetchone()
+            ddl = (row["sql"] if row else "") or ""
+            if "UNIQUE(title, vault_path)" not in ddl:
+                return False
+            dup = conn.execute(
+                "SELECT count(*) c FROM (SELECT 1 FROM notes "
+                "GROUP BY wing, room, title HAVING count(*) > 1)"
+            ).fetchone()["c"]
+            if dup:
+                raise RuntimeError(
+                    f"notes is keyed on (title, vault_path) and holds {dup} duplicate "
+                    "(wing, room, title) group(s); refusing to migrate and merge rows"
+                )
+            cols = [r["name"] for r in conn.execute("PRAGMA table_info(notes)").fetchall()]
+            collist = ", ".join(f'"{c}"' for c in cols)
+            new_ddl = ddl.replace("UNIQUE(title, vault_path)", "UNIQUE(wing, room, title)")
+            new_ddl = new_ddl.replace("CREATE TABLE notes", "CREATE TABLE notes_new", 1)
+            conn.execute("PRAGMA foreign_keys=OFF")
+            conn.execute("ALTER TABLE notes RENAME TO notes_legacy")
+            conn.execute(new_ddl)
+            conn.execute(f"INSERT INTO notes_new ({collist}) SELECT {collist} FROM notes_legacy")
+            conn.execute("DROP TABLE notes_legacy")
+            conn.execute("ALTER TABLE notes_new RENAME TO notes")
+            conn.execute("PRAGMA foreign_keys=ON")
+        logger.warning("notes: rebuilt with UNIQUE(wing, room, title) (legacy SQLite key)")
+        return True
 
     @contextmanager
     def _conn(self):
@@ -329,7 +369,7 @@ class SQLiteStore(MemoryStore):
                     """
                     UPDATE notes
                     SET content = ?, tags = ?, note_type = ?, status = ?, salience = ?,
-                        embedding = ?, wing = ?, room = ?, origin_agent = ?,
+                        embedding = COALESCE(?, embedding), wing = ?, room = ?, origin_agent = ?,
                         memory_type = ?, episodic_parent_hash = ?, superseded_by = ?, confidence = ?,
                         access_count = access_count + 1,
                         last_accessed_at = datetime('now'), updated_at = datetime('now')
@@ -386,15 +426,28 @@ class SQLiteStore(MemoryStore):
                         ),
                     )
                 except sqlite3.IntegrityError:
-                    cur.execute("SELECT id FROM notes WHERE title = ? AND vault_path = ?;", (title, vault_path))
+                    # Re-select by the identity the table is supposed to be keyed
+                    # on. Selecting by (title, vault_path) retargeted a cross-scope
+                    # write onto another wing's row and silently overwrote it.
+                    cur.execute(
+                        "SELECT id FROM notes WHERE title = ? AND wing = ? AND room = ?;",
+                        (title, wing, room),
+                    )
                     existing = cur.fetchone()
                     if existing:
                         note_id = existing["id"]
+                    else:
+                        raise RuntimeError(
+                            f"upsert_note: integrity error for {title!r} in {wing}/{room} "
+                            "and no matching row exists; refusing to return an unwritten id "
+                            "(the notes table is probably still keyed on the legacy "
+                            "(title, vault_path) constraint)"
+                        )
                         conn.execute(
                             """
                             UPDATE notes
                             SET content = ?, tags = ?, note_type = ?, status = ?, salience = ?,
-                                embedding = ?, wing = ?, room = ?, origin_agent = ?,
+                                embedding = COALESCE(?, embedding), wing = ?, room = ?, origin_agent = ?,
                                 memory_type = ?, episodic_parent_hash = ?, superseded_by = ?, confidence = ?,
                                 access_count = access_count + 1,
                                 last_accessed_at = datetime('now'), updated_at = datetime('now')
@@ -688,12 +741,15 @@ class SQLiteStore(MemoryStore):
         top_k: int = 10,
         scope: Optional[Dict] = None,
         restart_prob: float = 0.15,
+        embedder_id: Optional[str] = None,
     ) -> List[Dict[str, Any]]:
         """
         HippoRAG 2 Personalized PageRank associative search.
         Seeds nodes from dense vector similarity, diffusing activation across graph topology.
         """
-        seeds = self.search_semantic(query_embedding, top_k=5, scope=scope)
+        seeds = self.search_semantic(
+            query_embedding, top_k=5, scope=scope, embedder_id=embedder_id
+        )
         if not seeds:
             return []
 
@@ -712,6 +768,18 @@ class SQLiteStore(MemoryStore):
         titles = [n[0] for n in sorted_nodes]
         score_map = dict(sorted_nodes)
 
+        # Scope must be enforced at fetch time, not only on the seeds: PPR
+        # diffuses across the whole graph, so an unscoped fetch returns another
+        # wing's notes to a scoped caller (measured).
+        scope_sql, scope_args = "", []
+        if scope:
+            if scope.get("wing"):
+                scope_sql += " AND wing = ?"
+                scope_args.append(scope["wing"])
+            if scope.get("room"):
+                scope_sql += " AND room = ?"
+                scope_args.append(scope["room"])
+
         with self._conn() as conn:
             cur = conn.cursor()
             placeholders = ",".join("?" for _ in titles)
@@ -719,19 +787,24 @@ class SQLiteStore(MemoryStore):
                 f"""
                 SELECT id, title, content, tags, note_type, salience, vault_path, wing, room, access_count, confidence
                 FROM notes
-                WHERE title IN ({placeholders}) AND status = 'active';
+                WHERE title IN ({placeholders}) AND status = 'active'{scope_sql};
             """,
-                titles,
+                (*titles, *scope_args),
             )
-            note_dict = {}
+            # Group by title instead of overwriting: with the scope key two
+            # notes may legitimately share a title, and a title-keyed dict was
+            # silently dropping all but the last one.
+            by_title = {}
             for row in cur.fetchall():
                 d = dict(row)
                 d["tags"] = json.loads(d["tags"]) if d["tags"] else []
                 d["ppr_score"] = score_map.get(d["title"], 0.0)
                 d["score"] = d["ppr_score"]
-                note_dict[d["title"]] = d
+                by_title.setdefault(d["title"], []).append(d)
 
-            results = [note_dict[t] for t in titles if t in note_dict]
+            results = []
+            for t in titles:
+                results.extend(by_title.get(t, []))
             return results
 
     def hybrid_search(
@@ -740,8 +813,11 @@ class SQLiteStore(MemoryStore):
         query_embedding: List[float],
         top_k: int = 10,
         scope: Optional[Dict] = None,
+        embedder_id: Optional[str] = None,
     ) -> List[Dict]:
-        semantic = self.search_semantic(query_embedding, top_k=top_k * 2, scope=scope)
+        semantic = self.search_semantic(
+            query_embedding, top_k=top_k * 2, scope=scope, embedder_id=embedder_id
+        )
         keyword = self.search_keyword(query, top_k=top_k * 2, scope=scope)
         ppr_results = self.search_associative_ppr(query_embedding, top_k=top_k * 2, scope=scope)
 

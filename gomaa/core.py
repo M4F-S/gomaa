@@ -386,7 +386,9 @@ class UnifiedMemorySystem:
         elif mode == "graph":
             private_results = self.db.search_graph(query, top_k=top_k, scope=scope)
         elif mode == "associative_ppr" and hasattr(self.db, "search_associative_ppr"):
-            private_results = self.db.search_associative_ppr(query_embedding=emb, top_k=top_k, scope=scope)
+            private_results = self.db.search_associative_ppr(
+                query_embedding=emb, top_k=top_k, scope=scope,
+                embedder_id=getattr(self.embedder, 'embedder_id', None))
         elif mode == "procedural" and hasattr(self.db, "search_playbooks"):
             raw_pbs = self.db.search_playbooks(query_embedding=emb, limit=top_k)
             private_results = [
@@ -416,7 +418,8 @@ class UnifiedMemorySystem:
                 for e in raw_eps
             ]
         else:
-            private_results = self.db.hybrid_search(query, emb, top_k, scope=scope)
+            private_results = self.db.hybrid_search(query, emb, top_k, scope=scope,
+                                      embedder_id=getattr(self.embedder, 'embedder_id', None))
 
         for r in private_results:
             r["source_store"] = "private"
@@ -428,11 +431,15 @@ class UnifiedMemorySystem:
                 if mode == "keyword":
                     shared_results = self.shared_db.search_keyword(query, top_k, scope=scope)
                 elif mode == "semantic":
-                    shared_results = self.shared_db.search_semantic(emb, top_k, filters, scope=scope)
+                    shared_results = self.shared_db.search_semantic(
+                        emb, top_k, filters, scope=scope,
+                        embedder_id=getattr(self.embedder, 'embedder_id', None))
                 elif mode == "graph":
                     shared_results = self.shared_db.search_graph(query, top_k=top_k, scope=scope)
                 elif mode == "associative_ppr" and hasattr(self.shared_db, "search_associative_ppr"):
-                    shared_results = self.shared_db.search_associative_ppr(query_embedding=emb, top_k=top_k, scope=scope)
+                    shared_results = self.shared_db.search_associative_ppr(
+                        query_embedding=emb, top_k=top_k, scope=scope,
+                        embedder_id=getattr(self.embedder, 'embedder_id', None))
                 elif mode == "procedural" and hasattr(self.shared_db, "search_playbooks"):
                     raw_pbs = self.shared_db.search_playbooks(query_embedding=emb, limit=top_k)
                     shared_results = [
@@ -536,13 +543,18 @@ class UnifiedMemorySystem:
             block_chars = len(block) + 2
             remaining = char_budget - current_chars
             if block_chars > remaining:
-                if not packed_notes and remaining > 200:
-                    # The first hit alone exceeds the whole budget. Truncate it
-                    # instead of packing it whole (measured: max_tokens=100
-                    # returned 12,541 tokens — a 125x overrun).
-                    cut = max(0, remaining - 40)
-                    block = block[:cut] + "\n[truncated]\n</recalled_memory>"
-                    block_chars = len(block) + 2
+                if not packed_notes:
+                    # The first hit alone exceeds the whole budget. Keep the
+                    # wrapper intact and cut the content: a small budget should
+                    # return a short excerpt, not nothing and not a 125x overrun.
+                    head = block[: block.index(">\n") + 2]
+                    tail = "\n[truncated]\n</recalled_memory>"
+                    room_for = remaining - len(head) - len(tail) - 2
+                    if room_for > 20:
+                        block = head + safe_content[:room_for].rstrip() + tail
+                        block_chars = len(block) + 2
+                    else:
+                        break
                 else:
                     break
 

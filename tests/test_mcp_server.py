@@ -42,17 +42,23 @@ class TestMemoryMCPServer:
         req = {"jsonrpc": "2.0", "method": "tools/list", "id": 2}
         resp = server._handle(req)
         tools = resp["result"]["tools"]
-        assert len(tools) == 13
         tool_names = [t["name"] for t in tools]
-        assert "memory_remember" in tool_names
-        assert "memory_publish_shared" in tool_names
-        assert "memory_recall" in tool_names
-        assert "memory_assemble_context" in tool_names
-        assert "memory_audit" in tool_names
-        assert "memory_ingest_event" in tool_names
-        assert "memory_save_playbook" in tool_names
-        assert "memory_sleep" in tool_names
-        assert "memory_working_buffer" in tool_names
+
+        # Assert the contract, not a magic number: every advertised tool must be
+        # unique, carry a schema, and the documented set must be present. A bare
+        # count breaks on every added tool without proving anything.
+        assert len(tool_names) == len(set(tool_names)), "duplicate tool name"
+        assert all(t.get("inputSchema", {}).get("type") == "object" for t in tools)
+        required = {
+            "memory_remember", "memory_recall", "memory_assemble_context",
+            "memory_audit", "memory_ingest_event", "memory_save_playbook",
+            "memory_sleep", "memory_working_buffer", "memory_publish_shared",
+            "memory_forget", "memory_history", "memory_timeline",
+            "memory_remind_me", "memory_ingest_session",
+        }
+        missing = required - set(tool_names)
+        assert not missing, f"tools missing from the surface: {sorted(missing)}"
+        assert len(tool_names) == 14
 
     def test_tools_call_remember(self, server):
         req = {

@@ -77,3 +77,52 @@ def test_shared_store_graph_respects_scope(tmp_path):
 
     scoped = store.search_graph("Shared Alpha", scope={"wing": "alpha"})
     assert all(r["wing"] == "alpha" for r in scoped)
+
+
+def test_sqlite_rebuilds_a_legacy_identity_key(tmp_path):
+    """Critical: a 4.0.0 SQLite file is keyed on (title, vault_path). Opening it
+    with the new code must rebuild the table, keep the rows, and stop a
+    cross-scope write from overwriting another wing's note."""
+    path = str(tmp_path / "legacy.db")
+    raw = sqlite3.connect(path)
+    raw.execute(
+        """CREATE TABLE notes (
+            id TEXT PRIMARY KEY, title TEXT, content TEXT, tags TEXT, note_type TEXT,
+            status TEXT, salience REAL, embedding TEXT, vault_path TEXT, wing TEXT,
+            room TEXT, origin_agent TEXT, memory_type TEXT, episodic_parent_hash TEXT,
+            superseded_by TEXT, access_count INTEGER, confidence REAL,
+            last_accessed_at TEXT, created_at TEXT, updated_at TEXT,
+            UNIQUE(title, vault_path))"""
+    )
+    raw.execute(
+        "INSERT INTO notes (id,title,content,tags,vault_path,wing,room,status,salience,"
+        "access_count,confidence) VALUES ('a','Dup','alpha body','[]','/v','alpha','r1',"
+        "'active',0.5,0,1.0)"
+    )
+    raw.commit()
+    raw.close()
+
+    store = SQLiteStore(path)
+    with store._conn() as c:
+        ddl = c.execute("SELECT sql FROM sqlite_master WHERE type='table' AND name='notes'").fetchone()["sql"]
+        assert "UNIQUE(wing, room, title)" in ddl, "legacy key was not migrated"
+        assert c.execute("SELECT count(*) c FROM notes").fetchone()["c"] == 1, "row lost in rebuild"
+
+    store.upsert_note("Dup", "beta body long enough for admission control.", [], wing="beta", room="r1",
+                      vault_path="/v", embedding=[0.1] * 384)
+    rows = store.search_keyword("Dup", top_k=10)
+    scopes = sorted((r["wing"], r["room"]) for r in rows if r["title"] == "Dup")
+    assert ("alpha", "r1") in scopes and ("beta", "r1") in scopes, f"scopes={scopes}"
+
+
+def test_sqlite_ppr_respects_scope(tmp_path):
+    store = SQLiteStore(str(tmp_path / "g.db"))
+    a = store.upsert_note("Alpha Seed", BODY, [], wing="alpha", room="r1",
+                          vault_path="/v", embedding=VEC)
+    store.upsert_note("Beta Target", BODY, [], wing="beta", room="r1",
+                      vault_path="/v", embedding=VEC)
+    store.update_links(a, ["Beta Target"])
+
+    scoped = store.search_associative_ppr(VEC, top_k=10, scope={"wing": "alpha"})
+    assert all(r["wing"] == "alpha" for r in scoped), \
+        f"PPR leaked across wings: {[(r['title'], r['wing']) for r in scoped]}"

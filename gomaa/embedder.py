@@ -28,6 +28,12 @@ class CircuitBreakerOpen(Exception):
 
 
 class Embedder:
+    def _hash_batch(self, texts):
+        """Hash fallback that records itself, so provenance is the encoder used
+        and not the provider that was merely configured."""
+        self._last_encoder = "hash-v1"
+        return [self._hash_embed(t) for t in texts]
+
     @property
     def embedder_id(self) -> str:
         """Stable identifier of the encoder that produced a vector.
@@ -37,6 +43,8 @@ class Embedder:
         Rows must carry this tag so they can be excluded from semantic ranking
         instead of silently poisoning the index.
         """
+        if getattr(self, "_last_encoder", None) == "hash-v1":
+            return "hash-v1"
         if self._provider == "hash-fallback":
             return "hash-v1"
         if self._provider == "remote-http":
@@ -49,6 +57,7 @@ class Embedder:
         self.model_name = model_name
         self.dim = 384
         self._provider = None
+        self._last_encoder = None
         self._local_model = None
         self._fastembed_model = None
 
@@ -133,6 +142,7 @@ class Embedder:
                 )
 
     def embed_documents(self, texts: List[str]) -> List[List[float]]:
+        self._last_encoder = None
         if not texts:
             return []
 
@@ -146,7 +156,7 @@ class Embedder:
                 logger.warning(f"Remote embedding call failed ({e}); degrading gracefully.")
                 # If remote fails, do NOT load PyTorch into RAM on fleet nodes — use hash fallback
                 if self._local_model is None:
-                    return [self._hash_embed(t) for t in texts]
+                    return self._hash_batch(texts)
 
         # 2. Local FastEmbed ONNX Model
         if self._fastembed_model is not None:
@@ -155,7 +165,7 @@ class Embedder:
                 return [e.tolist() if hasattr(e, "tolist") else list(e) for e in embeddings]
             except Exception as e:
                 logger.error(f"FastEmbed ONNX error: {e}")
-                return [self._hash_embed(t) for t in texts]
+                return self._hash_batch(texts)
 
         # 3. Local SentenceTransformers (PyTorch)
         if self._local_model is not None:
@@ -164,10 +174,10 @@ class Embedder:
                 return embeddings.tolist()
             except Exception as e:
                 logger.error(f"Local embedding error: {e}")
-                return [self._hash_embed(t) for t in texts]
+                return self._hash_batch(texts)
 
         # 4. Deterministic Hash Fallback
-        return [self._hash_embed(t) for t in texts]
+        return self._hash_batch(texts)
 
     def embed(self, texts: List[str]) -> List[List[float]]:
         """Alias for embed_documents for backwards compatibility."""

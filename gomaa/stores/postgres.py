@@ -755,12 +755,15 @@ class PgVectorStore(MemoryStore):
         top_k: int = 10,
         scope: Optional[Dict] = None,
         restart_prob: float = 0.15,
+        embedder_id: Optional[str] = None,
     ) -> List[Dict[str, Any]]:
         """
         HippoRAG 2 Personalized PageRank associative search.
         Seeds nodes from dense vector similarity, diffusing activation across graph topology.
         """
-        seeds = self.search_semantic(query_embedding, top_k=5, scope=scope)
+        seeds = self.search_semantic(
+            query_embedding, top_k=5, scope=scope, embedder_id=embedder_id
+        )
         if not seeds:
             return []
 
@@ -800,7 +803,7 @@ class PgVectorStore(MemoryStore):
                 )
                 note_dict = {}
                 for row in cur.fetchall():
-                    note_dict[row[1]] = {
+                    note_dict.setdefault(row[1], []).append({
                         "id": row[0],
                         "title": row[1],
                         "content": row[2],
@@ -814,9 +817,11 @@ class PgVectorStore(MemoryStore):
                         "confidence": row[10] or 1.0,
                         "ppr_score": score_map.get(row[1], 0.0),
                         "score": score_map.get(row[1], 0.0),
-                    }
+                    })
 
-                results = [note_dict[t] for t in titles if t in note_dict]
+                results = []
+                for t in titles:
+                    results.extend(note_dict.get(t, []))
                 return results
 
     def hybrid_search(
@@ -825,8 +830,11 @@ class PgVectorStore(MemoryStore):
         query_embedding: List[float],
         top_k: int = 10,
         scope: Optional[Dict] = None,
+        embedder_id: Optional[str] = None,
     ) -> List[Dict]:
-        semantic = self.search_semantic(query_embedding, top_k=top_k * 2, scope=scope)
+        semantic = self.search_semantic(
+            query_embedding, top_k=top_k * 2, scope=scope, embedder_id=embedder_id
+        )
         keyword = self.search_keyword(query, top_k=top_k * 2, scope=scope)
         ppr_results = self.search_associative_ppr(query_embedding, top_k=top_k * 2, scope=scope)
 
