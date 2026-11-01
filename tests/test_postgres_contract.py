@@ -132,3 +132,50 @@ def test_upsert_waits_for_a_row_locked_by_another_session(store):
     assert blocked and elapsed >= 0.5, f"writer did not block (elapsed {elapsed:.2f}s)"
     rows = store.search_keyword("Lock Probe", top_k=5, scope={"wing": "qa", "room": "lock"})
     assert rows and "Second body" in rows[0]["content"], "write after the lock was lost"
+
+
+def test_ppr_respects_scope(store):
+    a = store.upsert_note("PPR Alpha", BODY1, [], wing="alpha", room="ppr",
+                          vault_path=VP, embedding=E1)
+    store.upsert_note("PPR Beta", BODY2, [], wing="beta", room="ppr",
+                      vault_path=VP, embedding=E1)
+    store.update_links(a, ["PPR Beta"])
+    try:
+        scoped = store.search_associative_ppr(E1, top_k=10, scope={"wing": "alpha"})
+        assert all(r["wing"] == "alpha" for r in scoped), \
+            f"PPR leaked: {[(r['title'], r['wing']) for r in scoped]}"
+    finally:
+        store.delete_note("PPR Beta", wing="beta", room="ppr")
+
+
+def test_missing_scope_key_is_added_for_an_unrecognised_legacy_constraint():
+    """A 4.0.0 table whose unique constraint has an unexpected name must still
+    get the scope key; the migration used to skip silently in that case."""
+    import re
+    import uuid
+
+    src = open("gomaa/stores/postgres.py").read()
+    block = re.search(r"(DO \$\$.*?END \$\$;)", src, re.S).group(1)
+
+    schema = "probe_" + uuid.uuid4().hex[:8]
+    conn = psycopg2.connect(DSN)
+    conn.autocommit = True
+    cur = conn.cursor()
+    try:
+        cur.execute(f"CREATE SCHEMA {schema}")
+        cur.execute(
+            f"CREATE TABLE {schema}.notes (id serial primary key, title text, wing text, "
+            f"room text, vault_path text, CONSTRAINT legacy_odd_name UNIQUE (title, vault_path))"
+        )
+        cur.execute(f"SET search_path TO {schema}")
+        cur.execute(block)
+        cur.execute(
+            "select conname from pg_constraint where conrelid=%s::regclass and contype='u'",
+            (f"{schema}.notes",),
+        )
+        names = [r[0] for r in cur.fetchall()]
+        assert "notes_scope_title_unique" in names, f"scope key not added: {names}"
+    finally:
+        cur.execute("SET search_path TO public")
+        cur.execute(f"DROP SCHEMA {schema} CASCADE")
+        conn.close()

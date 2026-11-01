@@ -76,3 +76,47 @@ def test_count_by_wing_room_matches_the_total(store):
                       vault_path="/v", embedding=[0.01] * 384)
     buckets = store.count_by_wing_room()
     assert sum(b["count"] for b in buckets) == store.count_notes() == 21
+
+
+def test_http_endpoints_report_true_counts_and_do_not_bump(monkeypatch, tmp_path):
+    """End-to-end: the served JSON, not just the store methods."""
+    import json
+    import threading
+    import urllib.request
+    from http.server import HTTPServer
+
+    from gomaa.core import UnifiedMemorySystem
+    from gomaa.dashboard.server import DashboardRequestHandler
+
+    vault = str(tmp_path / "vault")
+    mem = UnifiedMemorySystem(vault_path=vault, dsn=str(tmp_path / "g.db"), auto_sync=False)
+    for i in range(30):
+        mem.remember(f"HTTP Note {i:02d}", BODY, wing="bulk", room="r1")
+
+    monkeypatch.setenv("GOMAA_DASHBOARD_TOKEN", "t0ken")
+    DashboardRequestHandler.memory = mem
+    srv = HTTPServer(("127.0.0.1", 0), DashboardRequestHandler)
+    port = srv.server_address[1]
+    threading.Thread(target=srv.serve_forever, daemon=True).start()
+
+    def get(path):
+        req = urllib.request.Request(f"http://127.0.0.1:{port}{path}",
+                                     headers={"Authorization": "Bearer t0ken"})
+        with urllib.request.urlopen(req, timeout=5) as r:
+            return json.loads(r.read())
+
+    try:
+        with mem.db._conn() as c:
+            before = c.execute("SELECT SUM(access_count) s FROM notes").fetchone()["s"]
+        stats = get("/api/stats")
+        notes = get("/api/notes")
+        with mem.db._conn() as c:
+            after = c.execute("SELECT SUM(access_count) s FROM notes").fetchone()["s"]
+
+        assert stats["total_notes"] == mem.db.count_notes() == 30
+        assert len(notes["notes"]) == 30
+        assert all(n["created_at"] for n in notes["notes"])
+        assert before == after, "HTTP reads modified access_count"
+    finally:
+        srv.shutdown()
+        DashboardRequestHandler.memory = None
