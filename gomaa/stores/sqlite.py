@@ -54,10 +54,16 @@ class SQLiteStore(MemoryStore):
                 "GROUP BY wing, room, title HAVING count(*) > 1)"
             ).fetchone()["c"]
             if dup:
-                raise RuntimeError(
-                    f"notes is keyed on (title, vault_path) and holds {dup} duplicate "
-                    "(wing, room, title) group(s); refusing to migrate and merge rows"
+                # Refusing to merge is right, but raising here would brick every
+                # caller that opens this database. Keep the legacy key, say so
+                # loudly, and leave the resolution to an operator — writes still
+                # succeed, and upsert raises only if a real identity conflict hits.
+                logger.error(
+                    "notes is keyed on (title, vault_path) and holds %d duplicate "
+                    "(wing, room, title) group(s); key NOT migrated. Resolve the "
+                    "duplicates, then reopen the store to migrate.", dup
                 )
+                return False
             cols = [r["name"] for r in conn.execute("PRAGMA table_info(notes)").fetchall()]
             collist = ", ".join(f'"{c}"' for c in cols)
             new_ddl = ddl.replace("UNIQUE(title, vault_path)", "UNIQUE(wing, room, title)")

@@ -136,3 +136,32 @@ def test_sqlite_reembedding_retags_the_row(tmp_path):
                       vault_path="/v", embedding=VEC, embedder_id="st:test")
     hits = store.search_semantic(VEC, top_k=10, embedder_id="st:test")
     assert any(r["title"] == "ReTag" for r in hits), "tag not rewritten on update"
+
+
+def test_duplicate_groups_block_the_rebuild_but_do_not_brick_the_store(tmp_path):
+    """Refusing to merge is right; raising would break every caller."""
+    path = str(tmp_path / "dups.db")
+    raw = sqlite3.connect(path)
+    raw.execute(
+        """CREATE TABLE notes (
+            id TEXT PRIMARY KEY, title TEXT, content TEXT, tags TEXT, note_type TEXT,
+            status TEXT, salience REAL, embedding TEXT, vault_path TEXT, wing TEXT,
+            room TEXT, origin_agent TEXT, memory_type TEXT, episodic_parent_hash TEXT,
+            superseded_by TEXT, access_count INTEGER, confidence REAL,
+            last_accessed_at TEXT, created_at TEXT, updated_at TEXT,
+            UNIQUE(title, vault_path))"""
+    )
+    for i, vp in enumerate(("/v1", "/v2")):
+        raw.execute(
+            "INSERT INTO notes (id,title,content,tags,vault_path,wing,room,status,"
+            "access_count,confidence) VALUES (?,?,?,?,?,?,?,?,?,?)",
+            (f"r{i}", "Same", "body", "[]", vp, "alpha", "r1", "active", 0, 1.0),
+        )
+    raw.commit()
+    raw.close()
+
+    store = SQLiteStore(path)  # must not raise
+    with store._conn() as c:
+        assert c.execute("SELECT count(*) c FROM notes").fetchone()["c"] == 2, "rows lost"
+        ddl = c.execute("SELECT sql FROM sqlite_master WHERE name='notes'").fetchone()["sql"]
+        assert "UNIQUE(title, vault_path)" in ddl, "merged without a decision"
