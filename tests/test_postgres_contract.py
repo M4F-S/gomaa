@@ -94,3 +94,41 @@ def test_reembedding_retags_the_row(store):
     hits = store.search_semantic(E2, top_k=10, embedder_id="st:test")
     assert any(r["title"] == "PG Tag Probe" for r in hits), \
         "row kept hash-v1 after re-embedding and stayed invisible"
+
+
+def test_upsert_waits_for_a_row_locked_by_another_session(store):
+    """Proves FOR UPDATE is in play: a second writer must block, not clobber."""
+    import threading
+    import time
+
+    store.upsert_note("Lock Probe", BODY1, [], wing="qa", room="lock", vault_path=VP, embedding=E1)
+    conn = psycopg2.connect(DSN)
+    conn.autocommit = False
+    cur = conn.cursor()
+    cur.execute(
+        "SELECT id FROM notes WHERE title=%s AND wing=%s AND room=%s FOR UPDATE",
+        ("Lock Probe", "qa", "lock"),
+    )
+    started = time.time()
+    err = []
+
+    def writer():
+        try:
+            store.upsert_note("Lock Probe", BODY2, [], wing="qa", room="lock",
+                              vault_path=VP, embedding=E2)
+        except Exception as e:  # surfaced below
+            err.append(e)
+
+    th = threading.Thread(target=writer, daemon=True)
+    th.start()
+    time.sleep(0.6)          # writer must still be blocked here
+    blocked = th.is_alive()
+    conn.commit()            # release
+    conn.close()
+    th.join(timeout=10)
+    elapsed = time.time() - started
+
+    assert not err, f"writer failed: {err}"
+    assert blocked and elapsed >= 0.5, f"writer did not block (elapsed {elapsed:.2f}s)"
+    rows = store.search_keyword("Lock Probe", top_k=5, scope={"wing": "qa", "room": "lock"})
+    assert rows and "Second body" in rows[0]["content"], "write after the lock was lost"

@@ -202,11 +202,29 @@ class UnifiedMemorySystem:
                 row = r
                 break
 
+        # Copies of the same note in another scope (typically a legacy root-level
+        # file) are re-indexed by the next sync and resurrect it. Delete the ones
+        # whose body matches; leave genuinely different notes alone and say so.
+        copies, conflicts = [], []
+        if row is not None:
+            for f in self.vault.list_notes():
+                note = self.vault.read_note_path(f)
+                if not note or note.get("title") != title:
+                    continue
+                if (note.get("wing"), note.get("room")) == (wing, room):
+                    continue
+                if _same_note(note.get("content") or "", row.get("content") or ""):
+                    copies.append(f)
+                else:
+                    conflicts.append(f)
+
         result = {
             "title": title,
             "scope": scope,
             "db_row_found": row is not None,
             "vault_files": [str(p) for p in matches],
+            "duplicate_copies": [str(p) for p in copies],
+            "conflicting_copies": [str(p) for p in conflicts],
             "db_deleted": False,
             "files_deleted": [],
             "dry_run": dry_run,
@@ -216,7 +234,7 @@ class UnifiedMemorySystem:
 
         result["db_deleted"] = bool(self.db.delete_note(title, wing=wing, room=room))
         if delete_vault_file:
-            for p in matches:
+            for p in matches + copies:
                 try:
                     p.unlink()
                     result["files_deleted"].append(str(p))
