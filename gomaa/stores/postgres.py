@@ -558,6 +558,51 @@ class PgVectorStore(MemoryStore):
                 cur.execute(sql, tuple(params))
                 return cur.rowcount > 0
 
+    def _listing_where(self, scope, status):
+        where, params = "WHERE TRUE", []
+        if status:
+            where += " AND status = %s"
+            params.append(status)
+        scope_clause, scope_params = self._scope_clause(scope)
+        if scope_clause:
+            where += " AND " + scope_clause
+            params.extend(scope_params)
+        return where, params
+
+    def list_notes(self, limit=100, offset=0, scope=None, status="active"):
+        where, params = self._listing_where(scope, status)
+        with self._conn() as conn:
+            with conn.cursor() as cur:
+                cur.execute(
+                    "SELECT id, title, content, tags, note_type, salience, vault_path, wing, room, "
+                    "access_count, confidence, created_at, updated_at FROM notes "
+                    f"{where} ORDER BY created_at DESC, id DESC LIMIT %s OFFSET %s",
+                    (*params, int(limit), int(offset)),
+                )
+                cols = [d[0] for d in cur.description]
+                rows = [dict(zip(cols, r)) for r in cur.fetchall()]
+        for d in rows:
+            tags = d.get("tags") or []
+            d["pinned"] = "pinned" in [str(t).lower() for t in tags]
+        return rows
+
+    def count_notes(self, scope=None, status="active"):
+        where, params = self._listing_where(scope, status)
+        with self._conn() as conn:
+            with conn.cursor() as cur:
+                cur.execute(f"SELECT COUNT(*) FROM notes {where}", tuple(params))
+                return int(cur.fetchone()[0])
+
+    def count_by_wing_room(self, status="active"):
+        where, params = self._listing_where(None, status)
+        with self._conn() as conn:
+            with conn.cursor() as cur:
+                cur.execute(
+                    f"SELECT wing, room, COUNT(*) c FROM notes {where} GROUP BY wing, room ORDER BY c DESC",
+                    tuple(params),
+                )
+                return [{"wing": r[0], "room": r[1], "count": int(r[2])} for r in cur.fetchall()]
+
     def search_semantic(
         self,
         query_embedding: List[float],

@@ -508,6 +508,48 @@ class SQLiteStore(MemoryStore):
             cur.execute(sql, tuple(params))
             return cur.rowcount > 0
 
+    def _listing_where(self, scope, status):
+        where, params = "WHERE 1=1", []
+        if status:
+            where += " AND status = ?"
+            params.append(status)
+        scope_clause, scope_params = self._scope_clause(scope)
+        if scope_clause:
+            where += " AND " + scope_clause
+            params.extend(scope_params)
+        return where, params
+
+    def list_notes(self, limit=100, offset=0, scope=None, status="active"):
+        where, params = self._listing_where(scope, status)
+        with self._conn() as conn:
+            rows = conn.execute(
+                "SELECT id, title, content, tags, note_type, salience, vault_path, wing, room, "
+                "access_count, confidence, created_at, updated_at FROM notes "
+                f"{where} ORDER BY created_at DESC, id DESC LIMIT ? OFFSET ?",
+                (*params, int(limit), int(offset)),
+            ).fetchall()
+        out = []
+        for r in rows:
+            d = dict(r)
+            d["tags"] = json.loads(d["tags"]) if d.get("tags") else []
+            d["pinned"] = "pinned" in [t.lower() for t in d["tags"]]
+            out.append(d)
+        return out
+
+    def count_notes(self, scope=None, status="active"):
+        where, params = self._listing_where(scope, status)
+        with self._conn() as conn:
+            return conn.execute(f"SELECT COUNT(*) c FROM notes {where}", params).fetchone()["c"]
+
+    def count_by_wing_room(self, status="active"):
+        where, params = self._listing_where(None, status)
+        with self._conn() as conn:
+            rows = conn.execute(
+                f"SELECT wing, room, COUNT(*) c FROM notes {where} GROUP BY wing, room ORDER BY c DESC",
+                params,
+            ).fetchall()
+        return [{"wing": r["wing"], "room": r["room"], "count": r["c"]} for r in rows]
+
     def search_semantic(
         self,
         query_embedding: List[float],

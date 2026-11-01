@@ -32,6 +32,21 @@ class MemoryStore(ABC):
     ) -> bool:
         pass
 
+    # --- read-only listing (dashboard, exports, drift checks) ----------------
+    # These MUST NOT touch access_count / last_accessed_at: they are not
+    # retrieval, and inflating the popularity signal corrupts ranking and decay.
+    def list_notes(
+        self, limit: int = 100, offset: int = 0,
+        scope: Optional[Dict] = None, status: str = "active",
+    ) -> List[Dict]:
+        raise NotImplementedError
+
+    def count_notes(self, scope: Optional[Dict] = None, status: str = "active") -> int:
+        raise NotImplementedError
+
+    def count_by_wing_room(self, status: str = "active") -> List[Dict]:
+        raise NotImplementedError
+
     @abstractmethod
     def search_semantic(
         self,

@@ -81,7 +81,11 @@ class DashboardRequestHandler(BaseHTTPRequestHandler):
             stats = self.memory.stats() if self.memory else {}
 
             # Layer heuristics
-            raw_notes = self.memory.db.search_keyword("", top_k=200) if self.memory else []
+            # Read-only listing: search_keyword bumps access_count, so using it
+            # here made every dashboard refresh look like retrieval and skewed
+            # ranking/decay. It also capped the total at the top-N sample.
+            raw_notes = self.memory.db.list_notes(limit=10000) if self.memory else []
+            total_notes = self.memory.db.count_notes() if self.memory else 0
             layer_counts = {
                 "episodic": 0,
                 "semantic": 0,
@@ -111,20 +115,20 @@ class DashboardRequestHandler(BaseHTTPRequestHandler):
 
             data = {
                 "system": {
-                    "version": "3.5.0",
+                    "version": __import__("gomaa").__version__,
                     "status": "healthy",
                     "backend": self.memory.db.__class__.__name__ if self.memory else "None",
                     "vault_path": str(self.memory.vault.vault_path) if self.memory else "None",
                 },
                 "stats": stats,
                 "layers": layer_counts,
-                "total_notes": len(raw_notes),
+                "total_notes": total_notes,
             }
             self._send_json(data)
             return
 
         if path == "/api/notes":
-            raw_notes = self.memory.db.search_keyword("", top_k=150) if self.memory else []
+            raw_notes = self.memory.db.list_notes(limit=150) if self.memory else []
             notes_data = []
             for n in raw_notes:
                 notes_data.append(
@@ -134,7 +138,7 @@ class DashboardRequestHandler(BaseHTTPRequestHandler):
                         "wing": n.get("wing", "general"),
                         "room": n.get("room", "general"),
                         "salience": n.get("salience", 0.5),
-                        "pinned": n.get("pinned", False),
+                        "pinned": bool(n.get("pinned", False)),
                         "tags": n.get("tags", []),
                         "created_at": n.get("created_at"),
                     }
