@@ -59,6 +59,12 @@ def _neutralize_control_tokens(text: str) -> str:
     return "".join(processed)
 
 
+def _same_note(a: str, b: str) -> bool:
+    """Same note, allowing whitespace drift between vault and store."""
+    norm = lambda t: " ".join((t or "").split())
+    return norm(a) == norm(b) or norm(a).startswith(norm(b)[:200]) or norm(b).startswith(norm(a)[:200])
+
+
 class UnifiedMemorySystem:
     def __init__(
         self,
@@ -105,9 +111,14 @@ class UnifiedMemorySystem:
         # and PPR retrieval. Embed only the rows that have none, so a steady-state
         # sync stays cheap.
         have = {}
+        stored = {}   # title -> [(wing, room, content)]
         try:
             for row in self.db.list_notes(limit=100000, status=None):
-                have[(row["title"], row.get("wing"), row.get("room"))] = bool(row.get("has_embedding"))
+                key = (row["title"], row.get("wing"), row.get("room"))
+                have[key] = bool(row.get("has_embedding"))
+                stored.setdefault(row["title"], []).append(
+                    (row.get("wing"), row.get("room"), row.get("content") or "")
+                )
         except NotImplementedError:
             have = {}
         for f in files:
@@ -119,14 +130,22 @@ class UnifiedMemorySystem:
                 raw = note.get("content", "")
                 wing = note.get("wing", "general")
                 room = note.get("room", "general")
-                # A file at the vault root has no wing/room in its path. If the
-                # database already holds that title in exactly one scope, adopt
-                # it — otherwise re-indexing would duplicate the note into
-                # general/general under a second identity.
-                if (wing, room) == ("general", "general") and hasattr(self.db, "scopes_for_title"):
-                    existing_scopes = self.db.scopes_for_title(note["title"])
-                    if len(existing_scopes) == 1:
-                        wing, room = existing_scopes[0]
+                # A file at the vault root has no wing/room in its path. Adopt an
+                # existing scope only when it is demonstrably the SAME note — the
+                # stored body matches. Adopting on title alone silently collapsed
+                # two different notes onto one row and discarded one body.
+                if (wing, room) == ("general", "general"):
+                    candidates = stored.get(note["title"], [])
+                    if len(candidates) == 1:
+                        c_wing, c_room, c_content = candidates[0]
+                        if _same_note(c_content, raw):
+                            wing, room = c_wing, c_room
+                        else:
+                            logger.warning(
+                                "sync: %r already exists in %s/%s with different content; "
+                                "indexing the root-level file separately",
+                                note["title"], c_wing, c_room,
+                            )
                 embedding = None
                 if not have.get((note["title"], wing, room)):
                     try:
