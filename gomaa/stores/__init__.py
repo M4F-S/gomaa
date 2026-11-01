@@ -48,16 +48,6 @@ def create_store(dsn: Optional[str] = None) -> MemoryStore:
                 raise RuntimeError(
                     f"PostgreSQL required (MEMORY_REQUIRE_POSTGRES=true) but connection failed: {e}"
                 ) from e
-            # A DSN that names Postgres means the caller expects a shared store.
-            # Silently switching to a private SQLite file splits the fleet: every
-            # agent keeps writing happily to a database nobody else reads.
-            looks_like_pg = dsn.startswith(("postgresql://", "postgres://")) or "dbname=" in dsn or "host=" in dsn
-            if looks_like_pg and os.environ.get("MEMORY_ALLOW_SQLITE_FALLBACK", "").lower() not in ("true", "1", "yes"):
-                raise RuntimeError(
-                    f"PostgreSQL DSN configured but unreachable ({e}). Refusing to fall back to a "
-                    "local SQLite file, which would silently split the store. Set "
-                    "MEMORY_ALLOW_SQLITE_FALLBACK=1 to allow the old behaviour."
-                ) from e
             logger.warning(
                 f"⚠️ FALLBACK: PostgreSQL unavailable ({e}). "
                 f"Using local SQLite instead. Set MEMORY_REQUIRE_POSTGRES=true to prevent this."

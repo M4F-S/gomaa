@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "gomaa"
-version = "4.0.4"
+version = "4.0.3"
 description = "Cognitive Quadrant Memory platform for AI agents with HippoRAG 2 associative PPR, 3-phase sleep consolidation, Obsidian sync, and ATMS truth maintenance."
 readme = "README.md"
 requires-python = ">=3.9"
