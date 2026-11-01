@@ -110,6 +110,22 @@ class PgVectorStore(MemoryStore):
                          WHERE conrelid = 'notes'::regclass AND contype = 'u'
                            AND conname IN ('notes_title_vault_unique', 'notes_title_vault_path_key')
                          LIMIT 1;
+                        IF legacy IS NULL AND NOT EXISTS (
+                            SELECT 1 FROM pg_constraint WHERE conrelid = 'notes'::regclass
+                              AND contype = 'u' AND conname = 'notes_scope_title_unique'
+                        ) THEN
+                            SELECT count(*) INTO dup_count FROM (
+                                SELECT 1 FROM notes GROUP BY wing, room, title HAVING count(*) > 1
+                            ) d;
+                            IF dup_count = 0 THEN
+                                ALTER TABLE notes ADD CONSTRAINT notes_scope_title_unique
+                                    UNIQUE (wing, room, title);
+                                RAISE NOTICE 'notes: added the missing scope key';
+                            ELSE
+                                RAISE WARNING 'notes: % duplicate groups, scope key NOT added',
+                                    dup_count;
+                            END IF;
+                        END IF;
                         IF legacy IS NOT NULL THEN
                             SELECT count(*) INTO dup_count FROM (
                                 SELECT 1 FROM notes GROUP BY wing, room, title HAVING count(*) > 1
@@ -370,7 +386,7 @@ class PgVectorStore(MemoryStore):
                 cur.execute(
                     "SELECT id, title, content, tags, salience, access_count FROM notes "
                     "WHERE title = %s AND wing = %s AND room = %s "
-                    "ORDER BY updated_at DESC LIMIT 1;",
+                    "ORDER BY updated_at DESC LIMIT 1 FOR UPDATE;",
                     (title, wing, room),
                 )
                 existing = cur.fetchone()
@@ -396,11 +412,12 @@ class PgVectorStore(MemoryStore):
                             wing = %s,
                             room = %s,
                             embedding = COALESCE(%s::vector, embedding),
+                            embedder_id = COALESCE(%s, embedder_id),
                             updated_at = NOW()
                         WHERE id = %s
                         RETURNING id;
                         """,
-                        (content, tags, wing, room, embedding, existing[0]),
+                        (content, tags, wing, room, embedding, embedder_id, existing[0]),
                     )
                     note_id = cur.fetchone()[0]
                 elif existing:
@@ -413,6 +430,7 @@ class PgVectorStore(MemoryStore):
                             status = %s,
                             salience = %s,
                             embedding = COALESCE(%s::vector, embedding),
+                            embedder_id = COALESCE(%s, embedder_id),
                             wing = %s,
                             room = %s,
                             origin_agent = %s,
@@ -433,6 +451,7 @@ class PgVectorStore(MemoryStore):
                             status,
                             salience,
                             embedding,
+                            embedder_id,
                             wing,
                             room,
                             origin_agent,

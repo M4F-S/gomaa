@@ -82,3 +82,15 @@ def test_scope_is_enforced_in_graph_search(store):
     scoped = store.search_graph("PG Scope Probe", scope={"wing": "alpha"})
     assert all(r["wing"] == "alpha" for r in scoped), \
         f"scope leaked: {[(r['title'], r['wing']) for r in scoped]}"
+
+
+def test_reembedding_retags_the_row(store):
+    """A note first written by the hash fallback must become searchable once it
+    is re-embedded by the real model — the UPDATE must rewrite embedder_id."""
+    store.upsert_note("PG Tag Probe", BODY1, [], wing="qa", room="tag",
+                      vault_path=VP, embedding=E1, embedder_id="hash-v1")
+    store.upsert_note("PG Tag Probe", BODY2, [], wing="qa", room="tag",
+                      vault_path=VP, embedding=E2, embedder_id="st:test")
+    hits = store.search_semantic(E2, top_k=10, embedder_id="st:test")
+    assert any(r["title"] == "PG Tag Probe" for r in hits), \
+        "row kept hash-v1 after re-embedding and stayed invisible"

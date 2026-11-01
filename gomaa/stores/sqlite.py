@@ -343,7 +343,9 @@ class SQLiteStore(MemoryStore):
                 conn.execute(
                     """
                     UPDATE notes SET content = ?, tags = ?, wing = ?, room = ?,
-                        embedding = COALESCE(?, embedding), updated_at = datetime('now')
+                        embedding = COALESCE(?, embedding),
+                        embedder_id = COALESCE(?, embedder_id),
+                        updated_at = datetime('now')
                     WHERE id = ?;
                     """,
                     (
@@ -352,6 +354,7 @@ class SQLiteStore(MemoryStore):
                         wing,
                         room,
                         json.dumps(embedding) if embedding else None,
+                        embedder_id,
                         existing["id"],
                     ),
                 )
@@ -369,7 +372,8 @@ class SQLiteStore(MemoryStore):
                     """
                     UPDATE notes
                     SET content = ?, tags = ?, note_type = ?, status = ?, salience = ?,
-                        embedding = COALESCE(?, embedding), wing = ?, room = ?, origin_agent = ?,
+                        embedding = COALESCE(?, embedding),
+                        embedder_id = COALESCE(?, embedder_id), wing = ?, room = ?, origin_agent = ?,
                         memory_type = ?, episodic_parent_hash = ?, superseded_by = ?, confidence = ?,
                         access_count = access_count + 1,
                         last_accessed_at = datetime('now'), updated_at = datetime('now')
@@ -382,6 +386,7 @@ class SQLiteStore(MemoryStore):
                         status,
                         salience,
                         json.dumps(embedding) if embedding else None,
+                        embedder_id,
                         wing,
                         room,
                         origin_agent,
@@ -447,7 +452,8 @@ class SQLiteStore(MemoryStore):
                             """
                             UPDATE notes
                             SET content = ?, tags = ?, note_type = ?, status = ?, salience = ?,
-                                embedding = COALESCE(?, embedding), wing = ?, room = ?, origin_agent = ?,
+                                embedding = COALESCE(?, embedding),
+                                embedder_id = COALESCE(?, embedder_id), wing = ?, room = ?, origin_agent = ?,
                                 memory_type = ?, episodic_parent_hash = ?, superseded_by = ?, confidence = ?,
                                 access_count = access_count + 1,
                                 last_accessed_at = datetime('now'), updated_at = datetime('now')
@@ -460,6 +466,7 @@ class SQLiteStore(MemoryStore):
                                 status,
                                 salience,
                                 json.dumps(embedding) if embedding else None,
+                                embedder_id,
                                 wing,
                                 room,
                                 origin_agent,

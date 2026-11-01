@@ -126,3 +126,13 @@ def test_sqlite_ppr_respects_scope(tmp_path):
     scoped = store.search_associative_ppr(VEC, top_k=10, scope={"wing": "alpha"})
     assert all(r["wing"] == "alpha" for r in scoped), \
         f"PPR leaked across wings: {[(r['title'], r['wing']) for r in scoped]}"
+
+
+def test_sqlite_reembedding_retags_the_row(tmp_path):
+    store = SQLiteStore(str(tmp_path / "g.db"))
+    store.upsert_note("ReTag", BODY, [], wing="qa", room="rt",
+                      vault_path="/v", embedding=VEC, embedder_id="hash-v1")
+    store.upsert_note("ReTag", BODY, [], wing="qa", room="rt",
+                      vault_path="/v", embedding=VEC, embedder_id="st:test")
+    hits = store.search_semantic(VEC, top_k=10, embedder_id="st:test")
+    assert any(r["title"] == "ReTag" for r in hits), "tag not rewritten on update"
