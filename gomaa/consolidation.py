@@ -165,7 +165,12 @@ class ConsolidationEngine:
             and hasattr(self.db, "get_graph_adjacency")
         ):
             try:
-                candidates = self.db.search_keyword("a", top_k=30) or self.db.search_keyword("e", top_k=30)
+                # Seeding off the letter "a" made link discovery depend on the
+                # alphabet. Prefer the highest-salience notes the store holds.
+                try:
+                    candidates = self.db.list_notes(limit=30)
+                except NotImplementedError:
+                    candidates = self.db.search_keyword("the", top_k=30) or self.db.search_keyword("a", top_k=30)
                 adj = self.db.get_graph_adjacency()
                 ignore_tags = {"crystallized", "sws_replay", "pinned", "session", "transcript", "chunk", "shared"}
                 for i in range(len(candidates)):
