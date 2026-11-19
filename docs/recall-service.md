@@ -48,7 +48,7 @@ that hook matter here:
   rest of the session. Injecting 800 tokens per turn is not 800 tokens once; dedupe titles already
   injected and keep the block near 300 tokens.
 
-Reference client: `plugins/memory/gomaa/` (HTTP only, `requests`, no store dependencies).
+Reference client: `integrations/hermes-memory-provider/` (HTTP only, `requests`, no store dependencies).
 
 ## Measuring it
 
