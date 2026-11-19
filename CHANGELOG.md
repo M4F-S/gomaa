@@ -5,6 +5,28 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Added
+- **Read-only recall service (`gomaa.recall_service`)**: a small HTTP endpoint (`GET /health`,
+  `POST /recall`) over the existing store, for callers that cannot import the package — an agent
+  runtime without psycopg2/numpy/sentence-transformers, or a non-Python agent. Hybrid
+  semantic+keyword retrieval fused by RRF, structural re-ranking, a hard character budget, and an
+  optional per-query JSONL log of injected titles (never content). It deliberately bypasses
+  `UnifiedMemorySystem.recall()`, which updates `access_count` on every returned row and would let a
+  per-turn caller distort ACTR ranking and decay. Shared memory is off by default: measured on a
+  live 260-note store, shared fleet policies outranked the specific project note (hit@3 2/10 with
+  shared rows, 5/10 without).
+- **`scripts/benchmark_recall.py`**: mechanical recall scoring (`hit@1`, `hit@k`, p50/p95) against a
+  running service or the store, from a JSON/JSONL question file whose questions must paraphrase a
+  note rather than repeat its title.
+- **`docs/recall-service.md`**: the API, the four rules above with their measurements, and the
+  client-side pattern for a per-turn memory provider (background query + cached block, dedupe of
+  already-injected titles, bounded block size).
+- **`tests/test_recall_service.py`**: 12 tests covering RRF fusion, room/scope penalties and boosts,
+  recency as a tie-break only, budget truncation (including a budget smaller than one bullet), the
+  service's read-only path, and the HTTP handler's `/health` and `/recall` endpoints.
+
 ## [4.0.0] - 2026-10-14
 
 ### Added
