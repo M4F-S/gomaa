@@ -169,3 +169,27 @@ def test_http_handler_serves_health_and_recall():
     finally:
         server.shutdown()
         server.server_close()
+
+
+def test_superseded_notes_are_never_returned():
+    old = dict(_row("Belya live state 2026-11-01"), superseded_by="newer-note-id")
+    new = _row("Belya Phase 1d deployed")
+    rows = rank_rows([old, new], [new], query="belya status", top_k=2)
+    assert [r["title"] for r in rows] == ["Belya Phase 1d deployed"]
+
+
+def test_old_perishable_snapshot_loses_to_fresh_note():
+    now = datetime(2026, 11, 20, tzinfo=timezone.utc)
+    stale = dict(_row("Belya live state 2026-11-01", created=datetime(2026, 11, 1, tzinfo=timezone.utc)),
+                 tags=["belya", "live-state"])
+    fresh = _row("Belya Phase 1d deployed", created=datetime(2026, 11, 19, tzinfo=timezone.utc))
+    rows = rank_rows([stale, fresh], [stale, fresh], query="what is belya status", top_k=2, now=now)
+    assert rows[0]["title"] == "Belya Phase 1d deployed"
+
+
+def test_perishable_note_carries_as_of_label():
+    now = datetime(2026, 11, 20, tzinfo=timezone.utc)
+    stale = dict(_row("Belya live state 2026-11-01", created=datetime(2026, 11, 1, tzinfo=timezone.utc)),
+                 tags=["live-state"])
+    block = format_block(rank_rows([stale], [stale], query="belya", top_k=1, now=now))
+    assert "[as of 2026-11-01]" in block

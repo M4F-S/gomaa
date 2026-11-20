@@ -54,6 +54,14 @@ PREFERENCE_HINTS = (
     "prefer", "preference", "how should", "how do you", "convention", "style",
     "remember", "always", "never", "you must", "you should",
 )
+#: Notes that describe a moment in time. When one is old it is misinformation, not weak evidence.
+PERISHABLE_TAGS = frozenset({"live-state", "live_state", "snapshot", "status"})
+
+
+def _is_perishable(row: Dict[str, Any]) -> bool:
+    title = (row.get("title") or "").lower()
+    tags = {str(t).lower() for t in (row.get("tags") or [])}
+    return bool(tags & PERISHABLE_TAGS) or "live state" in title or "live-state" in title
 
 
 def _norm(value: Any) -> str:
@@ -99,6 +107,9 @@ def rank_rows(
     needle = _norm(query)
     scored: List[Dict[str, Any]] = []
     for row in merged.values():
+        # A superseded note is history, not context. It must never be injected.
+        if row.get("superseded_by"):
+            continue
         score = row["_rrf"] * 100.0
         wing, room = (row.get("wing") or ""), (row.get("room") or "")
         if wing == "shared" or wing == "fleet":
@@ -109,14 +120,20 @@ def rank_rows(
             score += 2.5          # the question names the room's subject
         if wing and _norm(wing) in needle:
             score += 1.5
+        age_days = None
         created = row.get("created_at") or row.get("updated_at")
         if isinstance(created, datetime):
             try:
                 age_days = max((now - (created if created.tzinfo else created.replace(tzinfo=timezone.utc))).days, 0)
                 score += 1.0 / (1.0 + age_days / 30.0)   # recency: tie-break, not a driver
             except Exception:
-                pass
+                age_days = None
+        # Snapshot notes ("live state", "status") are perishable: an old one is misinformation,
+        # not weak evidence. Penalise by age so a current note wins even on a weaker text match.
+        if age_days is not None and _is_perishable(row):
+            score -= min(4.0, age_days * 0.2)
         row["_score"] = score
+        row["_age_days"] = age_days
         scored.append(row)
 
     scored.sort(key=lambda r: r["_score"], reverse=True)
@@ -134,7 +151,11 @@ def format_block(rows: Sequence[Dict[str, Any]], budget_chars: int = 1000,
         if len(body) > max_content_chars:
             body = body[:max_content_chars].rstrip() + "…"
         scope = "/".join(part for part in (row.get("wing"), row.get("room")) if part)
-        line = f"- {title}" + (f" ({scope})" if scope else "") + (f": {body}" if body else "")
+        as_of = ""
+        created = row.get("created_at") or row.get("updated_at")
+        if _is_perishable(row) and isinstance(created, datetime):
+            as_of = f" [as of {created.date().isoformat()}]"
+        line = f"- {title}{as_of}" + (f" ({scope})" if scope else "") + (f": {body}" if body else "")
         if used + len(line) + 1 > budget_chars:
             break
         out.append(line)
