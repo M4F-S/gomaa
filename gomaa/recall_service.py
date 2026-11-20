@@ -107,8 +107,9 @@ def rank_rows(
     needle = _norm(query)
     scored: List[Dict[str, Any]] = []
     for row in merged.values():
-        # A superseded note is history, not context. It must never be injected.
-        if row.get("superseded_by"):
+        # A superseded note is history, not context; a probe note is test debris.
+        tags = {str(t).lower() for t in (row.get("tags") or [])}
+        if row.get("superseded_by") or "probe" in tags:
             continue
         score = row["_rrf"] * 100.0
         wing, room = (row.get("wing") or ""), (row.get("room") or "")

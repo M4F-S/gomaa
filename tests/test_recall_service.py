@@ -193,3 +193,10 @@ def test_perishable_note_carries_as_of_label():
                  tags=["live-state"])
     block = format_block(rank_rows([stale], [stale], query="belya", top_k=1, now=now))
     assert "[as of 2026-11-01]" in block
+
+
+def test_probe_notes_are_never_returned():
+    probe = dict(_row("Round-trip probe 1252f6a7"), tags=["probe"])
+    real = _row("Gomaa rename verification")
+    rows = rank_rows([probe], [probe, real], query="round-trip probe", top_k=2)
+    assert [r["title"] for r in rows] == ["Gomaa rename verification"]
