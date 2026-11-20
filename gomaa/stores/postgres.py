@@ -661,7 +661,8 @@ class PgVectorStore(MemoryStore):
                     f"""
                     SELECT id, title, content, tags, note_type, salience, vault_path, wing, room,
                            1 - (embedding <=> %s::vector) AS score,
-                           memory_type, episodic_parent_hash, superseded_by, access_count, confidence
+                           memory_type, episodic_parent_hash, superseded_by, access_count, confidence,
+                           created_at, updated_at
                     FROM notes
                     {where}
                     ORDER BY embedding <=> %s::vector
@@ -689,6 +690,8 @@ class PgVectorStore(MemoryStore):
                             "superseded_by": row[12],
                             "access_count": row[13] or 0,
                             "confidence": float(row[14]) if row[14] is not None else 1.0,
+                            "created_at": row[15],
+                            "updated_at": row[16],
                         }
                     )
                 # Selective access touch (only high-confidence matches >= 0.55)
@@ -717,7 +720,8 @@ class PgVectorStore(MemoryStore):
                     f"""
                     SELECT id, title, content, tags, note_type, salience, vault_path, wing, room,
                            ts_rank_cd(tsv, websearch_to_tsquery('english', %s), 32) AS score,
-                           memory_type, episodic_parent_hash, superseded_by, access_count, confidence
+                           memory_type, episodic_parent_hash, superseded_by, access_count, confidence,
+                           created_at, updated_at
                     FROM notes
                     {where}
                     ORDER BY score DESC
@@ -745,6 +749,8 @@ class PgVectorStore(MemoryStore):
                             "superseded_by": row[12],
                             "access_count": row[13] or 0,
                             "confidence": float(row[14]) if row[14] is not None else 1.0,
+                            "created_at": row[15],
+                            "updated_at": row[16],
                         }
                     )
                 # Selective access touch (score >= 0.02)

@@ -5,6 +5,21 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [4.0.6] - 2026-11-20
+
+### Fixed
+- **Recall could inject stale snapshots as current fact.** `search_semantic`/`search_keyword` did
+  not return `created_at`/`updated_at`, so the recency tie-break in the recall service never fired.
+  Both now select and return the timestamps.
+- `rank_rows` skips notes with `superseded_by` set (history must not be injected), and penalises
+  perishable notes (`live-state`, `snapshot`, `status` tags or "live state" in the title) by age —
+  up to −4 points after 20 days — so a current note wins over an old snapshot.
+- `format_block` labels perishable notes with `[as of YYYY-MM-DD]` so the model can discount age.
+
+### Added
+- Three regression tests: superseded notes excluded, old snapshot loses to a fresh note, and the
+  `as of` label is rendered.
+
 ## [Unreleased]
 
 ### Added

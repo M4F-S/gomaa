@@ -6,6 +6,10 @@ not do that.
 """
 import pytest
 
+# Retrieval quality is only meaningful with a real encoder; the hash fallback (used when
+# sentence-transformers is not installed) is deliberately excluded from ranking.
+pytest.importorskip("sentence_transformers")
+
 from gomaa.core import UnifiedMemorySystem
 
 CORPUS = {

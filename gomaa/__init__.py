@@ -4,5 +4,5 @@ from .backup import BackupManager
 from .core import UnifiedMemorySystem
 from .hipporag import HippoRAGEngine
 
-__version__ = "4.0.5"
+__version__ = "4.0.6"
 __all__ = ["UnifiedMemorySystem", "HippoRAGEngine", "BackupManager", "__version__"]
