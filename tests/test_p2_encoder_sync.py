@@ -1,8 +1,5 @@
 """P2: encoder provenance under outage, and sync must embed what it indexes."""
-import os
-import tempfile
 
-import pytest
 
 from gomaa.core import UnifiedMemorySystem
 from gomaa.embedder import Embedder

@@ -9,7 +9,7 @@ on:
 jobs:
   lint:
     name: Lint & Code Standards (Ruff)
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
     - uses: actions/checkout@v4
     - name: Set up Python 3.11
@@ -27,10 +27,21 @@ jobs:
 
   unit-tests:
     name: Unit Tests (Python ${{ matrix.python-version }})
-    runs-on: ubuntu-latest
+    runs-on: ${{ matrix.os }}
     strategy:
       matrix:
-        python-version: ["3.9", "3.10", "3.11", "3.12", "3.13"]
+        include:
+          # Python 3.9 is not installable on the 26.04 runner image; pin the OS per version.
+          - python-version: "3.9"
+            os: ubuntu-22.04
+          - python-version: "3.10"
+            os: ubuntu-24.04
+          - python-version: "3.11"
+            os: ubuntu-24.04
+          - python-version: "3.12"
+            os: ubuntu-24.04
+          - python-version: "3.13"
+            os: ubuntu-24.04
 
     steps:
     - uses: actions/checkout@v4
@@ -52,7 +63,7 @@ jobs:
 
   integration-tests:
     name: PostgreSQL + pgvector Integration Tests
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
 
     services:
       postgres:
@@ -86,6 +97,7 @@ jobs:
     - name: Run integration tests with live PostgreSQL
       env:
         MEMORY_DB_DSN: "postgresql://test_user:ci_ephemeral_test_password_2026@localhost:5432/test_gomaa"
+        MEMORY_TEST_DSN: "postgresql://test_user:ci_ephemeral_test_password_2026@localhost:5432/test_gomaa"
         MEMORY_REQUIRE_POSTGRES: "true"
       run: |
-        pytest tests/test_integration.py -v
+        pytest tests/test_integration.py tests/test_postgres_contract.py -v

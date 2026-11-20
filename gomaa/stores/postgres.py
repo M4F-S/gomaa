@@ -851,7 +851,7 @@ class PgVectorStore(MemoryStore):
         # adjacency graph, so without this a beta-wing note comes back when the
         # caller asked for alpha. Seeds being scoped is not enough.
         scope_clause, scope_params = self._scope_clause(scope)
-        where = f"title = ANY(%s) AND status = 'active'"
+        where = "title = ANY(%s) AND status = 'active'"
         if scope_clause:
             where += " AND " + scope_clause
         params: List[Any] = [titles] + scope_params

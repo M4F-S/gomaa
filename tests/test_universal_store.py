@@ -5,7 +5,6 @@ works only on Postgres (or only for this deployment) is a bug.
 """
 import sqlite3
 
-import pytest
 
 from gomaa.core import UnifiedMemorySystem
 from gomaa.stores.sqlite import SQLiteStore

@@ -61,7 +61,8 @@ def _neutralize_control_tokens(text: str) -> str:
 
 def _same_note(a: str, b: str) -> bool:
     """Same note, allowing whitespace drift between vault and store."""
-    norm = lambda t: " ".join((t or "").split())
+    def norm(t: str) -> str:
+        return " ".join((t or "").split())
     return norm(a) == norm(b) or norm(a).startswith(norm(b)[:200]) or norm(b).startswith(norm(a)[:200])
 
 
