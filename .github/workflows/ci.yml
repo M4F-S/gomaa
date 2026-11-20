@@ -55,7 +55,9 @@ jobs:
     - name: Install dependencies
       run: |
         python -m pip install --upgrade pip
-        pip install -e ".[dev]"
+        # Unit tests need the package + test tooling, not torch/sentence-transformers.
+        # Pulling the full .[dev] extra made 3.9 build heavy wheels from source and hang.
+        pip install -e . pytest pytest-cov psycopg2-binary pgvector fastapi uvicorn
 
     - name: Run unit tests
       run: |
