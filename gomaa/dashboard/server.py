@@ -28,6 +28,7 @@ class DashboardRequestHandler(BaseHTTPRequestHandler):
         self.send_header("Content-Length", str(len(body)))
         if os.environ.get("GOMAA_DASHBOARD_ORIGIN"):
             self.send_header("Access-Control-Allow-Origin", os.environ["GOMAA_DASHBOARD_ORIGIN"])
+            self.send_header("Vary", "Origin")
         self.send_header("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
         self.send_header("Access-Control-Allow-Headers", "Content-Type")
         self.end_headers()
@@ -37,6 +38,7 @@ class DashboardRequestHandler(BaseHTTPRequestHandler):
         self.send_response(200)
         if os.environ.get("GOMAA_DASHBOARD_ORIGIN"):
             self.send_header("Access-Control-Allow-Origin", os.environ["GOMAA_DASHBOARD_ORIGIN"])
+            self.send_header("Vary", "Origin")
         self.send_header("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
         self.send_header("Access-Control-Allow-Headers", "Content-Type")
         self.end_headers()
@@ -51,7 +53,8 @@ class DashboardRequestHandler(BaseHTTPRequestHandler):
         if not token:
             return True
         supplied = (self.headers.get("Authorization") or "").replace("Bearer ", "").strip()
-        if supplied == token:
+        import hmac
+        if hmac.compare_digest(supplied, token):
             return True
         self._send_json({"error": "unauthorized"}, status=401)
         return False
@@ -238,11 +241,24 @@ class DashboardRequestHandler(BaseHTTPRequestHandler):
         pass
 
 
+def _refuse_open_bind(host: str) -> None:
+    """A dashboard exposing agent memory must not listen on a public interface
+    without a token. Loopback is fine; anything else needs GOMAA_DASHBOARD_TOKEN."""
+    if host in ("127.0.0.1", "localhost", "::1"):
+        return
+    if not os.environ.get("GOMAA_DASHBOARD_TOKEN"):
+        raise RuntimeError(
+            f"Refusing to bind the dashboard to {host} without GOMAA_DASHBOARD_TOKEN — "
+            "it serves the contents of agent memory."
+        )
+
+
 def create_dashboard_server(
     host: str = "127.0.0.1",
     port: int = 8765,
     memory: Optional[UnifiedMemorySystem] = None,
 ) -> HTTPServer:
+    _refuse_open_bind(host)
     DashboardRequestHandler.memory = memory or UnifiedMemorySystem()
     server = HTTPServer((host, port), DashboardRequestHandler)
     return server
@@ -254,6 +270,7 @@ def run_dashboard(
     memory: Optional[UnifiedMemorySystem] = None,
     open_browser: bool = True,
 ):
+    _refuse_open_bind(host)
     mem = memory or UnifiedMemorySystem()
     DashboardRequestHandler.memory = mem
     server = HTTPServer((host, port), DashboardRequestHandler)

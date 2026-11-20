@@ -27,6 +27,39 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   recency as a tie-break only, budget truncation (including a budget smaller than one bullet), the
   service's read-only path, and the HTTP handler's `/health` and `/recall` endpoints.
 
+## [4.0.5] - 2026-11-20
+
+### Fixed
+- **Re-landed the 4.0.4 hardening that `80003cf` had reverted on `main`.** Production already ran
+  these changes; the default branch did not, so rebuilding from `main` would have reintroduced:
+  - `create_store()` silently falling back to a private SQLite file when a configured Postgres DSN
+    is unreachable (split-brain). It now raises unless `MEMORY_ALLOW_SQLITE_FALLBACK=1` is set;
+    explicit SQLite paths and `MEMORY_REQUIRE_POSTGRES` behave as before.
+  - dashboard token comparison via `==` instead of `hmac.compare_digest`, missing `Vary: Origin`,
+    and no refusal to bind a non-loopback address without `GOMAA_DASHBOARD_TOKEN`.
+  - REM link discovery seeded from the letter "a" instead of `list_notes()`.
+
+### Changed
+- CI pins the runner image per Python version (3.9 is not installable on ubuntu-26.04), runs the
+  real Postgres contract tests instead of a SQLite test mislabelled as Postgres, and is ruff-clean.
+- `scripts/test.sh`: chunked test runner for hosts where the full suite is SIGKILLed.
+- Restored `tests/test_hardening_404.py` and `tests/test_retrieval_golden.py`, deleted by the revert.
+
+## [4.0.4] - 2026-11-01
+
+### Added
+- Fail-closed `create_store()` on an unreachable configured Postgres DSN (opt-out
+  `MEMORY_ALLOW_SQLITE_FALLBACK=1`); dashboard constant-time token comparison, `Vary: Origin`, and
+  refusal to bind non-loopback without a token; REM seeding from `list_notes()`; hardening and
+  retrieval golden tests.
+- Shipped as tag `v4.0.4` (32d0e2c) and deployed to the fleet, but never merged to `main`; the
+  changes were reverted there in `80003cf` and are restored in 4.0.5.
+
+## [4.0.3] - 2026-11-01
+
+### Fixed
+- `forget` removes identical duplicate copies and proves the row lock.
+
 ## [4.0.0] - 2026-10-14
 
 ### Added
