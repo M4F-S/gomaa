@@ -167,7 +167,12 @@ def rank_rows(
 
         age = _age_days(row, now)
         if age is not None:
-            score += 1.0 / (1.0 + age / 30.0)
+            # Recency is a nudge, never the ranking: an additive bonus up to +1.0 on a
+            # ~1.6-scale RRF score let a fresh but merely adjacent note beat the note that
+            # actually answers the question (measured: cosine 0.528 beat 0.613). Bounded
+            # multiplicative term keeps stale notes from winning ties without overriding
+            # relevance; perishability is still handled by the demotion below.
+            score *= 0.97 + 0.03 / (1.0 + age / 30.0)
         perishable = is_perishable(row)
         if perishable:
             score *= perishable_factor(age)
