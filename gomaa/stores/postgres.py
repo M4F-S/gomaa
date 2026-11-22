@@ -645,7 +645,7 @@ class PgVectorStore(MemoryStore):
                     # NULL provenance stays visible (pre-column rows).
                     where += (
                         " AND (embedder_id IS NULL OR (embedder_id NOT LIKE 'hash%%'"
-                        " AND regexp_replace(split_part(embedder_id, ':', 2), '^.*/', '') = %s))"
+                        " AND lower(regexp_replace(split_part(embedder_id, ':', 2), '^.*/', '')) = %s))"
                     )
                     where_params.append(normalise_model_id(embedder_id))
 

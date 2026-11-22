@@ -120,14 +120,16 @@ def rank_rows(
     query: str = "",
     top_k: int = 4,
     now: Optional[datetime] = None,
+    scoped_rows: Iterable[Dict[str, Any]] = (),
 ) -> List[Dict[str, Any]]:
     """Pure fusion + scoring over rows the caller already fetched."""
     now = now or datetime.now(timezone.utc)
     semantic_rows, keyword_rows = list(semantic_rows), list(keyword_rows)
     sem_rank, kw_rank = _ranked(semantic_rows), _ranked(keyword_rows)
+    scoped_rank = _ranked(list(scoped_rows))
 
     rows: Dict[str, Dict[str, Any]] = {}
-    for row in list(semantic_rows) + list(keyword_rows) + list(shared_rows):
+    for row in list(semantic_rows) + list(keyword_rows) + list(shared_rows) + list(scoped_rows):
         key = _norm(row.get("title") or "")
         if key and key not in rows:
             rows[key] = dict(row, _rrf=0.0)
@@ -137,6 +139,8 @@ def rank_rows(
             row["_rrf"] += 1.0 / (RRF_K + sem_rank[key])
         if key in kw_rank:
             row["_rrf"] += 1.0 / (RRF_K + kw_rank[key])
+        if key in scoped_rank:
+            row["_rrf"] += 1.0 / (RRF_K + scoped_rank[key])
 
     pref_query = any(hint in (query or "").lower() for hint in PREFERENCE_HINTS)
     query_key = _norm(query)
@@ -206,7 +210,46 @@ def hybrid(
         except Exception:
             shared = []
 
-    return rank_rows(sem, kw, shared, query=query, top_k=top_k, now=now)
+    return rank_rows(sem, kw, shared, query=query, top_k=top_k, now=now,
+                     scoped_rows=_scoped_rows(db, query, query_embedding, wide, embedder_id))
+
+
+def _scoped_rows(db, query: str, query_embedding: List[float], wide: int,
+                 embedder_id: Optional[str]) -> List[Dict[str, Any]]:
+    """Extra arm: when the question names a room, rank that room's notes against it.
+
+    Without this, a question like "what is the current state of gomaa" competes in one pile
+    with every old note that merely mentions Gomaa, and the canonical note never reaches the
+    candidate pool (measured: absent from the semantic top 18 on two agents).
+    """
+    needle = _norm(query)
+    if len(needle) < 4:
+        return []
+    try:
+        rooms = db.count_by_wing_room()
+    except Exception:
+        return []
+    best = None
+    for row in rooms or []:
+        room, wing = _norm(row.get("room") or ""), row.get("wing") or ""
+        if len(room) >= 4 and room in needle and (best is None or len(room) > len(best[1])):
+            best = (wing, room, row.get("room"))
+    if not best:
+        return []
+    wing, _key, room_name = best
+    try:
+        return db.search_semantic(query_embedding, wide, None,
+                                  scope={"wing": wing, "room": room_name},
+                                  embedder_id=embedder_id, touch=False)
+    except TypeError:
+        try:
+            return db.search_semantic(query_embedding, wide, None,
+                                      scope={"wing": wing, "room": room_name},
+                                      embedder_id=embedder_id)
+        except Exception:
+            return []
+    except Exception:
+        return []
 
 
 def format_block(rows: List[Dict[str, Any]], budget_chars: int = BUDGET_CHARS) -> Tuple[str, List[str]]:
