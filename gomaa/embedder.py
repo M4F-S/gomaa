@@ -15,6 +15,8 @@ import logging
 import threading
 from typing import List, Optional
 
+from .provenance import normalise_model_id
+
 # Disable tokenizer parallelism and progress bars to keep stdio stream pristine
 os.environ["TOKENIZERS_PARALLELISM"] = "false"
 os.environ["HF_HUB_DISABLE_PROGRESS_BARS"] = "1"
@@ -42,14 +44,24 @@ class Embedder:
         vector column as real embeddings (measured paraphrase cosine -0.0123).
         Rows must carry this tag so they can be excluded from semantic ranking
         instead of silently poisoning the index.
+
+        For the remote service the model comes from the *response*, not from the
+        configured name: asking the service for one model and tagging rows with
+        another is two models in one column with no way to tell them apart.
         """
         if getattr(self, "_last_encoder", None) == "hash-v1":
             return "hash-v1"
         if self._provider == "hash-fallback":
             return "hash-v1"
         if self._provider == "remote-http":
-            return f"remote:{self.model_name}"
+            return f"remote:{getattr(self, '_last_remote_model', None) or self.model_name}"
         return f"st:{self.model_name}"
+
+    @property
+    def model_id(self) -> str:
+        """Comparable model identity (see :mod:`gomaa.provenance`)."""
+        return normalise_model_id(self.embedder_id)
+
 
     def __init__(
         self, model_name: str = "all-MiniLM-L6-v2", embed_url: Optional[str] = None, prefer_remote: bool = True
@@ -58,6 +70,7 @@ class Embedder:
         self.dim = 384
         self._provider = None
         self._last_encoder = None
+        self._last_remote_model = None
         self._local_model = None
         self._fastembed_model = None
 
@@ -143,6 +156,7 @@ class Embedder:
 
     def embed_documents(self, texts: List[str]) -> List[List[float]]:
         self._last_encoder = None
+        self._last_remote_model = None
         if not texts:
             return []
 
@@ -192,6 +206,7 @@ class Embedder:
             resp.raise_for_status()
             data = resp.json()
             self._record_success()
+            self._last_remote_model = data.get("model") or self.model_name
             return data["embeddings"]
         else:
             import urllib.request
@@ -203,6 +218,7 @@ class Embedder:
             with urllib.request.urlopen(req, timeout=3.0) as response:
                 data = json.loads(response.read().decode("utf-8"))
                 self._record_success()
+                self._last_remote_model = data.get("model") or self.model_name
                 return data["embeddings"]
 
     def embed_query(self, text: str) -> List[float]:

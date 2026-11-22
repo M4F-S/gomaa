@@ -42,6 +42,8 @@ import time
 from datetime import datetime, timezone
 from typing import Any, Dict, Iterable, List, Optional, Sequence
 
+from . import recall_rank
+
 logger = logging.getLogger(__name__)
 
 RRF_K = 60
@@ -81,95 +83,22 @@ def rank_rows(
     top_k: int = 4,
     now: Optional[datetime] = None,
 ) -> List[Dict[str, Any]]:
-    """Fuse semantic + keyword (+ shared) rows with RRF, then apply structural penalties.
+    """Delegate to :func:`gomaa.recall_rank.rank_rows` — one ranker, not two.
 
-    Pure function: no store, no clock unless *now* is given. This is what the tests exercise.
+    This module used to carry its own copy of the fusion and penalty logic; the two drifted
+    (different perishable rules, different penalties), so a benchmark of one measured nothing
+    about the other. The signature is kept for callers and tests.
     """
-    now = now or datetime.now(timezone.utc)
-    sem_rank, kw_rank = _ranks(semantic_rows), _ranks(keyword_rows)
-    shared_rank = _ranks(shared_rows)
-
-    merged: Dict[str, Dict[str, Any]] = {}
-    for row in list(semantic_rows) + list(keyword_rows) + list(shared_rows):
-        key = _norm(row.get("title"))
-        if key and key not in merged:
-            merged[key] = dict(row, _rrf=0.0)
-
-    for key, row in merged.items():
-        if key in sem_rank:
-            row["_rrf"] += 1.0 / (RRF_K + sem_rank[key])
-        if key in kw_rank:
-            row["_rrf"] += 1.0 / (RRF_K + kw_rank[key])
-        if key in shared_rank:
-            row["_rrf"] += 0.5 / (RRF_K + shared_rank[key])
-
-    pref_query = any(hint in (query or "").lower() for hint in PREFERENCE_HINTS)
-    needle = _norm(query)
-    scored: List[Dict[str, Any]] = []
-    for row in merged.values():
-        # A superseded note is history, not context; a probe note is test debris.
-        tags = {str(t).lower() for t in (row.get("tags") or [])}
-        if row.get("superseded_by") or "probe" in tags:
-            continue
-        score = row["_rrf"] * 100.0
-        wing, room = (row.get("wing") or ""), (row.get("room") or "")
-        if wing == "shared" or wing == "fleet":
-            score -= 3.0          # fleet policy already rides in the system prompt
-        if room in GENERIC_ROOMS and not pref_query:
-            score -= 2.0          # generic note beating a specific project note
-        if room and _norm(room) in needle:
-            score += 2.5          # the question names the room's subject
-        if wing and _norm(wing) in needle:
-            score += 1.5
-        age_days = None
-        created = row.get("created_at") or row.get("updated_at")
-        if isinstance(created, datetime):
-            try:
-                age_days = max((now - (created if created.tzinfo else created.replace(tzinfo=timezone.utc))).days, 0)
-                score += 1.0 / (1.0 + age_days / 30.0)   # recency: tie-break, not a driver
-            except Exception:
-                age_days = None
-        # Snapshot notes ("live state", "status") are perishable: an old one is misinformation,
-        # not weak evidence. Penalise by age so a current note wins even on a weaker text match.
-        if age_days is not None and _is_perishable(row):
-            score -= min(4.0, age_days * 0.2)
-        row["_score"] = score
-        row["_age_days"] = age_days
-        scored.append(row)
-
-    scored.sort(key=lambda r: r["_score"], reverse=True)
-    return scored[:max(1, top_k)]
+    return recall_rank.rank_rows(
+        semantic_rows, keyword_rows, shared_rows, query=query, top_k=top_k, now=now
+    )
 
 
 def format_block(rows: Sequence[Dict[str, Any]], budget_chars: int = 1000,
                  max_content_chars: int = MAX_CONTENT_CHARS) -> str:
-    """Render rows as compact markdown bullets inside a hard character budget."""
-    out: List[str] = []
-    used = 0
-    for row in rows:
-        title = (row.get("title") or "").strip()
-        body = re.sub(r"\s+", " ", (row.get("content") or "")).strip()
-        if len(body) > max_content_chars:
-            body = body[:max_content_chars].rstrip() + "…"
-        scope = "/".join(part for part in (row.get("wing"), row.get("room")) if part)
-        as_of = ""
-        created = row.get("created_at") or row.get("updated_at")
-        if _is_perishable(row) and isinstance(created, datetime):
-            as_of = f" [as of {created.date().isoformat()}]"
-        line = f"- {title}{as_of}" + (f" ({scope})" if scope else "") + (f": {body}" if body else "")
-        if used + len(line) + 1 > budget_chars:
-            break
-        out.append(line)
-        used += len(line) + 1
-    if not out and rows and budget_chars > 0:
-        # A budget smaller than one bullet must still return its beginning: an empty block
-        # reads as "no memory" to the agent, which is a different (and wrong) answer.
-        first = next((r for r in rows if (r.get("title") or "").strip()), None)
-        if first is not None:
-            title = (first.get("title") or "").strip()
-            body = re.sub(r"\s+", " ", (first.get("content") or "")).strip()
-            out.append(f"- {title}: {body}"[:budget_chars].rstrip())
-    return "\n".join(out)
+    """Render rows via :mod:`gomaa.recall_rank`; returns the bullet block (no header)."""
+    block, _titles = recall_rank.format_block(list(rows), budget_chars)
+    return block
 
 
 class RecallService:

@@ -17,6 +17,7 @@ except ImportError:
     Json = None
 
 from .base import MemoryStore
+from ..provenance import normalise_model_id
 
 logger = logging.getLogger("gomaa-postgres")
 
@@ -630,6 +631,7 @@ class PgVectorStore(MemoryStore):
         filters: Optional[Dict] = None,
         scope: Optional[Dict] = None,
         embedder_id: Optional[str] = None,
+        touch: bool = True,
     ) -> List[Dict]:
         with self._conn() as conn:
             with conn.cursor() as cur:
@@ -637,10 +639,15 @@ class PgVectorStore(MemoryStore):
                 where_params = []
 
                 if embedder_id:
-                    # Rows written by the hash fallback are SHA-256 noise; ranking
-                    # them against a real query vector contaminates results.
-                    where += " AND (embedder_id IS NULL OR embedder_id = %s)"
-                    where_params.append(embedder_id)
+                    # Compare MODEL identity, not the transport tag: the same weights ran
+                    # locally (st:) or behind the embed service (remote:) produce comparable
+                    # vectors. hash-v1 is SHA-256 noise and never matches a real model.
+                    # NULL provenance stays visible (pre-column rows).
+                    where += (
+                        " AND (embedder_id IS NULL OR (embedder_id NOT LIKE 'hash%%'"
+                        " AND regexp_replace(split_part(embedder_id, ':', 2), '^.*/', '') = %s))"
+                    )
+                    where_params.append(normalise_model_id(embedder_id))
 
                 scope_clause, scope_params = self._scope_clause(scope)
                 if scope_clause:
@@ -694,16 +701,20 @@ class PgVectorStore(MemoryStore):
                             "updated_at": row[16],
                         }
                     )
-                # Selective access touch (only high-confidence matches >= 0.55)
+                # Selective access touch (only high-confidence matches >= 0.55).
+                # Read-only callers (per-turn recall) pass touch=False: a read path that
+                # rewrites popularity feeds its own ranking and inflates ACT-R decay input.
                 high_conf_ids = [r["id"] for r in results if r["score"] >= 0.55]
-                if high_conf_ids:
+                if touch and high_conf_ids:
                     cur.execute(
                         "UPDATE notes SET last_accessed_at = NOW(), access_count = COALESCE(access_count, 0) + 1 WHERE id = ANY(%s);",
                         (high_conf_ids,),
                     )
                 return results
 
-    def search_keyword(self, query: str, top_k: int = 10, scope: Optional[Dict] = None) -> List[Dict]:
+    def search_keyword(
+        self, query: str, top_k: int = 10, scope: Optional[Dict] = None, touch: bool = True
+    ) -> List[Dict]:
         with self._conn() as conn:
             with conn.cursor() as cur:
                 where = "WHERE status = 'active' AND tsv @@ websearch_to_tsquery('english', %s)"
@@ -755,7 +766,7 @@ class PgVectorStore(MemoryStore):
                     )
                 # Selective access touch (score >= 0.02)
                 high_conf_ids = [r["id"] for r in results if r["score"] >= 0.02]
-                if high_conf_ids:
+                if touch and high_conf_ids:
                     cur.execute(
                         "UPDATE notes SET last_accessed_at = NOW(), access_count = COALESCE(access_count, 0) + 1 WHERE id = ANY(%s);",
                         (high_conf_ids,),
@@ -902,11 +913,12 @@ class PgVectorStore(MemoryStore):
         top_k: int = 10,
         scope: Optional[Dict] = None,
         embedder_id: Optional[str] = None,
+        touch: bool = True,
     ) -> List[Dict]:
         semantic = self.search_semantic(
-            query_embedding, top_k=top_k * 2, scope=scope, embedder_id=embedder_id
+            query_embedding, top_k=top_k * 2, scope=scope, embedder_id=embedder_id, touch=touch
         )
-        keyword = self.search_keyword(query, top_k=top_k * 2, scope=scope)
+        keyword = self.search_keyword(query, top_k=top_k * 2, scope=scope, touch=touch)
         ppr_results = self.search_associative_ppr(query_embedding, top_k=top_k * 2, scope=scope)
 
         scores: Dict[int, Dict] = {}

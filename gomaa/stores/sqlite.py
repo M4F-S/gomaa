@@ -11,6 +11,7 @@ from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional, Tuple
 
 from .base import MemoryStore
+from ..provenance import same_encoder
 
 logger = logging.getLogger("gomaa-sqlite")
 
@@ -571,16 +572,12 @@ class SQLiteStore(MemoryStore):
         filters: Optional[Dict] = None,
         scope: Optional[Dict] = None,
         embedder_id: Optional[str] = None,
+        touch: bool = True,
     ) -> List[Dict]:
         with self._conn() as conn:
             cur = conn.cursor()
             where = "WHERE status = 'active' AND embedding IS NOT NULL"
             params = []
-            if embedder_id:
-                # Same rule as the Postgres store: never rank hash-fallback noise
-                # against a real query vector. NULL rows stay visible.
-                where += " AND (embedder_id IS NULL OR embedder_id = ?)"
-                params.append(embedder_id)
 
             scope_clause, scope_params = self._scope_clause(scope)
             if scope_clause:
@@ -593,13 +590,18 @@ class SQLiteStore(MemoryStore):
                     params.append(filters["note_type"])
 
             cur.execute(
-                f"SELECT id, title, content, tags, note_type, salience, vault_path, wing, room, embedding, memory_type, episodic_parent_hash, superseded_by, access_count, confidence FROM notes {where};",
+                f"SELECT id, title, content, tags, note_type, salience, vault_path, wing, room, embedding, memory_type, episodic_parent_hash, superseded_by, access_count, confidence, embedder_id FROM notes {where};",
                 params,
             )
             rows = cur.fetchall()
 
             scored = []
             for row in rows:
+                if embedder_id:
+                    # Model identity, not transport (see gomaa.provenance); NULL stays visible.
+                    row_eid = row["embedder_id"] if "embedder_id" in row.keys() else None
+                    if row_eid is not None and not same_encoder(embedder_id, row_eid):
+                        continue
                 tags = json.loads(row["tags"]) if row["tags"] else []
                 if filters and filters.get("tags"):
                     if not any(t in tags for t in filters["tags"]):
@@ -635,7 +637,7 @@ class SQLiteStore(MemoryStore):
             results = scored[:top_k]
 
             high_conf = [r["id"] for r in results if r["score"] >= 0.55]
-            if high_conf:
+            if touch and high_conf:
                 placeholders = ",".join("?" for _ in high_conf)
                 conn.execute(
                     f"UPDATE notes SET last_accessed_at = datetime('now'), access_count = COALESCE(access_count, 0) + 1 WHERE id IN ({placeholders});",
@@ -644,7 +646,9 @@ class SQLiteStore(MemoryStore):
 
             return results
 
-    def search_keyword(self, query: str, top_k: int = 10, scope: Optional[Dict] = None) -> List[Dict]:
+    def search_keyword(
+        self, query: str, top_k: int = 10, scope: Optional[Dict] = None, touch: bool = True
+    ) -> List[Dict]:
         with self._conn() as conn:
             cur = conn.cursor()
             words = [w for w in re.split(r"\s+", query) if w and len(w) > 1 and w not in ("!", "&", "|", ":")]
@@ -697,7 +701,7 @@ class SQLiteStore(MemoryStore):
                         "confidence": row["confidence"] if "confidence" in row.keys() else 1.0,
                     }
                 )
-            if results:
+            if touch and results:
                 ids = [r["id"] for r in results]
                 placeholders = ",".join("?" for _ in ids)
                 conn.execute(
@@ -870,11 +874,12 @@ class SQLiteStore(MemoryStore):
         top_k: int = 10,
         scope: Optional[Dict] = None,
         embedder_id: Optional[str] = None,
+        touch: bool = True,
     ) -> List[Dict]:
         semantic = self.search_semantic(
-            query_embedding, top_k=top_k * 2, scope=scope, embedder_id=embedder_id
+            query_embedding, top_k=top_k * 2, scope=scope, embedder_id=embedder_id, touch=touch
         )
-        keyword = self.search_keyword(query, top_k=top_k * 2, scope=scope)
+        keyword = self.search_keyword(query, top_k=top_k * 2, scope=scope, touch=touch)
         ppr_results = self.search_associative_ppr(query_embedding, top_k=top_k * 2, scope=scope)
 
         scores: Dict[str, Dict] = {}

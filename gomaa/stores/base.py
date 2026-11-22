@@ -55,11 +55,14 @@ class MemoryStore(ABC):
         filters: Optional[Dict] = None,
         scope: Optional[Dict] = None,
         embedder_id: Optional[str] = None,
+        touch: bool = True,
     ) -> List[Dict]:
         pass
 
     @abstractmethod
-    def search_keyword(self, query: str, top_k: int = 10, scope: Optional[Dict] = None) -> List[Dict]:
+    def search_keyword(
+        self, query: str, top_k: int = 10, scope: Optional[Dict] = None, touch: bool = True
+    ) -> List[Dict]:
         pass
 
     @abstractmethod
